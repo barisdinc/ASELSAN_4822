@@ -41,7 +41,6 @@ byte set_bankselect = BANKSELECT | BANKSELECT_O1_RAM0 | BANKSELECT_O2_RAM0;
 #define DEVICE_SELECT B01100100
 byte set_deviceselect = DEVICE_SELECT;      
 
-
 #define PCF8576_LCD         0x38 //B111000   // This is the address of the PCF on the i2c bus
 #define PCF8574_KEYB        0x20 //PCF854 connected to LED and KEYBOARD
 #define PCF8574_KEYB_LED    0x21 //PCF8574 connected to KEYBOARD and has interrupt connected to MCU
@@ -51,9 +50,43 @@ byte set_deviceselect = DEVICE_SELECT;
 #define red_led    32
 #define backlight  16
 
-int inPin = 6;  //Interrupt Input PIN for MCU
-int val = 0;     // variable to store the read value
-int old_val= 0;
+int Led_Status= 240;
+
+int KeypadIntPin = 5;  //Interrupt Input PIN for MCU
+int KeyVal = 0;     // variable to store the read value
+int old_KeyVal= 0;
+
+#define POWER_ON_OFF A0
+#define POWER_ON_PIN A1
+#define SYS_OFF 1  //input state low  means radio turned off
+#define SYS_ON  0  //input state high means radio turned on
+int SYS_MODE = SYS_OFF; 
+
+#define PLL_SEC A2
+
+//Band Selection PINS for RX and TX VCOs
+//BS0=0, BS1=0   152.2 Mhz - 172.6 Mhz
+//BS0=0, BS1=1   147.9 Mhz - 165.5 Mhz
+//BS0=1, BS1=0   141.6 Mhz - 172.6 Mhz
+//BS0=1, BS1=1   137.2 Mhz - 151.4 Mhz
+
+#define BAND_SELECT_0  12
+#define BAND_SELECT_1  13
+
+//Receive/Transmit and PTT
+#define PTT_OUTPUT_PIN 10
+#define PTT_INPUT_PIN  11
+//Transceiver modes
+#define RX 0
+#define TX 1
+int TRX_MODE = RX; //default transceiver mode is receiving
+int LST_MODE = TX; //this will hold the last receive transmit state. Start with TX because we want to write to PLL on startup 
+
+
+#define SQL_ACTIVE 2 //CHANNEL ACTIVE (SQUELCH) PIN
+#define MUTE_PIN_1 4 //PIN for Audio Muting
+//#define MUTE_PIN_2 5
+int CHANNEL_BUSY = 1;
 
 
 // Matrix which hold the LCD data (8 segments * 3 bytes per segment)
@@ -64,22 +97,19 @@ unsigned char chr2wr[3];
 const char* keymap[4] = {  "123DSX",  "456TB", "789OC", "*0#UM"  };
 
 int numChar = 0;
-char* FRQ = "156.500";
-
+char* FRQ = "145.675";
+long calc_frequency;
 
 //
 //MC145158 Programming
-//
-int pll_clk  = 9;
-int pll_data = 8;
-int pll_ena  = 7;
+#define pll_clk_pin  9
+#define pll_data_pin 8
+#define pll_ena_pin  7
 
 
-//GLOBAL VARIABLES
-
-enum TRX_MODE { RX = 1, TX = 2 };
-
-//enum TRX { TX,RX };
+#define SQL_OFF 0
+#define SQL_ON  1
+int SQL_MODE = SQL_ON; //initial value for Squelch state
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
@@ -199,14 +229,14 @@ void send_SPIBit(int Counter, byte length)
     byte data=bitRead(Counter,i);
     if (data==1) 
       {
-       digitalWrite(pll_data, HIGH);    // Load 1 on DATA
+       digitalWrite(pll_data_pin, HIGH);    // Load 1 on DATA
       } else {
-       digitalWrite(pll_data, LOW);    // Load 1 on DATA
+       digitalWrite(pll_data_pin, LOW);    // Load 1 on DATA
       }
       delay(1);
-      digitalWrite(pll_clk,HIGH);    // Bring pin CLOCK high
+      digitalWrite(pll_clk_pin,HIGH);    // Bring pin CLOCK high
       delay(1);
-      digitalWrite(pll_clk,LOW);    // Then back low
+      digitalWrite(pll_clk_pin,LOW);    // Then back low
   }
   Serial.println("");
   
@@ -214,15 +244,43 @@ void send_SPIBit(int Counter, byte length)
 }
 void   send_SPIEnable()
 {
-  digitalWrite(pll_ena, HIGH);   // Bring ENABLE high
+  digitalWrite(pll_ena_pin, HIGH);   // Bring ENABLE high
   delay(1);
-  digitalWrite(pll_ena, LOW);    // Then back low  
+  digitalWrite(pll_ena_pin, LOW);    // Then back low  
 }
+
+
+void Calculate_Frequency (char* mFRQ)
+{
+
+  Serial.println(mFRQ[0]-48,DEC);
+  Serial.println(mFRQ[1]-48,DEC);
+  Serial.println(mFRQ[2]-48,DEC);
+  Serial.println(mFRQ[4]-48,DEC);
+  Serial.println(mFRQ[5]-48,DEC);
+  Serial.println(mFRQ[6]-48,DEC);
+  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);  
+  
+}
+
 
 
 void write_FRQ(unsigned long Frequency)
 {
-  Frequency = Frequency + 90000;
+// 0 0     152.2   172.6
+// 0 1     147.9   165.5
+// 1 0     141.6   157.1
+// 1 1     137.2   151.4
+
+
+ if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
+ if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
+ if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
+ if ((Frequency < 144000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+  
+  
+  if (TRX_MODE == RX) Frequency = Frequency + 45000;
+
   int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
   int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
   int A_Counter = (Frequency / 25) - (80 * N_Counter);
@@ -235,7 +293,8 @@ void write_FRQ(unsigned long Frequency)
   Serial.println(N_Counter,DEC);
   Serial.print("A :");
   Serial.println(A_Counter,DEC);
-  
+
+  digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
   send_SPIBit(R_Counter,14);
   send_SPIBit(1,1); // Tell PLL that it was the R Counter
   send_SPIEnable();
@@ -243,24 +302,58 @@ void write_FRQ(unsigned long Frequency)
   send_SPIBit(A_Counter,7);
   send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
   send_SPIEnable();  
+  digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
+
   
 }
 
 
+void setRadioPower()
+{
+  //Is the radio turned on ?
+  SYS_MODE = digitalRead(POWER_ON_OFF);
+  if ( SYS_MODE == SYS_ON)  digitalWrite(POWER_ON_PIN, HIGH) ; 
+  //if ( SYS_MODE == SYS_OFF) digitalWrite(POWER_ON_PIN, LOW) ; 
+
+  if ( SYS_MODE == SYS_ON)  Serial.println("POWER ON")  ; 
+  if ( SYS_MODE == SYS_OFF) Serial.println("POWER OFF") ; 
+
+  
+}
 
 void setup(){
-  Serial.begin(9600);
+  Serial.begin(57600);
   Serial.println("Init start");
 
- pinMode(inPin,    INPUT);
- pinMode(pll_clk, OUTPUT);
- pinMode(pll_data,OUTPUT);
- pinMode(pll_ena, OUTPUT);
+ setRadioPower();  //Check power switch mode and turn adio on immediately
+ pinMode(POWER_ON_OFF, INPUT);
+ pinMode(POWER_ON_PIN, OUTPUT);
+
+ 
+ pinMode(MUTE_PIN_1, OUTPUT);
+ digitalWrite(MUTE_PIN_1, HIGH); //Mute the Audio output
+ 
+ pinMode(SQL_ACTIVE, INPUT);
+ 
+ pinMode(BAND_SELECT_0, OUTPUT);
+ pinMode(BAND_SELECT_1, OUTPUT);
+
+ pinMode(PTT_INPUT_PIN,  INPUT);
+ pinMode(PTT_OUTPUT_PIN, OUTPUT);
+ digitalWrite(PTT_OUTPUT_PIN, HIGH); //No PTT at startup
+ 
+ pinMode(KeypadIntPin,    INPUT);
+ pinMode(pll_clk_pin, OUTPUT);
+ pinMode(pll_data_pin,OUTPUT);
+ pinMode(pll_ena_pin, OUTPUT);
+ pinMode(PLL_SEC, OUTPUT);
  
  
- digitalWrite(pll_clk, LOW);
- digitalWrite(pll_data,LOW);
- digitalWrite(pll_ena, LOW);
+ digitalWrite(pll_clk_pin, LOW);
+ digitalWrite(pll_data_pin,LOW);
+ digitalWrite(pll_ena_pin, LOW);
+ 
+ 
  
  //write_FRQ(200900);
  
@@ -297,27 +390,56 @@ void setup(){
   Wire.endTransmission();  
 
   writeToLcd("TA7W");
-  delay(1500);
+  delay(500);
   writeToLcd("BARIS");
-  delay(1500);
+  delay(500);
   writeToLcd(FRQ);
+  
+  old_KeyVal = 1; //initial keypad read
+  Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
   
 //  Serial.println("Init completed");
 }
 
 void loop(){
-  writeToLcd(FRQ);
+
+  setRadioPower(); //Check power switch and set radio power mode on or off
+
+  writeToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
   
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
-  Wire.write(0); 
+  Led_Status = 240;
+  if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
+  if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
+
+  //Led_Status = Led_Status - yellow_led;
+  //Led_Status = Led_Status - red_led;
+  Led_Status = Led_Status - backlight;
+  Wire.write(Led_Status); 
   Wire.endTransmission();
 
-  //this is our interrupt pin... Move this to a proper interrupt rutine
-  val = digitalRead(inPin);
 
-if (val != old_val) 
-{
+
+  CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
+  if (CHANNEL_BUSY == 0) digitalWrite(MUTE_PIN_1, LOW);
+    else if (SQL_MODE == SQL_ON) digitalWrite(MUTE_PIN_1, HIGH); 
+      else digitalWrite(MUTE_PIN_1, LOW);
+
+  TRX_MODE = digitalRead(PTT_INPUT_PIN); //read PTT state
+  if (TRX_MODE != LST_MODE) 
+    {
+      LST_MODE = TRX_MODE;
+      write_FRQ(calc_frequency); //Update frequenct on every state change
+    }
+  if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
+    else digitalWrite(PTT_OUTPUT_PIN, HIGH);
+
+  //this is our interrupt pin... Move this to a proper interrupt rutine
+  KeyVal = digitalRead(KeypadIntPin);
+  
+  if (KeyVal != old_KeyVal) 
+  {
     int satir,sutun;
     Wire.requestFrom(0x20,1);
     int c = Wire.read();    // receive a byte as character
@@ -354,22 +476,23 @@ if (val != old_val)
       {
         Serial.print("BASILAN  : ");
         Serial.println(BASILAN);
-
-
+        
+   
         if (BASILAN == '*') 
           {
-            Serial.println(FRQ[0]-48,DEC);
-            Serial.println(FRQ[1]-48,DEC);
-            Serial.println(FRQ[2]-48,DEC);
-            Serial.println(FRQ[4]-48,DEC);
-            Serial.println(FRQ[5]-48,DEC);
-            Serial.println(FRQ[6]-48,DEC);
-            unsigned long frekans = ((FRQ[0]-48) * 100000) + ((FRQ[1]-48) * 10000) + ((FRQ[2]-48) * 1000) + ((FRQ[4]-48) * 100) + ((FRQ[5]-48) * 10) + (FRQ[6]-48);
-            Serial.println(frekans,DEC);
+            Calculate_Frequency(FRQ);
             numChar = 0;
-            write_FRQ(frekans);
+            write_FRQ(calc_frequency);
           }
-        else  
+        else if (BASILAN == 'S') 
+          {
+          if (SQL_MODE == SQL_OFF) SQL_MODE = SQL_ON;
+            else SQL_MODE = SQL_OFF;
+          
+          Serial.print("SQL:");
+          Serial.println(SQL_MODE,DEC);
+          }
+        else
           {
             if (BASILAN == '#') 
               {
@@ -399,8 +522,8 @@ if (val != old_val)
     Wire.write(255); 
     Wire.endTransmission();
     //Toggle interupt PIN state holder
-    old_val = val;
-}
+    old_KeyVal = KeyVal;
+  }
 
 //  scroll("       TA7W.... MERHABA BIR TELSIZIM, SIMDILIK SADECE YAZI YAZIYORUM... AMA YAKINDA HERSEYIM CALISACAK...   ", 200);
 }
