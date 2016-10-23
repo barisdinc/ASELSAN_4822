@@ -1,6 +1,5 @@
 #include <Wire.h>
 
-
 //8576 LCD Driver settings
 #define NEXTCMD 128     // Issue when there will be more commands after this one
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
@@ -73,6 +72,15 @@ int SYS_MODE = SYS_OFF;
 #define BAND_SELECT_0  12
 #define BAND_SELECT_1  13
 
+
+//DUPLEX mode Shift Settinngs
+int frqSHIFT = 600;
+#define minusSHIFT -1
+#define noSHIFT     0
+#define  SIMPLEX    0 //Just incase that we can use this term for noSHIFT
+#define plusSHIFT   1
+int shiftMODE = minusSHIFT; // we start with noSHIFT (SIMPLEX)
+
 //Receive/Transmit and PTT
 #define PTT_OUTPUT_PIN 10
 #define PTT_INPUT_PIN  11
@@ -81,6 +89,14 @@ int SYS_MODE = SYS_OFF;
 #define TX 1
 int TRX_MODE = RX; //default transceiver mode is receiving
 int LST_MODE = TX; //this will hold the last receive transmit state. Start with TX because we want to write to PLL on startup 
+
+//Tone Control For CTCSS tones
+#define TONE_PIN 3  //D3 is our tone generation PIN (PWM)
+
+#define CTCSS_OFF 0
+#define CTCSS_ON  1
+int TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
+
 
 
 #define SQL_ACTIVE 2 //CHANNEL ACTIVE (SQUELCH) PIN
@@ -112,7 +128,7 @@ long calc_frequency;
 int SQL_MODE = SQL_ON; //initial value for Squelch state
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
-const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
+const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()&^,%";
 const unsigned char font[] = {     // only first 20 bits belong to this character, rest is 1 for logica & (AND) operation
   B00010000, B00000000, B00001111, // _ underscore
   B00000000, B00000000, B00000000, // space  
@@ -162,6 +178,11 @@ const unsigned char font[] = {     // only first 20 bits belong to this characte
   B00000010, B01100000, B00000000, //7
   B00110010, B01100100, B01100000, //8
   B00110010, B01100100, B00100000, //9
+  B00100101, B01000000, B00000000, //( means + on last digit
+  B00100000, B01000000, B00000000, //) means - on last digit  
+  B00000000, B00000000, B10000000, //& means MENU sign on display
+  B00000000, B00000000, B00100000, //^ means stike sign on display
+  B00000000, B00000000, B00010000, //, means note sign on display
   B11111111, B11111111, B11110000, //% Special character to light all segments
 };
 
@@ -177,7 +198,6 @@ void sendToLcd(byte *data, byte position) {
 
 void writeToLcd(const char *text) {
   memset(chr2wr, 0, 3);
-  
   for (int idx=0; idx!=strlen(text); idx++) {
       if (idx > 7) break;   
       char *c = strchr(index, (int)toupper(text[idx]));
@@ -203,10 +223,30 @@ void writeToLcd(const char *text) {
       //Send data to LCD for appropriate position 
       sendToLcd(chr2wr,idx);
   }
-  
-
 //  sendToLcd(matrix);
 }
+
+
+
+
+
+void writeFRQToLcd(const char *frq)
+{
+ FRQ[0] = frq[0];
+ FRQ[1] = frq[1];
+ FRQ[2] = frq[2];
+ FRQ[3] = frq[3];
+ FRQ[4] = frq[4];
+ FRQ[5] = frq[5];
+ FRQ[6] = frq[6];
+ if (shiftMODE == noSHIFT)  FRQ[7]   = ' '; //this is a special character to show + sighn at the end (position 7)
+ if (shiftMODE == plusSHIFT)  FRQ[7] = '('; //this is a special character to show + sighn at the end (position 7)
+ if (shiftMODE == minusSHIFT) FRQ[7] = ')'; //this is a special character to show - sighn at the end (position 7)
+ writeToLcd(FRQ); 
+}
+
+
+
 
 /* Scrolls a text over the LCD */
 void scroll(const char *text, int speed) {
@@ -280,6 +320,7 @@ void write_FRQ(unsigned long Frequency)
   
   
   if (TRX_MODE == RX) Frequency = Frequency + 45000;
+  if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
 
   int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
   int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
@@ -307,6 +348,11 @@ void write_FRQ(unsigned long Frequency)
   
 }
 
+void SetTone(int toneSTATE)
+{
+ if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.4);
+   else noTone(TONE_PIN);
+}
 
 void setRadioPower()
 {
@@ -315,20 +361,26 @@ void setRadioPower()
   if ( SYS_MODE == SYS_ON)  digitalWrite(POWER_ON_PIN, HIGH) ; 
   //if ( SYS_MODE == SYS_OFF) digitalWrite(POWER_ON_PIN, LOW) ; 
 
-  if ( SYS_MODE == SYS_ON)  Serial.println("POWER ON")  ; 
-  if ( SYS_MODE == SYS_OFF) Serial.println("POWER OFF") ; 
+  //if ( SYS_MODE == SYS_ON)  Serial.println("POWER ON")  ; 
+  //if ( SYS_MODE == SYS_OFF) Serial.println("POWER OFF") ; 
 
   
 }
+
+
 
 void setup(){
   Serial.begin(57600);
   Serial.println("Init start");
 
+
+
  setRadioPower();  //Check power switch mode and turn adio on immediately
  pinMode(POWER_ON_OFF, INPUT);
  pinMode(POWER_ON_PIN, OUTPUT);
 
+ pinMode(TONE_PIN, OUTPUT);
+ SetTone(TONE_CTRL);
  
  pinMode(MUTE_PIN_1, OUTPUT);
  digitalWrite(MUTE_PIN_1, HIGH); //Mute the Audio output
@@ -391,9 +443,9 @@ void setup(){
 
   writeToLcd("TA7W");
   delay(500);
-  writeToLcd("BARIS");
+  writeToLcd("TAMSAT");
   delay(500);
-  writeToLcd(FRQ);
+  writeFRQToLcd(FRQ);
   
   old_KeyVal = 1; //initial keypad read
   Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
@@ -404,9 +456,8 @@ void setup(){
 void loop(){
 
   setRadioPower(); //Check power switch and set radio power mode on or off
-
-  writeToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
-  
+  //FRQ[7]='U';
+  writeFRQToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
   Led_Status = 240;
@@ -418,8 +469,6 @@ void loop(){
   Led_Status = Led_Status - backlight;
   Wire.write(Led_Status); 
   Wire.endTransmission();
-
-
 
   CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
   if (CHANNEL_BUSY == 0) digitalWrite(MUTE_PIN_1, LOW);
@@ -484,6 +533,24 @@ void loop(){
             numChar = 0;
             write_FRQ(calc_frequency);
           }
+        else if (BASILAN == 'T') 
+          {
+          if (shiftMODE == noSHIFT) shiftMODE = plusSHIFT;
+            else if (shiftMODE == plusSHIFT) shiftMODE = minusSHIFT;
+              else shiftMODE = noSHIFT;
+          
+          Serial.print("SHIFT:");
+          Serial.println(frqSHIFT*shiftMODE,DEC);
+          }
+        else if (BASILAN == 'B') 
+          {
+          if (TONE_CTRL == CTCSS_OFF) TONE_CTRL = CTCSS_ON;
+            else TONE_CTRL = CTCSS_OFF;
+          SetTone(TONE_CTRL); //Change Tone Generation State
+          
+          Serial.print("CTCSS:");
+          Serial.println(TONE_CTRL,DEC);
+          }
         else if (BASILAN == 'S') 
           {
           if (SQL_MODE == SQL_OFF) SQL_MODE = SQL_ON;
@@ -492,9 +559,9 @@ void loop(){
           Serial.print("SQL:");
           Serial.println(SQL_MODE,DEC);
           }
-        else
-          {
-            if (BASILAN == '#') 
+        //else
+          //{
+            else if (BASILAN == '#') 
               {
                 FRQ = "___.___";
                 numChar = 0;
@@ -512,7 +579,7 @@ void loop(){
                     }
                 }
             }
-          }
+          //}
           
       }   
 //    Serial.print("SATIR : ");
