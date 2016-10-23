@@ -105,17 +105,6 @@ int TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
 int CHANNEL_BUSY = 1;
 
 
-// Matrix which hold the LCD data (8 segments * 3 bytes per segment)
-unsigned char matrix[24];
-unsigned char chr2wr[3];
-
-
-const char* keymap[4] = {  "123DSX",  "456TB", "789OC", "*0#UM"  };
-
-int numChar = 0;
-char* FRQ = "145.675";
-long calc_frequency;
-
 //
 //MC145158 Programming
 #define pll_clk_pin  9
@@ -127,8 +116,46 @@ long calc_frequency;
 #define SQL_ON  1
 int SQL_MODE = SQL_ON; //initial value for Squelch state
 
+
+
+boolean hasASEL = false; //ASELSAN sign
+boolean hasLOCK = false; //KEY LOCK sign
+boolean hasSPKR = false; //SPEAKER sign
+boolean hasTHUN = false; //TUNHDER sign
+boolean hasARRW = false; //ARROW sign
+boolean hasMENU = false; //MENU sign
+boolean hasLOOP = false; //LOOP sign
+boolean hasNOTE = false; //NOTE sign
+
+byte Position_Signs[8][3] = { 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0 } ; //The signs that appear while printing at position 0 to 7 
+
+byte SPKR[3] = { B00000000, B00000000, B10000000 }; //pos 1 
+byte LOOP[3] = { B00000000, B00010000, B00000000 }; //pos 1
+byte LOCK[3] = { B00000000, B10000000, B00000000 }; //pos 1
+byte ARRW[3] = { B00000000, B00010000, B00000000 }; //pos 2
+byte ASEL[3] = { B00000000, B10000000, B00000000 }; //pos 2
+byte MENU[3] = { B00000000, B00000000, B10000000 }; //pos 7
+byte THUN[3] = { B00000000, B00000000, B00100000 }; //pos 7
+byte NOTE[3] = { B00000000, B00000000, B00010000 }; //pos 7
+byte PLUS[3] = { B00100101, B01000000, B00000000 }; //pos 7
+byte MINS[3] = { B00100000, B01000000, B00000000 }; //pos 7
+byte SPLX[3] = { B00000000, B00000000, B00000000 }; //pos 7
+
+
+
+// Matrix which hold the LCD data (8 segments * 3 bytes per segment)
+unsigned char matrix[24];
+unsigned char chr2wr[3];
+
+const char* keymap[4] = {  "123DSX",  "456TB", "789OC", "*0#UM"  };
+
+int numChar = 0;
+char* FRQ = "145.675 ";
+long calc_frequency;
+
+
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
-const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789()&^,%";
+const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 const unsigned char font[] = {     // only first 20 bits belong to this character, rest is 1 for logica & (AND) operation
   B00010000, B00000000, B00001111, // _ underscore
   B00000000, B00000000, B00000000, // space  
@@ -178,13 +205,9 @@ const unsigned char font[] = {     // only first 20 bits belong to this characte
   B00000010, B01100000, B00000000, //7
   B00110010, B01100100, B01100000, //8
   B00110010, B01100100, B00100000, //9
-  B00100101, B01000000, B00000000, //( means + on last digit
-  B00100000, B01000000, B00000000, //) means - on last digit  
-  B00000000, B00000000, B10000000, //& means MENU sign on display
-  B00000000, B00000000, B00100000, //^ means stike sign on display
-  B00000000, B00000000, B00010000, //, means note sign on display
-  B11111111, B11111111, B11110000, //% Special character to light all segments
+  B00000000, B00000000, B11110000, //% Special character to light all segments
 };
+
 
 /* Physically send out the given data */
 void sendToLcd(byte *data, byte position) {
@@ -199,6 +222,7 @@ void sendToLcd(byte *data, byte position) {
 void writeToLcd(const char *text) {
   memset(chr2wr, 0, 3);
   for (int idx=0; idx!=strlen(text); idx++) {
+      Serial.print(idx,DEC);
       if (idx > 7) break;   
       char *c = strchr(index, (int)toupper(text[idx]));
       int pos;
@@ -208,13 +232,13 @@ void writeToLcd(const char *text) {
                       {
                         pos = c - index;
                       }
-      matrix[3*idx+0] = font[(pos * 3)+0]; 
-      matrix[3*idx+1] = font[(pos * 3)+1];
-      if (idx>0) {
-            matrix[3*idx+2] = font[(pos * 3)+2] | (matrix[3*(idx+1)] & B00001111);  // four bits should be from the existing character
+      matrix[3*idx+0] = font[(pos * 3)+0] | Position_Signs[idx][0]; //first BYTE
+      matrix[3*idx+1] = font[(pos * 3)+1] | Position_Signs[idx][1]; //second BYTE
+      if (idx>0) {                         //third BYTE should include previous character if this is not the first
+            matrix[3*idx+2] = font[(pos * 3)+2] | (matrix[3*(idx+1)] & B00001111) | Position_Signs[idx][2];  // four bits should be from the existing character
           } else
           {
-            matrix[3*idx+2] = font[(pos * 3)+2]; 
+            matrix[3*idx+2] = font[(pos * 3)+2] | Position_Signs[idx][2]; 
           }
       
       chr2wr[0] = matrix[3*idx+0];
@@ -232,17 +256,105 @@ void writeToLcd(const char *text) {
 
 void writeFRQToLcd(const char *frq)
 {
- FRQ[0] = frq[0];
- FRQ[1] = frq[1];
- FRQ[2] = frq[2];
- FRQ[3] = frq[3];
- FRQ[4] = frq[4];
- FRQ[5] = frq[5];
- FRQ[6] = frq[6];
- if (shiftMODE == noSHIFT)  FRQ[7]   = ' '; //this is a special character to show + sighn at the end (position 7)
- if (shiftMODE == plusSHIFT)  FRQ[7] = '('; //this is a special character to show + sighn at the end (position 7)
- if (shiftMODE == minusSHIFT) FRQ[7] = ')'; //this is a special character to show - sighn at the end (position 7)
- writeToLcd(FRQ); 
+
+  //Prepare the display environment for special signs
+  Position_Signs[0][0] = 0;
+  Position_Signs[0][1] = 0;
+  Position_Signs[0][2] = 0;
+  Position_Signs[1][0] = 0;
+  Position_Signs[1][1] = 0;
+  Position_Signs[7][0] = 0;
+  Position_Signs[7][1] = 0;
+  Position_Signs[7][2] = 0;
+
+  
+  //First lets check special conditions/states and turn on special characters on the display
+  if (SQL_MODE == SQL_OFF) hasSPKR = true; else hasSPKR = false;
+  //if (SQL_MODE == SQL_OFF) hasLOOP = true; else hasLOOP = false;
+  //if (SQL_MODE == SQL_OFF) hasLOCK = true; else hasLOCK = false;
+   
+  //if (SQL_MODE == SQL_OFF) hasASEL = true; else hasASEL = false;
+  //if (SQL_MODE == SQL_OFF) hasARRW = true; else hasARRW = false;
+   
+  //if (SQL_MODE == SQL_OFF) hasMENU = true; else hasMENU = false;
+  //if (SQL_MODE == SQL_OFF) hasTHUN = true; else hasTHUN = false;
+  if (SQL_MODE == SQL_OFF) hasNOTE = true; else hasNOTE = false;
+  
+  if (hasSPKR) 
+    {
+      Position_Signs[0][0] = Position_Signs[0][0] | SPKR[0];
+      Position_Signs[0][1] = Position_Signs[0][1] | SPKR[1];
+      Position_Signs[0][2] = Position_Signs[0][2] | SPKR[2];      
+    }
+  if (hasLOOP) 
+    {
+      Position_Signs[0][0] = Position_Signs[0][0] | LOOP[0];
+      Position_Signs[0][1] = Position_Signs[0][1] | LOOP[1];
+      Position_Signs[0][2] = Position_Signs[0][2] | LOOP[2];      
+    }
+  if (hasLOCK) 
+    {
+      Position_Signs[0][0] = Position_Signs[0][0] | LOCK[0];
+      Position_Signs[0][1] = Position_Signs[0][1] | LOCK[1];
+      Position_Signs[0][2] = Position_Signs[0][2] | LOCK[2];      
+    }
+    
+  if (hasARRW) 
+    {
+      Position_Signs[1][0] = Position_Signs[1][0] | ARRW[0];
+      Position_Signs[1][1] = Position_Signs[1][1] | ARRW[1];
+      Position_Signs[1][2] = Position_Signs[1][2] | ARRW[2];      
+    }    
+  if (hasASEL) 
+    {
+      Position_Signs[1][0] = Position_Signs[1][0] | ASEL[0];
+      Position_Signs[1][1] = Position_Signs[1][1] | ASEL[1];
+      Position_Signs[1][2] = Position_Signs[1][2] | ASEL[2];      
+    }
+
+
+  if (hasMENU) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | MENU[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | MENU[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | MENU[2];      
+    }
+  if (hasTHUN) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | THUN[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | THUN[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | THUN[2];      
+    }
+  if (TONE_CTRL == CTCSS_ON) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | NOTE[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | NOTE[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | NOTE[2];      
+    }
+
+  if (shiftMODE == noSHIFT) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | SPLX[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | SPLX[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | SPLX[2];            
+    }
+  if (shiftMODE == minusSHIFT) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | MINS[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | MINS[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | MINS[2];            
+    }
+  if (shiftMODE == plusSHIFT) 
+    {
+      Position_Signs[7][0] = Position_Signs[7][0] | PLUS[0];
+      Position_Signs[7][1] = Position_Signs[7][1] | PLUS[1];
+      Position_Signs[7][2] = Position_Signs[7][2] | PLUS[2];            
+    }
+
+    
+ //send the FREQUENCY to display as usual
+ 
+ writeToLcd(frq); 
 }
 
 
@@ -350,7 +462,7 @@ void write_FRQ(unsigned long Frequency)
 
 void SetTone(int toneSTATE)
 {
- if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.4);
+ if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.5);
    else noTone(TONE_PIN);
 }
 
