@@ -117,6 +117,13 @@ int CHANNEL_BUSY = 1;
 int SQL_MODE = SQL_ON; //initial value for Squelch state
 
 
+int scrTimer = 0;  //this timer will hold the Press-and-hold timer count
+#define TimeoutValue  100; //ticks for timeout time of keypressed
+char pressedKEY = ' ';
+
+#define scrNORMAL 0
+#define scrMENU   1
+int scrMODE = scrNORMAL;
 
 boolean hasASEL = false; //ASELSAN sign
 boolean hasLOCK = false; //KEY LOCK sign
@@ -147,7 +154,7 @@ byte SPLX[3] = { B00000000, B00000000, B00000000 }; //pos 7
 unsigned char matrix[24];
 unsigned char chr2wr[3];
 
-const char* keymap[4] = {  "123DSX",  "456TB", "789OC", "*0#UM"  };
+const char* keymap[4] = {  "123DSX",  "456RB", "789OC", "*0#UM"  };
 
 int numChar = 0;
 char* FRQ = "145.675 ";
@@ -222,7 +229,7 @@ void sendToLcd(byte *data, byte position) {
 void writeToLcd(const char *text) {
   memset(chr2wr, 0, 3);
   for (int idx=0; idx!=strlen(text); idx++) {
-      Serial.print(idx,DEC);
+      //Serial.print(idx,DEC);
       if (idx > 7) break;   
       char *c = strchr(index, (int)toupper(text[idx]));
       int pos;
@@ -561,7 +568,8 @@ void setup(){
   
   old_KeyVal = 1; //initial keypad read
   Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
-  
+
+  scrTimer = TimeoutValue;  
 //  Serial.println("Init completed");
 }
 
@@ -569,7 +577,7 @@ void loop(){
 
   setRadioPower(); //Check power switch and set radio power mode on or off
   //FRQ[7]='U';
-  writeFRQToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
+  if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
   Led_Status = 240;
@@ -599,8 +607,31 @@ void loop(){
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
   
+
+  //Long press on a key detection...
+  if ((KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
+    else if (KeyVal==1)
+    {
+     if (scrTimer==0) //key released and timeout occured
+     {
+       if (pressedKEY=='R') writeToLcd("REPEAT");
+       if (pressedKEY=='S') writeToLcd("SQL");
+       if (pressedKEY=='T') writeToLcd("TONE");
+       if (pressedKEY=='U') writeToLcd("UP");
+       if (pressedKEY=='D') writeToLcd("DOWN");
+       scrMODE = scrMENU;
+     
+       Serial.print("Timer Reset:");
+       Serial.println(pressedKEY);
+     }
+     scrTimer = TimeoutValue; //Restart the timer
+    }
+ 
+  
   if (KeyVal != old_KeyVal) 
   {
+    //Serial.println(KeyVal,DEC);
+
     int satir,sutun;
     Wire.requestFrom(0x20,1);
     int c = Wire.read();    // receive a byte as character
@@ -632,20 +663,20 @@ void loop(){
     if (r == 2) sutun = 2;
     if (r == 1) sutun = 3;
     
-    char BASILAN = keymap[sutun][satir];
-    if (BASILAN != 'X')
+    pressedKEY = keymap[sutun][satir];
+    if (pressedKEY != 'X')
       {
-        Serial.print("BASILAN  : ");
-        Serial.println(BASILAN);
+        Serial.print("pressedKEY  : ");
+        Serial.println(pressedKEY);
         
    
-        if (BASILAN == '*') 
+        if (pressedKEY == '*') 
           {
             Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
           }
-        else if (BASILAN == 'T') 
+        else if (pressedKEY == 'R') 
           {
           if (shiftMODE == noSHIFT) shiftMODE = plusSHIFT;
             else if (shiftMODE == plusSHIFT) shiftMODE = minusSHIFT;
@@ -654,7 +685,7 @@ void loop(){
           Serial.print("SHIFT:");
           Serial.println(frqSHIFT*shiftMODE,DEC);
           }
-        else if (BASILAN == 'B') 
+        else if (pressedKEY == 'B') 
           {
           if (TONE_CTRL == CTCSS_OFF) TONE_CTRL = CTCSS_ON;
             else TONE_CTRL = CTCSS_OFF;
@@ -663,7 +694,7 @@ void loop(){
           Serial.print("CTCSS:");
           Serial.println(TONE_CTRL,DEC);
           }
-        else if (BASILAN == 'S') 
+        else if (pressedKEY == 'S') 
           {
           if (SQL_MODE == SQL_OFF) SQL_MODE = SQL_ON;
             else SQL_MODE = SQL_OFF;
@@ -671,9 +702,34 @@ void loop(){
           Serial.print("SQL:");
           Serial.println(SQL_MODE,DEC);
           }
+        else if (pressedKEY == 'O') 
+          {
+          Serial.print("pressedKEY");
+          Serial.println(pressedKEY,DEC);
+          }
+        else if (pressedKEY == 'U') 
+          {
+          Serial.print("pressedKEY");
+          Serial.println(pressedKEY,DEC);
+          }        
+        else if (pressedKEY == 'D') 
+          {
+          Serial.print("pressedKEY");
+          Serial.println(pressedKEY,DEC);
+          }
+        else if (pressedKEY == 'M') 
+          {
+          Serial.print("pressedKEY");
+          Serial.println(pressedKEY,DEC);
+          }
+        else if (pressedKEY == 'C') 
+          {
+          Serial.print("pressedKEY");
+          Serial.println(pressedKEY,DEC);
+          }
         //else
           //{
-            else if (BASILAN == '#') 
+            else if (pressedKEY == '#') 
               {
                 FRQ = "___.___";
                 numChar = 0;
@@ -682,7 +738,7 @@ void loop(){
             { 
               if (numChar <= 6) 
                 {
-                  FRQ[numChar] = BASILAN;
+                  FRQ[numChar] = pressedKEY;
                   numChar = numChar + 1;
                   if (numChar == 3) 
                     {
@@ -703,7 +759,7 @@ void loop(){
     //Toggle interupt PIN state holder
     old_KeyVal = KeyVal;
   }
-
+  
 //  scroll("       TA7W.... MERHABA BIR TELSIZIM, SIMDILIK SADECE YAZI YAZIYORUM... AMA YAKINDA HERSEYIM CALISACAK...   ", 200);
 }
 
