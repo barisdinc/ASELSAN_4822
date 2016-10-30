@@ -158,8 +158,9 @@ const char* keymap[4] = {  "123DSX",  "456RB", "789OC", "*0#UM"  };
 
 int numChar = 0;
 char* FRQ = "145.675 ";
+char* FRQ_old = FRQ;
 long calc_frequency;
-
+boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
@@ -409,9 +410,8 @@ void   send_SPIEnable()
 }
 
 
-void Calculate_Frequency (char* mFRQ)
+boolean Calculate_Frequency (char* mFRQ)
 {
-
   Serial.println(mFRQ[0]-48,DEC);
   Serial.println(mFRQ[1]-48,DEC);
   Serial.println(mFRQ[2]-48,DEC);
@@ -419,7 +419,8 @@ void Calculate_Frequency (char* mFRQ)
   Serial.println(mFRQ[5]-48,DEC);
   Serial.println(mFRQ[6]-48,DEC);
   calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);  
-  
+  if ((calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency
+   else return false; //invalid frequency
 }
 
 
@@ -431,39 +432,40 @@ void write_FRQ(unsigned long Frequency)
 // 1 0     141.6   157.1
 // 1 1     137.2   151.4
 
-
- if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
- if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
- if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
- if ((Frequency < 144000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
-  
-  
-  if (TRX_MODE == RX) Frequency = Frequency + 45000;
-  if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
-
-  int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
-  int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
-  int A_Counter = (Frequency / 25) - (80 * N_Counter);
-
-  Serial.print("FREQUENCY :");
-  Serial.println(Frequency,DEC);  
-  Serial.print("R :");
-  Serial.println(R_Counter,DEC);
-  Serial.print("N :");
-  Serial.println(N_Counter,DEC);
-  Serial.print("A :");
-  Serial.println(A_Counter,DEC);
-
-  digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
-  send_SPIBit(R_Counter,14);
-  send_SPIBit(1,1); // Tell PLL that it was the R Counter
-  send_SPIEnable();
-  send_SPIBit(N_Counter,10);
-  send_SPIBit(A_Counter,7);
-  send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
-  send_SPIEnable();  
-  digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
-
+  if (validFRQ)
+    {
+       if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
+       if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
+       if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
+       if ((Frequency < 144000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+        
+        
+        if (TRX_MODE == RX) Frequency = Frequency + 45000L;
+        if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
+      
+        int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
+        int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
+        int A_Counter = (Frequency / 25) - (80 * N_Counter);
+      
+        Serial.print("FREQUENCY :");
+        Serial.println(Frequency,DEC);  
+        Serial.print("R :");
+        Serial.println(R_Counter,DEC);
+        Serial.print("N :");
+        Serial.println(N_Counter,DEC);
+        Serial.print("A :");
+        Serial.println(A_Counter,DEC);
+      
+        digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
+        send_SPIBit(R_Counter,14);
+        send_SPIBit(1,1); // Tell PLL that it was the R Counter
+        send_SPIEnable();
+        send_SPIBit(N_Counter,10);
+        send_SPIBit(A_Counter,7);
+        send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
+        send_SPIEnable();  
+        digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
+    } //validFRQ
   
 }
 
@@ -567,7 +569,7 @@ void setup(){
   writeFRQToLcd(FRQ);
   
   old_KeyVal = 1; //initial keypad read
-  Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
+  validFRQ = Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
 
   scrTimer = TimeoutValue;  
 //  Serial.println("Init completed");
@@ -576,8 +578,9 @@ void setup(){
 void loop(){
 
   setRadioPower(); //Check power switch and set radio power mode on or off
-  //FRQ[7]='U';
-  if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //We should update the display only on proper display changes.. But this works...
+
+  if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
+
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
   Led_Status = 240;
@@ -600,6 +603,9 @@ void loop(){
     {
       LST_MODE = TRX_MODE;
       write_FRQ(calc_frequency); //Update frequenct on every state change
+      Serial.print(FRQ);
+      Serial.print("  ");
+      serial.println(FRQ_old);
     }
   if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, HIGH);
@@ -609,29 +615,25 @@ void loop(){
   
 
   //Long press on a key detection...
-  if ((KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
+  if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
     else if (KeyVal==1)
     {
      if (scrTimer==0) //key released and timeout occured
      {
-       if (pressedKEY=='R') writeToLcd("REPEAT");
-       if (pressedKEY=='S') writeToLcd("SQL");
-       if (pressedKEY=='T') writeToLcd("TONE");
-       if (pressedKEY=='U') writeToLcd("UP");
-       if (pressedKEY=='D') writeToLcd("DOWN");
-       scrMODE = scrMENU;
-     
-       Serial.print("Timer Reset:");
-       Serial.println(pressedKEY);
-     }
-     scrTimer = TimeoutValue; //Restart the timer
-    }
+       if (pressedKEY=='R') writeToLcd("REPEAT  ");
+       if (pressedKEY=='S') writeToLcd("SQL     ");
+       if (pressedKEY=='T') writeToLcd("TONE    ");
+       if (pressedKEY=='U') writeToLcd("UP      "); 
+       if (pressedKEY=='D') writeToLcd("DOWN    ");
+       numChar = 0; //if we were entering frq from keyboard
+       scrMODE = scrMENU;    
+     }//scrTimer
+    }//Keyval==0
  
   
   if (KeyVal != old_KeyVal) 
-  {
-    //Serial.println(KeyVal,DEC);
-
+   {
+    scrTimer = TimeoutValue; //Restart the timer
     int satir,sutun;
     Wire.requestFrom(0x20,1);
     int c = Wire.read();    // receive a byte as character
@@ -643,9 +645,6 @@ void loop(){
     if (c ==  4) satir = 2;
     if (c ==  2) satir = 3;
     if (c ==  1) satir = 4;
-    
-//    Serial.print("SUTUN : ");
-//    Serial.println(c,DEC);         // print the character
     
     Wire.beginTransmission(B0100000);
     Wire.write(0); 
@@ -662,104 +661,116 @@ void loop(){
     if (r == 4) sutun = 1;
     if (r == 2) sutun = 2;
     if (r == 1) sutun = 3;
-    
-    pressedKEY = keymap[sutun][satir];
-    if (pressedKEY != 'X')
-      {
-        Serial.print("pressedKEY  : ");
-        Serial.println(pressedKEY);
-        
-   
-        if (pressedKEY == '*') 
+    pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+
+  /* -----------------------------------------------------
+  /* SCREEN MODE NORMAL.. WE READ FREQUENCY AND OTHER KEYS 
+  /* ----------------------------------------------------- */
+    if (scrMODE == scrNORMAL) 
+      {            
+        if (pressedKEY != 'X')
           {
-            Calculate_Frequency(FRQ);
-            numChar = 0;
-            write_FRQ(calc_frequency);
-          }
-        else if (pressedKEY == 'R') 
-          {
-          if (shiftMODE == noSHIFT) shiftMODE = plusSHIFT;
-            else if (shiftMODE == plusSHIFT) shiftMODE = minusSHIFT;
-              else shiftMODE = noSHIFT;
-          
-          Serial.print("SHIFT:");
-          Serial.println(frqSHIFT*shiftMODE,DEC);
-          }
-        else if (pressedKEY == 'B') 
-          {
-          if (TONE_CTRL == CTCSS_OFF) TONE_CTRL = CTCSS_ON;
-            else TONE_CTRL = CTCSS_OFF;
-          SetTone(TONE_CTRL); //Change Tone Generation State
-          
-          Serial.print("CTCSS:");
-          Serial.println(TONE_CTRL,DEC);
-          }
-        else if (pressedKEY == 'S') 
-          {
-          if (SQL_MODE == SQL_OFF) SQL_MODE = SQL_ON;
-            else SQL_MODE = SQL_OFF;
-          
-          Serial.print("SQL:");
-          Serial.println(SQL_MODE,DEC);
-          }
-        else if (pressedKEY == 'O') 
-          {
-          Serial.print("pressedKEY");
-          Serial.println(pressedKEY,DEC);
-          }
-        else if (pressedKEY == 'U') 
-          {
-          Serial.print("pressedKEY");
-          Serial.println(pressedKEY,DEC);
-          }        
-        else if (pressedKEY == 'D') 
-          {
-          Serial.print("pressedKEY");
-          Serial.println(pressedKEY,DEC);
-          }
-        else if (pressedKEY == 'M') 
-          {
-          Serial.print("pressedKEY");
-          Serial.println(pressedKEY,DEC);
-          }
-        else if (pressedKEY == 'C') 
-          {
-          Serial.print("pressedKEY");
-          Serial.println(pressedKEY,DEC);
-          }
-        //else
-          //{
-            else if (pressedKEY == '#') 
+          // Check for the COMMAND keys first
+            if (pressedKEY == 'R') 
               {
-                FRQ = "___.___";
-                numChar = 0;
-              } 
-             else
-            { 
-              if (numChar <= 6) 
+              if (shiftMODE == noSHIFT) shiftMODE = plusSHIFT;
+                else if (shiftMODE == plusSHIFT) shiftMODE = minusSHIFT;
+                  else shiftMODE = noSHIFT;
+              } //'R'
+              else if (pressedKEY == 'B') 
                 {
-                  FRQ[numChar] = pressedKEY;
-                  numChar = numChar + 1;
-                  if (numChar == 3) 
+                  if (TONE_CTRL == CTCSS_OFF) TONE_CTRL = CTCSS_ON;
+                    else TONE_CTRL = CTCSS_OFF;
+                  SetTone(TONE_CTRL); //Change Tone Generation State
+                }// 'B'
+                else if (pressedKEY == 'S') 
+                  {
+                    if (SQL_MODE == SQL_OFF) SQL_MODE = SQL_ON;
+                      else SQL_MODE = SQL_OFF;
+                  } //'S'
+                  else if (pressedKEY == 'O') 
                     {
-                      FRQ[3] = '.';
-                      numChar = numChar + 1;
-                    }
-                }
-            }
-          //}
-          
-      }   
-//    Serial.print("SATIR : ");
-//    Serial.println(r,DEC);  
-    //Put 8574_ into READ mode by setting ports high
-    Wire.beginTransmission(0x20);
-    Wire.write(255); 
-    Wire.endTransmission();
-    //Toggle interupt PIN state holder
-    old_KeyVal = KeyVal;
-  }
+                      Serial.print("pressedKEY");
+                      Serial.println(pressedKEY,DEC);
+                    } //'O'
+                    else if (pressedKEY == 'U') 
+                      {
+                        Serial.print("pressedKEY");
+                        Serial.println(pressedKEY,DEC);
+                      } // 'U'        
+                      else if (pressedKEY == 'D') 
+                        {
+                          Serial.print("pressedKEY");
+                          Serial.println(pressedKEY,DEC);
+                        } // 'D'
+                        else if (pressedKEY == 'M') 
+                          {
+                            Serial.print("pressedKEY");
+                            Serial.println(pressedKEY,DEC);
+                          } // 'M'
+                          else if (pressedKEY == 'C') 
+                            {
+                              Serial.print("pressedKEY");
+                              Serial.println(pressedKEY,DEC);
+                            } // 'C'
+                            else if ((pressedKEY == '#')) 
+                              {
+                                validFRQ = Calculate_Frequency(FRQ);
+                                numChar = 0;
+                                write_FRQ(calc_frequency);
+                                if (validFRQ) FRQ_old = FRQ; else 
+                                  {
+                                    FRQ = FRQ_old;//"       ";
+                                    //numChar = 0;
+                                    //sound audible error here
+                                  }
+                              } // '#'
+                              else if (pressedKEY == '*') 
+                                {
+                                  FRQ = FRQ_old;
+                                  validFRQ = Calculate_Frequency(FRQ);
+                                  numChar = 0;
+                                  write_FRQ(calc_frequency);
+                                } // '*'
+                                /* ------------------    FRQ INPUT ------------ */
+                                else if (numChar <= 6)  //Not a command Key so print it into frequency
+                                  {
+                                    if (numChar == 0) FRQ = "       "; //just pressed keys, so clear the screen
+                                    FRQ[numChar] = pressedKEY;
+                                    numChar = numChar + 1;
+                                    if (numChar == 3) //place a dot for the 4th character
+                                      {
+                                        FRQ[3] = '.';
+                                         numChar = numChar + 1;
+                                      } //numchar==3
+                                    if (numChar == 7) //input finished 
+                                      {
+                                       validFRQ = Calculate_Frequency(FRQ);
+                                       numChar = 0;
+                                       write_FRQ(calc_frequency);
+                                       if (validFRQ) FRQ_old = FRQ; else 
+                                         {
+                                           FRQ = FRQ_old; //"   .   ";
+                                           numChar = 0;
+                                           validFRQ = Calculate_Frequency(FRQ);
+                                           write_FRQ(calc_frequency);
+                                           //sound audible error here
+                                         }
+                                       } // numChar==7
+                                   }//numchar<6
+
+           }//pressedKEY != 'X' 
+      
+          //Put 8574_ into READ mode by setting ports high
+          Wire.beginTransmission(0x20);
+          Wire.write(255); 
+          Wire.endTransmission();
+          //Toggle interupt PIN state holder
+        } //scrMODE=scrNORMAL
+     old_KeyVal = KeyVal;
+   } //KeyVal!=old_keyval
+
   
 //  scroll("       TA7W.... MERHABA BIR TELSIZIM, SIMDILIK SADECE YAZI YAZIYORUM... AMA YAKINDA HERSEYIM CALISACAK...   ", 200);
-}
+} //loop
 
