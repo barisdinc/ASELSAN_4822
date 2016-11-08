@@ -118,6 +118,14 @@ char pressedKEY = ' ';
 #define scrMENU   1
 int scrMODE = scrNORMAL;
 
+#define menuNONE   0
+#define menuSQL    1
+#define menuTONE   2
+#define menuSCAN   3
+#define menuRPT    4
+#define menuMENU   5
+int subMENU = menuNONE;
+
 boolean hasASEL = false; //ASELSAN sign
 boolean hasLOCK = false; //KEY LOCK sign
 boolean hasSPKR = false; //SPEAKER sign
@@ -361,6 +369,19 @@ void send_SPIEnable() {
   digitalWrite(pll_ena_pin, LOW);    // Then back low  
 }
 
+
+char numberToArray (int Number) //max 4 digits
+{
+  //TODO timirriw
+//  char result = "         ";
+//  result[0] = String(Number / 1000);
+//  result[1] = String(Number / 100);
+//  result[2] = String(Number / 10);
+//  result[3] = String(Number / 1);
+  
+  
+}
+
 boolean Calculate_Frequency (char mFRQ[9]) {
   Serial.println(mFRQ[0]-48,DEC);
   Serial.println(mFRQ[1]-48,DEC);
@@ -548,6 +569,11 @@ void loop() {
   if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, HIGH);
 
+  //if (subMENU == menuRPT) writeToLcd(cstr);
+
+
+
+
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
 
@@ -557,19 +583,14 @@ void loop() {
   if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
     else if (KeyVal==1) {
      if (scrTimer==0) { //key released and timeout occured
-       if (pressedKEY=='R') writeToLcd("REPEAT  ");
-       if (pressedKEY=='S') writeToLcd("SQL     ");
-       if (pressedKEY=='T') writeToLcd("TONE    ");
-       if (pressedKEY=='U') writeToLcd("UP      "); 
-       if (pressedKEY=='D') writeToLcd("DOWN    ");
-       Serial.println("in MENU MODE");
-       Serial.print(KeyVal,DEC);
-       Serial.print(" ");
-       Serial.print(old_KeyVal,DEC);
-       Serial.print(" ");
-       Serial.print(scrTimer,DEC);
-       Serial.print(" ");
-       
+       writeToLcd("SELECT   ");
+       delay(500); //TODO do not use DELAY, change to a timer
+       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; }
+       if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
+       if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
+       if (pressedKEY=='R') { writeToLcd("REPEAT   "); subMENU = menuRPT;  }
+       if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
+       delay(500); //TODO do not use DELAY, change to a timer
        scrTimer = TimeoutValue; //Restart the timer
        numChar = 0; //if we were entering frq from keyboard
        scrMODE = scrMENU;    
@@ -616,11 +637,18 @@ void loop() {
     if (scrMODE == scrMENU)  { 
       if (pressedKEY != 'X') {
         switch (pressedKEY) {
-          case '#':
+          case 'U':
+            Serial.println("UP");
+            if ( subMENU == menuRPT) frqSHIFT += 25;
+          case 'D':
+            if ( subMENU == menuRPT) frqSHIFT -= 25;            
+          case '#': //means CANCEL
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
+            subMENU = menuNONE;
           break; // '#'
-          case '*':
+          case '*': //means OK
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
+            subMENU = menuNONE;
           break; // '*'
           default:
                 Serial.println("def");      
