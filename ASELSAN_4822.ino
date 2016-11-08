@@ -148,8 +148,8 @@ unsigned char chr2wr[3];
 const char* keymap[4] = {  "123DSX",  "456RB", "789OC", "*0#UM"  };
 
 int numChar = 0;
-char* FRQ = "145.675 ";
-char* FRQ_old = FRQ;
+char FRQ[9];// = "145.675 ";
+char FRQ_old[9];// = FRQ;
 long calc_frequency;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
@@ -216,7 +216,7 @@ void sendToLcd(byte *data, byte position) {
   Wire.endTransmission();    
 }
 
-void writeToLcd(const char *text) {
+void writeToLcd(const char text[]) {
   memset(chr2wr, 0, 3);
   for (int idx=0; idx!=strlen(text); idx++) {
     //Serial.print(idx,DEC);
@@ -244,7 +244,7 @@ void writeToLcd(const char *text) {
 //  sendToLcd(matrix);
 }
 
-void writeFRQToLcd(const char *frq)
+void writeFRQToLcd(const char frq[9])
 {
   //Prepare the display environment for special signs
   Position_Signs[0][0] = 0;
@@ -266,7 +266,7 @@ void writeFRQToLcd(const char *frq)
    
   //if (SQL_MODE == SQL_OFF) hasMENU = true; else hasMENU = false;
   //if (SQL_MODE == SQL_OFF) hasTHUN = true; else hasTHUN = false;
-  if (SQL_MODE == SQL_OFF) hasNOTE = true; else hasNOTE = false;
+  if (TONE_CTRL == CTCSS_ON) hasNOTE = true; else hasNOTE = false;
   
   if (hasSPKR) {
     Position_Signs[0][0] = Position_Signs[0][0] | SPKR[0];
@@ -303,7 +303,8 @@ void writeFRQToLcd(const char *frq)
     Position_Signs[7][1] = Position_Signs[7][1] | THUN[1];
     Position_Signs[7][2] = Position_Signs[7][2] | THUN[2];      
   }
-  if (TONE_CTRL == CTCSS_ON) {
+//  if (TONE_CTRL == CTCSS_ON) {
+  if (hasNOTE) {
     Position_Signs[7][0] = Position_Signs[7][0] | NOTE[0];
     Position_Signs[7][1] = Position_Signs[7][1] | NOTE[1];
     Position_Signs[7][2] = Position_Signs[7][2] | NOTE[2];      
@@ -360,14 +361,17 @@ void send_SPIEnable() {
   digitalWrite(pll_ena_pin, LOW);    // Then back low  
 }
 
-boolean Calculate_Frequency (char* mFRQ) {
+boolean Calculate_Frequency (char mFRQ[9]) {
   Serial.println(mFRQ[0]-48,DEC);
   Serial.println(mFRQ[1]-48,DEC);
   Serial.println(mFRQ[2]-48,DEC);
   Serial.println(mFRQ[4]-48,DEC);
   Serial.println(mFRQ[5]-48,DEC);
   Serial.println(mFRQ[6]-48,DEC);
-  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);  
+  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
+
+  Serial.print("FRQ:");
+  Serial.println(calc_frequency,DEC);  
   if ((calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency
   else return false; //invalid frequency
 }
@@ -427,6 +431,11 @@ void setRadioPower() {
 }
 
 void setup() {
+
+  strcpy(FRQ,"145.675 ");
+  strcpy(FRQ_old,FRQ);
+  //FRQ[0]='1'; //TODO: quick fix... 
+  
   Serial.begin(57600);
   Serial.println("Init start");
 
@@ -534,7 +543,7 @@ void loop() {
     write_FRQ(calc_frequency); //Update frequenct on every state change
     Serial.print(FRQ);
     Serial.print("  ");
-    serial.println(FRQ_old);
+    Serial.println(FRQ_old);
   }
   if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, HIGH);
@@ -643,15 +652,15 @@ void loop() {
             numChar = 0;
             write_FRQ(calc_frequency);
             if (validFRQ) {
-              FRQ_old = FRQ; 
+              strcpy(FRQ_old,FRQ); 
             } else {
-              FRQ = FRQ_old;//"       ";
+              strcpy(FRQ,FRQ_old);//"       ";
               //numChar = 0;
               //sound audible error here
             }
           break; // '#'
           case '*':
-            FRQ = FRQ_old;
+            strcpy(FRQ,FRQ_old);
             validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
@@ -660,7 +669,7 @@ void loop() {
             /* ------------------    FRQ INPUT ------------ */
             if (numChar <= 6) { //Not a command Key so print it into frequency
               if (numChar == 0) {
-                FRQ = "       "; //just pressed keys, so clear the screen
+                strcpy(FRQ,"       "); //just pressed keys, so clear the screen
               }
               FRQ[numChar] = pressedKEY;
               numChar = numChar + 1;
@@ -673,9 +682,9 @@ void loop() {
                 numChar = 0;
                 write_FRQ(calc_frequency);
                 if (validFRQ) {
-                  FRQ_old = FRQ;
+                  strcpy(FRQ_old,FRQ);
                 } else {
-                  FRQ = FRQ_old; //"   .   ";
+                  strcpy(FRQ,FRQ_old); //"   .   ";
                   numChar = 0;
                   validFRQ = Calculate_Frequency(FRQ);
                   write_FRQ(calc_frequency);
