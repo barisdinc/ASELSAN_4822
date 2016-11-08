@@ -550,8 +550,10 @@ void loop() {
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
+
   
   //Long press on a key detection...
+  
   if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
     else if (KeyVal==1) {
      if (scrTimer==0) { //key released and timeout occured
@@ -560,12 +562,23 @@ void loop() {
        if (pressedKEY=='T') writeToLcd("TONE    ");
        if (pressedKEY=='U') writeToLcd("UP      "); 
        if (pressedKEY=='D') writeToLcd("DOWN    ");
+       Serial.println("in MENU MODE");
+       Serial.print(KeyVal,DEC);
+       Serial.print(" ");
+       Serial.print(old_KeyVal,DEC);
+       Serial.print(" ");
+       Serial.print(scrTimer,DEC);
+       Serial.print(" ");
+       
+       scrTimer = TimeoutValue; //Restart the timer
        numChar = 0; //if we were entering frq from keyboard
        scrMODE = scrMENU;    
      }//scrTimer
     }//Keyval==0
+
   
-  if (KeyVal != old_KeyVal) {
+  
+  if (KeyVal != old_KeyVal) { 
     scrTimer = TimeoutValue; //Restart the timer
     int satir,sutun;
     Wire.requestFrom(0x20,1);
@@ -595,11 +608,34 @@ void loop() {
     if (r == 2) sutun = 2;
     if (r == 1) sutun = 3;
     pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+    
+  /* -----------------------------------------------------
+  /* SCREEN MODE MENU..  
+  /* ----------------------------------------------------- */
 
+    if (scrMODE == scrMENU)  { 
+      if (pressedKEY != 'X') {
+        switch (pressedKEY) {
+          case '#':
+            scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
+          break; // '#'
+          case '*':
+            scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
+          break; // '*'
+          default:
+                Serial.println("def");      
+          break; 
+        }//switch
+      }//pressedKEY!='X'
+    }//scrMENU
+    
+    
+    
+    
   /* -----------------------------------------------------
   /* SCREEN MODE NORMAL.. WE READ FREQUENCY AND OTHER KEYS 
-  /* ----------------------------------------------------- */
-    if (scrMODE == scrNORMAL) {            
+  /* ----------------------------------------------------- */    
+    if (scrMODE == scrNORMAL) { //mode NORMAL and key released           
       if (pressedKEY != 'X') {
         // Check for the COMMAND keys first
         switch (pressedKEY) {
@@ -648,7 +684,6 @@ void loop() {
             Serial.println(pressedKEY,DEC);
           break; // 'C'
           case '#':
-            validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
             if (validFRQ) {
@@ -695,13 +730,13 @@ void loop() {
           break; 
         }
       }//pressedKEY != 'X'    
-      //Put 8574_ into READ mode by setting ports high
-      Wire.beginTransmission(0x20);
-      Wire.write(255); 
-      Wire.endTransmission();
-      //Toggle interupt PIN state holder
     } //scrMODE=scrNORMAL
-     old_KeyVal = KeyVal;
+    //Put 8574_ into READ mode by setting ports high
+    Wire.beginTransmission(0x20);
+    Wire.write(255); 
+    Wire.endTransmission();
+    //Toggle interupt PIN state holder
+    old_KeyVal = KeyVal;
    } //KeyVal!=old_keyval
 //  scroll("       TA7W.... MERHABA BIR TELSIZIM, SIMDILIK SADECE YAZI YAZIYORUM... AMA YAKINDA HERSEYIM CALISACAK...   ", 200);
 } //loop
