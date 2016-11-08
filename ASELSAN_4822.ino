@@ -219,7 +219,7 @@ void sendToLcd(byte *data, byte position) {
 void writeToLcd(const char text[]) {
   memset(chr2wr, 0, 3);
   for (int idx=0; idx!=strlen(text); idx++) {
-    //Serial.print(idx,DEC);
+    //Serial.println(strlen(text),DEC);
     if (idx > 7) break;   
     char *c = strchr(index, (int)toupper(text[idx]));
     int pos;
@@ -271,7 +271,7 @@ void writeFRQToLcd(const char frq[9])
   if (hasSPKR) {
     Position_Signs[0][0] = Position_Signs[0][0] | SPKR[0];
     Position_Signs[0][1] = Position_Signs[0][1] | SPKR[1];
-    Position_Signs[0][2] = Position_Signs[0][2] | SPKR[2];      
+    Position_Signs[0][2] = Position_Signs[0][2] | SPKR[2];
   }
   if (hasLOOP) {
     Position_Signs[0][0] = Position_Signs[0][0] | LOOP[0];
@@ -431,7 +431,7 @@ void setRadioPower() {
 }
 
 void setup() {
-
+ delay(100); //startup delay
   strcpy(FRQ,"145.675 ");
   strcpy(FRQ_old,FRQ);
   //FRQ[0]='1'; //TODO: quick fix... 
@@ -669,7 +669,7 @@ void loop() {
             /* ------------------    FRQ INPUT ------------ */
             if (numChar <= 6) { //Not a command Key so print it into frequency
               if (numChar == 0) {
-                strcpy(FRQ,"       "); //just pressed keys, so clear the screen
+                strcpy(FRQ,"        "); //just pressed keys, so clear the screen
               }
               FRQ[numChar] = pressedKEY;
               numChar = numChar + 1;
