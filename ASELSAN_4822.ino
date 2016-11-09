@@ -383,16 +383,8 @@ char numberToArray (int Number) //max 4 digits
 }
 
 boolean Calculate_Frequency (char mFRQ[9]) {
-  Serial.println(mFRQ[0]-48,DEC);
-  Serial.println(mFRQ[1]-48,DEC);
-  Serial.println(mFRQ[2]-48,DEC);
-  Serial.println(mFRQ[4]-48,DEC);
-  Serial.println(mFRQ[5]-48,DEC);
-  Serial.println(mFRQ[6]-48,DEC);
-  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
 
-  Serial.print("FRQ:");
-  Serial.println(calc_frequency,DEC);  
+  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
   if ((calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency
   else return false; //invalid frequency
 }
@@ -414,15 +406,6 @@ void write_FRQ(unsigned long Frequency) {
     int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
     int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
     int A_Counter = (Frequency / 25) - (80 * N_Counter);
-  
-    Serial.print("FREQUENCY :");
-    Serial.println(Frequency,DEC);  
-    Serial.print("R :");
-    Serial.println(R_Counter,DEC);
-    Serial.print("N :");
-    Serial.println(N_Counter,DEC);
-    Serial.print("A :");
-    Serial.println(A_Counter,DEC);
   
     digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
     send_SPIBit(R_Counter,14);
@@ -562,9 +545,6 @@ void loop() {
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
     write_FRQ(calc_frequency); //Update frequenct on every state change
-    Serial.print(FRQ);
-    Serial.print("  ");
-    Serial.println(FRQ_old);
   }
   if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, HIGH);
