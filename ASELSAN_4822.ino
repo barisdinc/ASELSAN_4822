@@ -579,6 +579,20 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
  //TODO: Add shift and tone information for the channel
 }
 
+//Retrieves the requested Memory Channel Information from EEPROM
+void GetMemoryChannel(char mFRQ[9]) {
+ byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
+ byte ChannelLocation = 100 + ChannelNumber * 10;
+ byte byte1,byte2;
+ byte1 = EEPROM.read(ChannelLocation);
+ byte2 = EEPROM.read(ChannelLocation+1);
+ long freq = 130000 + (byte1 * 256) + byte2 ;
+ numberToFrequency(freq, FRQ);
+ Serial.println(FRQ);
+ //strcpy(FRQ_old,FRQ);
+}
+
+
 
 void setup() {
 
@@ -830,7 +844,8 @@ void loop() {
               write_FRQ(calc_frequency);
           break; // '#'
           case '*':
-            strcpy(FRQ,FRQ_old);
+            if (numChar == 2) GetMemoryChannel(FRQ); // User wanted to retrieve the memory channel from EEPRM
+            else strcpy(FRQ,FRQ_old); // Otherwise user wanted to cancel the ongoing operatin=on.. return to previous (old) frequency
             validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
