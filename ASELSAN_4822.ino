@@ -1,4 +1,5 @@
 #include <Wire.h>
+#include <EEPROM.h>
 
 //8576 LCD Driver settings
 #define NEXTCMD 128     // Issue when there will be more commands after this one
@@ -154,12 +155,14 @@ unsigned char matrix[24];
 unsigned char chr2wr[3];
 
 const char* keymap[4] = {  "123DSX",  "456RB", "789OC", "*0#UM"  };
+const char  numbers[] = "0123456789ABCDEF";
 
 int numChar = 0;
 char FRQ[9];// = "145.675 ";
 char FRQ_old[9];// = FRQ;
 long calc_frequency;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
+
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
@@ -214,6 +217,65 @@ const unsigned char font[] = {     // only first 20 bits belong to this characte
   B00110010, B01100100, B00100000, //9
   B00000000, B00000000, B11110000, //% Special character to light all segments
 };
+
+
+// Initialize the LCD
+void InitLCD() {
+
+  Wire.beginTransmission(PCF8576_LCD);
+  Wire.write(NEXTCMD | set_modeset); 
+  Wire.write(NEXTCMD | set_deviceselect); 
+  Wire.write(NEXTCMD | set_blink); 
+  Wire.write(LASTCMD | set_datapointer); 
+  for (int i=0;i<20;i++)   Wire.write(B00000000);  
+  Wire.endTransmission();  
+  delay(100);
+  Wire.beginTransmission(PCF8576_LCD);
+  Wire.write(NEXTCMD | set_modeset); 
+  Wire.write(NEXTCMD | set_deviceselect); 
+  Wire.write(NEXTCMD | set_blink); 
+  Wire.write(LASTCMD | set_datapointer); 
+  for (int i=0;i<20;i++)   Wire.write(B11111111);  
+  Wire.endTransmission();  
+  delay(500);
+  Wire.beginTransmission(PCF8576_LCD);
+  Wire.write(NEXTCMD | set_modeset); 
+  Wire.write(NEXTCMD | set_deviceselect); 
+  Wire.write(NEXTCMD | set_blink); 
+  Wire.write(LASTCMD | set_datapointer); 
+  for (int i=0;i<20;i++)   Wire.write(B00000000);  
+  Wire.endTransmission();  
+  delay(100);
+}
+
+//Print Greeting messages to LCD
+void Greetings() {
+
+ char MSG[8];
+ MSG[0] = EEPROM.read(9);
+ MSG[1] = EEPROM.read(10);
+ MSG[2] = EEPROM.read(11);
+ MSG[3] = EEPROM.read(12);
+ MSG[4] = EEPROM.read(13);
+ MSG[5] = EEPROM.read(14);
+ MSG[6] = EEPROM.read(15);
+ MSG[7] = EEPROM.read(16);
+ MSG[8] = 0;
+ writeToLcd(MSG);
+ delay(500);
+ MSG[0] = EEPROM.read(3);
+ MSG[1] = EEPROM.read(4);
+ MSG[2] = EEPROM.read(5);
+ MSG[3] = EEPROM.read(6);
+ MSG[4] = EEPROM.read(7);
+ MSG[5] = EEPROM.read(8);
+ MSG[6] = ' ';
+ MSG[7] = ' ';
+ MSG[8] = 0;
+ writeToLcd(MSG);
+ delay(1000);
+
+}
 
 /* Physically send out the given data */
 void sendToLcd(byte *data, byte position) {
@@ -399,6 +461,13 @@ void write_FRQ(unsigned long Frequency) {
     if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
     if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
     if ((Frequency < 144000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+
+    // Update EEPROM for last used Frequncy
+    double UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
+    byte FRQ_L = UpdatedFrq / 256;
+    byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
+    EEPROM.write(50,FRQ_L); 
+    EEPROM.write(51,FRQ_H);  
     
     if (TRX_MODE == RX) Frequency = Frequency + 45000L;
     if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
@@ -416,6 +485,7 @@ void write_FRQ(unsigned long Frequency) {
     send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
     send_SPIEnable();  
     digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
+    
   } //validFRQ 
 }
 
@@ -434,15 +504,106 @@ void setRadioPower() {
   //if ( SYS_MODE == SYS_OFF) Serial.println("POWER OFF") ; 
 }
 
-void setup() {
- delay(100); //startup delay
-  strcpy(FRQ,"145.675 ");
-  strcpy(FRQ_old,FRQ);
-  //FRQ[0]='1'; //TODO: quick fix... 
-  
-  Serial.begin(57600);
-  Serial.println("Init start");
 
+void numberToFrequency(long Freq, char *rFRQ) {
+  
+  word f1,f2,f3,f4,f5,f6; //sgould be byte, but arduino math fails here.. so changed to double
+
+  f1   = Freq / 100000;
+  Freq = Freq - ( f1 * 100000);
+  f2   = Freq / 10000;
+  Freq = Freq - ( f2 * 10000);
+  f3   = Freq / 1000;
+  Freq = Freq - ( f3 * 1000);
+  f4   = Freq / 100;
+  Freq = Freq - ( f4 * 100);
+  f5   = Freq / 10;
+  Freq = Freq - ( f5 * 10);
+  f6   = Freq;
+
+  rFRQ[0] = numbers[f1];
+  rFRQ[1] = numbers[f2];
+  rFRQ[2] = numbers[f3];
+  rFRQ[3] = '.';
+  rFRQ[4] = numbers[f4];
+  rFRQ[5] = numbers[f5];
+  rFRQ[6] = numbers[f6];
+  rFRQ[7] = ' ';
+  rFRQ[8] = 0;
+  
+  //strcpy(rFRQ,"145.775 ");
+}
+
+
+
+void initialize_eeprom() {  //Check gthub documents for eeprom structure...
+ Serial.print("initializing EEPROM...");
+ EEPROM.write(0, 127); // make eeprom initialized
+ EEPROM.write(1, 1);   //Version is 1.0
+ EEPROM.write(2, 0);   //
+ EEPROM.write(3, 'T'); // Callsign
+ EEPROM.write(4, 'A'); // Callsign
+ EEPROM.write(5, '7'); // Callsign
+ EEPROM.write(6, 'W'); // Callsign
+ EEPROM.write(7, ' '); // Callsign
+ EEPROM.write(8, ' '); // Callsign
+ EEPROM.write(9, 'T'); // Message
+ EEPROM.write(10,'A'); // Message
+ EEPROM.write(11,'M'); // Message
+ EEPROM.write(12,'S'); // Message
+ EEPROM.write(13,'A'); // Message
+ EEPROM.write(14,'T'); // Message
+ EEPROM.write(15,' '); // Message
+ EEPROM.write(16,' '); // Message
+
+ for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
+
+ EEPROM.write(50,0x3C); // FRQ_L
+ EEPROM.write(51,0xF0); // FRQ_H (Default frequency 145.600)
+ EEPROM.write(52,0x02); // SHFT_L
+ EEPROM.write(53,0x58); // SHFT_H
+ EEPROM.write(54,0x01); // TONE
+ Serial.println("done..");
+}
+
+// Stores frequency data to the desired EEPROM location
+void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
+ byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
+ byte ChannelLocation = 100 + ChannelNumber * 10;
+ Calculate_Frequency(mFRQ); 
+ double FrqToStore = calc_frequency - 130000;
+ byte FRQ_L = FrqToStore / 256;
+ byte FRQ_H = FrqToStore - ( FRQ_L * 256);
+ EEPROM.write(ChannelLocation  ,FRQ_L); 
+ EEPROM.write(ChannelLocation+1,FRQ_H);  
+ //TODO: Add shift and tone information for the channel
+}
+
+
+void setup() {
+
+  //
+  // Let's prepare the radio
+  //
+  delay(100); //startup delay
+
+ // Initialize serial port fr debugging
+ Serial.begin(57600);
+ Serial.println("Init start");
+
+ // Check EEPROM for stored values
+ byte eeprom_state=0;
+ eeprom_state = EEPROM.read(0); // first address tells us eeprom status, if different then 127, we need to initialize eeprom structure for first use
+ if (eeprom_state != 127) initialize_eeprom();
+
+ //Read Last used frequency
+ byte byte1,byte2;
+ byte1 = EEPROM.read(50);
+ byte2 = EEPROM.read(51);
+ long freq = 130000 + (byte1 * 256) + byte2 ;
+ numberToFrequency(freq, FRQ);
+ strcpy(FRQ_old,FRQ);
+  
   setRadioPower();  //Check power switch mode and turn adio on immediately
   pinMode(POWER_ON_OFF, INPUT);
   pinMode(POWER_ON_PIN, OUTPUT);
@@ -471,45 +632,15 @@ void setup() {
   digitalWrite(pll_clk_pin, LOW);
   digitalWrite(pll_data_pin,LOW);
   digitalWrite(pll_ena_pin, LOW);
-
- //write_FRQ(200900);
  
   memset(matrix, 0, 24);
   Wire.begin(); 
   delay(100);  // Give some time to boot
 
-  // Init
-  Wire.beginTransmission(PCF8576_LCD);
-  Wire.write(NEXTCMD | set_modeset); 
-  Wire.write(NEXTCMD | set_deviceselect); 
-  Wire.write(NEXTCMD | set_blink); 
-  Wire.write(LASTCMD | set_datapointer); 
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.write(B00000000);  
-  Wire.endTransmission();  
+  // Init LCD
+  InitLCD();
+  Greetings();
 
-  writeToLcd("TA7W");
-  delay(500);
-  writeToLcd("TAMSAT");
-  delay(500);
   writeFRQToLcd(FRQ);
   
   old_KeyVal = 1; //initial keypad read
@@ -692,15 +823,11 @@ void loop() {
             Serial.println(pressedKEY,DEC);
           break; // 'C'
           case '#':
-            numChar = 0;
-            write_FRQ(calc_frequency);
-            if (validFRQ) {
-              strcpy(FRQ_old,FRQ); 
-            } else {
-              strcpy(FRQ,FRQ_old);//"       ";
-              //numChar = 0;
-              //sound audible error here
-            }
+            if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
+               numChar = 0;
+              strcpy(FRQ,FRQ_old);
+              validFRQ = Calculate_Frequency(FRQ);
+              write_FRQ(calc_frequency);
           break; // '#'
           case '*':
             strcpy(FRQ,FRQ_old);
