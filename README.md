@@ -12,4 +12,3 @@ TODO List:
 - SWR calculation
 - VNA
 - Audio Alerts
-- 
