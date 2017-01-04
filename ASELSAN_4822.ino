@@ -52,17 +52,17 @@ byte set_deviceselect = DEVICE_SELECT;
 
 int Led_Status= 240;
 
-int KeypadIntPin = 5;  //Interrupt Input PIN for MCU
+int KeypadIntPin = 4;  //Interrupt Input PIN for MCU
 int KeyVal = 0;     // variable to store the read value
 int old_KeyVal= 0;
 
-#define POWER_ON_OFF A0
-#define POWER_ON_PIN A1
+#define POWER_ON_OFF A3
+#define POWER_ON_PIN A7
 #define SYS_OFF 1  //input state low  means radio turned off
 #define SYS_ON  0  //input state high means radio turned on
 int SYS_MODE = SYS_OFF; 
 
-#define PLL_SEC A2
+#define PLL_SEC A6
 
 //Band Selection PINS for RX and TX VCOs
 //BS0=0, BS1=0   152.2 Mhz - 172.6 Mhz
@@ -70,8 +70,8 @@ int SYS_MODE = SYS_OFF;
 //BS0=1, BS1=0   141.6 Mhz - 172.6 Mhz
 //BS0=1, BS1=1   137.2 Mhz - 151.4 Mhz
 
-#define BAND_SELECT_0  12
-#define BAND_SELECT_1  13
+#define BAND_SELECT_0  11
+#define BAND_SELECT_1  8
 
 //DUPLEX mode Shift Settinngs
 int frqSHIFT = 600;
@@ -82,8 +82,8 @@ int frqSHIFT = 600;
 int shiftMODE = minusSHIFT; // we start with noSHIFT (SIMPLEX)
 
 //Receive/Transmit and PTT
-#define PTT_OUTPUT_PIN 10
-#define PTT_INPUT_PIN  11
+#define PTT_OUTPUT_PIN 5
+#define PTT_INPUT_PIN  12
 //Transceiver modes
 #define RX 0
 #define TX 1
@@ -98,13 +98,13 @@ int LST_MODE = TX; //this will hold the last receive transmit state. Start with 
 int TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
 
 #define SQL_ACTIVE 2 //CHANNEL ACTIVE (SQUELCH) PIN
-#define MUTE_PIN_1 4 //PIN for Audio Muting
+#define MUTE_PIN_1 6 //PIN for Audio Muting
 //#define MUTE_PIN_2 5
 int CHANNEL_BUSY = 1;
 
 //MC145158 Programming
 #define pll_clk_pin  9
-#define pll_data_pin 8
+#define pll_data_pin 10
 #define pll_ena_pin  7
 
 #define SQL_OFF 0
