@@ -56,13 +56,17 @@ int KeypadIntPin = 4;  //Interrupt Input PIN for MCU
 int KeyVal = 0;     // variable to store the read value
 int old_KeyVal= 0;
 
-#define POWER_ON_OFF A3
-#define POWER_ON_PIN A7
-#define SYS_OFF 1  //input state low  means radio turned off
-#define SYS_ON  0  //input state high means radio turned on
-int SYS_MODE = SYS_OFF; 
+#define FWD_POWER_PIN A0
+#define REF_POWER_PIN A1
 
-#define PLL_SEC A6
+//#define POWER_ON_PIN A2
+//#define POWER_ON_OFF A3
+
+//#define SYS_OFF 1  //input state low  means radio turned off
+//#define SYS_ON  0  //input state high means radio turned on
+//int SYS_MODE = SYS_OFF; 
+
+#define PLL_SEC A2
 
 //Band Selection PINS for RX and TX VCOs
 //BS0=0, BS1=0   152.2 Mhz - 172.6 Mhz
@@ -70,8 +74,8 @@ int SYS_MODE = SYS_OFF;
 //BS0=1, BS1=0   141.6 Mhz - 172.6 Mhz
 //BS0=1, BS1=1   137.2 Mhz - 151.4 Mhz
 
-#define BAND_SELECT_0  11
-#define BAND_SELECT_1  8
+#define BAND_SELECT_1  11
+#define BAND_SELECT_0  8
 
 //DUPLEX mode Shift Settinngs
 int frqSHIFT = 600;
@@ -217,6 +221,11 @@ const unsigned char font[] = {     // only first 20 bits belong to this characte
   B00110010, B01100100, B00100000, //9
   B00000000, B00000000, B11110000, //% Special character to light all segments
 };
+
+//VNA variables
+float minSWR;
+long lowestFRQ;
+long highestFRQ;
 
 
 // Initialize the LCD
@@ -422,7 +431,7 @@ void send_SPIBit(int Counter, byte length) {
     delay(1);
     digitalWrite(pll_clk_pin,LOW);    // Then back low
   }
-  Serial.println("");
+  //Serial.println("");
 }
 
 void send_SPIEnable() {
@@ -460,7 +469,7 @@ void write_FRQ(unsigned long Frequency) {
     if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
     if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
     if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
-    if ((Frequency < 144000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+    if ((Frequency < 146000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
 
     // Update EEPROM for last used Frequncy
     double UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
@@ -496,12 +505,40 @@ void SetTone(int toneSTATE) {
 
 void setRadioPower() {
   //Is the radio turned on ?
-  SYS_MODE = digitalRead(POWER_ON_OFF);
-  if ( SYS_MODE == SYS_ON)  digitalWrite(POWER_ON_PIN, HIGH) ; 
+  //SYS_MODE = digitalRead(POWER_ON_OFF);
+  //if ( SYS_MODE == SYS_ON)  digitalWrite(POWER_ON_PIN, HIGH) ;
   //if ( SYS_MODE == SYS_OFF) digitalWrite(POWER_ON_PIN, LOW) ; 
 
   //if ( SYS_MODE == SYS_ON)  Serial.println("POWER ON")  ; 
   //if ( SYS_MODE == SYS_OFF) Serial.println("POWER OFF") ; 
+}
+
+
+void readRfPower()
+{
+   int refPower = 0;
+   int fwdPower = 0;
+   
+   fwdPower = analogRead(FWD_POWER_PIN);
+   refPower = analogRead(REF_POWER_PIN);
+   refPower = refPower * 2;
+   int Ptoplam = fwdPower + refPower;
+   int Pfark   = fwdPower - refPower;
+   float swr = (float)Ptoplam / (float)Pfark;
+   Serial.print("\t");
+   Serial.print(swr);
+   //Serial.println("");
+   if (swr < minSWR)
+   {
+      minSWR=swr;
+      lowestFRQ=calc_frequency;
+      highestFRQ=calc_frequency;
+   } else if (swr == minSWR)
+   {
+      highestFRQ=calc_frequency;
+   }
+     
+  
 }
 
 
@@ -618,9 +655,9 @@ void setup() {
  numberToFrequency(freq, FRQ);
  strcpy(FRQ_old,FRQ);
   
-  setRadioPower();  //Check power switch mode and turn adio on immediately
-  pinMode(POWER_ON_OFF, INPUT);
-  pinMode(POWER_ON_PIN, OUTPUT);
+  //setRadioPower();  //Check power switch mode and turn adio on immediately
+  //pinMode(POWER_ON_OFF, INPUT);
+  //pinMode(POWER_ON_PIN, OUTPUT);
 
   pinMode(TONE_PIN, OUTPUT);
   SetTone(TONE_CTRL);
@@ -633,9 +670,13 @@ void setup() {
   pinMode(BAND_SELECT_0, OUTPUT);
   pinMode(BAND_SELECT_1, OUTPUT);
 
-  pinMode(PTT_INPUT_PIN,  INPUT);
+  pinMode(PTT_INPUT_PIN,  INPUT_PULLUP);
   pinMode(PTT_OUTPUT_PIN, OUTPUT);
   digitalWrite(PTT_OUTPUT_PIN, HIGH); //No PTT at startup
+
+  pinMode(FWD_POWER_PIN, INPUT);
+  pinMode(REF_POWER_PIN, INPUT);
+
 
   pinMode(KeypadIntPin,    INPUT);
   pinMode(pll_clk_pin, OUTPUT);
@@ -665,8 +706,8 @@ void setup() {
 }
 
 void loop() {
-  setRadioPower(); //Check power switch and set radio power mode on or off
-
+  //setRadioPower(); //Check power switch and set radio power mode on or off
+  
   if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
 
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
@@ -821,20 +862,64 @@ void loop() {
             Serial.println(pressedKEY,DEC);
           break; //'O'
           case 'U':
-            Serial.print("pressedKEY");
-            Serial.println(pressedKEY,DEC);
+            //Serial.print("pressedKEY");
+            //Serial.println(pressedKEY,DEC);
+            Calculate_Frequency(FRQ);            
+            numberToFrequency(calc_frequency+25,FRQ);
           break; // 'U' 
           case 'D':
-            Serial.print("pressedKEY");
-            Serial.println(pressedKEY,DEC);
+            //Serial.print("pressedKEY");
+            //Serial.println(pressedKEY,DEC);
+            Calculate_Frequency(FRQ);            
+            numberToFrequency(calc_frequency-25,FRQ);
           break; // 'D'
           case 'M':
             Serial.print("pressedKEY");
             Serial.println(pressedKEY,DEC);
           break; // 'M'
           case 'C':
-            Serial.print("pressedKEY");
-            Serial.println(pressedKEY,DEC);
+            //VNA Vector Network analizor Subroutines
+            //Serial.print("pressedKEY");
+            //Serial.println(pressedKEY,DEC);
+            minSWR = 9999;
+            lowestFRQ=0;
+            highestFRQ=0;           
+            //TODO: Store old values of variables (FRQ, SHIFT, etc)
+            strcpy(FRQ_old,FRQ); //store old frequency for recall
+            int shiftMODE_old;
+            shiftMODE_old = shiftMODE; //store shitODE for recall
+            shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
+            for (long vna_freq=14000; vna_freq < 15000; vna_freq += 10)
+              {
+                TRX_MODE = TX;
+                Serial.print(vna_freq); 
+                numberToFrequency(vna_freq*10,FRQ);
+                validFRQ = Calculate_Frequency(FRQ);
+                write_FRQ(calc_frequency);
+                digitalWrite(PTT_OUTPUT_PIN,LOW);
+                delay(20);
+                readRfPower(); //TODO: Move under a menu item
+                delay(10);
+                digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                Serial.println("");
+              }
+              Serial.println("");
+              Serial.print("Lowest Frequency : ");
+              Serial.println(lowestFRQ);
+              Serial.print("Highest Frequency : ");
+              Serial.println(highestFRQ);
+              Serial.print("Center Frequency : ");
+              Serial.println((highestFRQ+lowestFRQ)/2);
+              
+              
+              
+              
+              TRX_MODE = RX;
+              shiftMODE=shiftMODE_old;
+              strcpy(FRQ,FRQ_old);
+              validFRQ = Calculate_Frequency(FRQ);
+              write_FRQ(calc_frequency);              
+
           break; // 'C'
           case '#':
             if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
