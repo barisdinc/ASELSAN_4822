@@ -464,7 +464,7 @@ void send_SPIEnable() {
 
 char numberToArray (int Number) //max 4 digits
 {
-  //TODO timirriw
+//TODO: 
 //  char result = "         ";
 //  result[0] = String(Number / 1000);
 //  result[1] = String(Number / 100);
@@ -523,18 +523,25 @@ void write_FRQ(unsigned long Frequency) {
   } //validFRQ 
 }
 
+
+void SetTone(int toneSTATE) {
+  Serial.println(toneSTATE);
+  noTone(ALERT_PIN);
+  if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.5);
+    else noTone(TONE_PIN);
+}
+
+
 void Alert_Tone(int ToneType)
 {
+  
   noTone(TONE_PIN); //First silence the TONE output first
   if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
   if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
+  SetTone(TONE_CTRL);
   
-  SetTone(TONE_CTRL); //resume Tone Generation 
-}
-
-void SetTone(int toneSTATE) {
-  if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.5);
-    else noTone(TONE_PIN);
+  //SetTone(TONE_CTRL); //resume Tone Generation 
 }
 
 void SetRFPower(int rfpowerSTATE) {
@@ -956,9 +963,9 @@ void loop() {
                 write_FRQ(calc_frequency);
                 writeFRQToLcd(FRQ);
                 digitalWrite(PTT_OUTPUT_PIN,LOW);
-                delay(20);
+                delay(50);
                 readRfPower(); //TODO: Move under a menu item
-                delay(10);
+                delay(25);
                 digitalWrite(PTT_OUTPUT_PIN,HIGH);
               }
               //Restoring OLD values or displaying the best frequency
