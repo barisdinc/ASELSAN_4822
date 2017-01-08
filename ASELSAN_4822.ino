@@ -56,8 +56,8 @@ int KeypadIntPin = 4;  //Interrupt Input PIN for MCU
 int KeyVal = 0;     // variable to store the read value
 int old_KeyVal= 0;
 
-#define FWD_POWER_PIN A0
-#define REF_POWER_PIN A1
+#define FWD_POWER_PIN A6
+#define REF_POWER_PIN A7
 
 //#define POWER_ON_PIN A2
 //#define POWER_ON_OFF A3
@@ -94,9 +94,30 @@ int shiftMODE = minusSHIFT; // we start with noSHIFT (SIMPLEX)
 int TRX_MODE = RX; //default transceiver mode is receiving
 int LST_MODE = TX; //this will hold the last receive transmit state. Start with TX because we want to write to PLL on startup 
 
-//Tone Control For CTCSS tones
-#define TONE_PIN 3  //D3 is our tone generation PIN (PWM)
 
+//RF power control definitions
+#define RF_POWER_PIN A0
+#define HIGH_POWER 1
+#define LOW_POWER  0
+int RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
+
+
+
+//Key sounds and alerts
+#define ALERT_PIN 13
+#define ALERT_OFF 0
+#define ALERT_ON  100
+int ALERT_MODE = ALERT_ON;
+
+//Tone Types
+#define NO_tone  0
+#define OK_tone  1
+#define ERR_tone 2
+
+
+
+//Tone Control For CTCSS tones
+#define TONE_PIN  3  //D3 is our tone generation PIN (PWM)
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
 int TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
@@ -457,7 +478,11 @@ boolean Calculate_Frequency (char mFRQ[9]) {
 
   calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
   if ((calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency
-  else return false; //invalid frequency
+  else 
+    {
+      Alert_Tone(ERR_tone);
+      return false; //invalid frequency
+    }
 }
 
 void write_FRQ(unsigned long Frequency) {
@@ -498,10 +523,24 @@ void write_FRQ(unsigned long Frequency) {
   } //validFRQ 
 }
 
+void Alert_Tone(int ToneType)
+{
+  noTone(TONE_PIN); //First silence the TONE output first
+  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  
+  SetTone(TONE_CTRL); //resume Tone Generation 
+}
+
 void SetTone(int toneSTATE) {
   if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.5);
     else noTone(TONE_PIN);
 }
+
+void SetRFPower(int rfpowerSTATE) {
+    digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
+}
+
 
 void setRadioPower() {
   //Is the radio turned on ?
@@ -525,6 +564,10 @@ void readRfPower()
    int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
    float swr = (float)Ptoplam / (float)Pfark;
+   Serial.print("\t");
+   Serial.print(fwdPower);
+   Serial.print("\t");
+   Serial.print(refPower);
    Serial.print("\t");
    Serial.print(swr);
    //Serial.println("");
@@ -614,6 +657,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
  EEPROM.write(ChannelLocation  ,FRQ_L); 
  EEPROM.write(ChannelLocation+1,FRQ_H);  
  //TODO: Add shift and tone information for the channel
+ //TODO: Store power level into channel
 }
 
 //Retrieves the requested Memory Channel Information from EEPROM
@@ -627,6 +671,7 @@ void GetMemoryChannel(char mFRQ[9]) {
  numberToFrequency(freq, FRQ);
  Serial.println(FRQ);
  //strcpy(FRQ_old,FRQ);
+ //TODO: retrieve shift, tone and power elvels as well
 }
 
 
@@ -662,6 +707,10 @@ void setup() {
   pinMode(TONE_PIN, OUTPUT);
   SetTone(TONE_CTRL);
 
+  pinMode(RF_POWER_PIN, OUTPUT); //RF power control is output
+  digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
+  //TODO: store last power state and restore on every boot 
+  
   pinMode(MUTE_PIN_1, OUTPUT);
   digitalWrite(MUTE_PIN_1, HIGH); //Mute the Audio output
 
@@ -766,6 +815,8 @@ void loop() {
   
   
   if (KeyVal != old_KeyVal) { 
+    if (KeyVal == 0) Alert_Tone(OK_tone);  
+
     scrTimer = TimeoutValue; //Restart the timer
     int satir,sutun;
     Wire.requestFrom(0x20,1);
@@ -828,7 +879,7 @@ void loop() {
     
   /* -----------------------------------------------------
   /* SCREEN MODE NORMAL.. WE READ FREQUENCY AND OTHER KEYS 
-  /* ----------------------------------------------------- */    
+  /* ----------------------------------------------------- */
     if (scrMODE == scrNORMAL) { //mode NORMAL and key released           
       if (pressedKEY != 'X') {
         // Check for the COMMAND keys first
@@ -858,8 +909,12 @@ void loop() {
             }
           break; //'S'
           case 'O':
-            Serial.print("pressedKEY");
-            Serial.println(pressedKEY,DEC);
+             if (RF_POWER_STATE == HIGH_POWER) {
+                RF_POWER_STATE = LOW_POWER;
+             } else {
+                RF_POWER_STATE = HIGH_POWER;
+             }
+             SetRFPower(RF_POWER_STATE);           
           break; //'O'
           case 'U':
             //Serial.print("pressedKEY");
@@ -885,6 +940,8 @@ void loop() {
             lowestFRQ=0;
             highestFRQ=0;           
             //TODO: Store old values of variables (FRQ, SHIFT, etc)
+            //TODO: Put transmitter on low power before operation
+            //TODO: If any key pressed cancel VNA operation
             strcpy(FRQ_old,FRQ); //store old frequency for recall
             int shiftMODE_old;
             shiftMODE_old = shiftMODE; //store shitODE for recall
@@ -896,30 +953,20 @@ void loop() {
                 numberToFrequency(vna_freq*10,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
                 write_FRQ(calc_frequency);
+                writeFRQToLcd(FRQ);
                 digitalWrite(PTT_OUTPUT_PIN,LOW);
                 delay(20);
                 readRfPower(); //TODO: Move under a menu item
                 delay(10);
                 digitalWrite(PTT_OUTPUT_PIN,HIGH);
-                Serial.println("");
               }
-              Serial.println("");
-              Serial.print("Lowest Frequency : ");
-              Serial.println(lowestFRQ);
-              Serial.print("Highest Frequency : ");
-              Serial.println(highestFRQ);
-              Serial.print("Center Frequency : ");
-              Serial.println((highestFRQ+lowestFRQ)/2);
-              
-              
-              
-              
+              //Restoring OLD values or displaying the best frequency
               TRX_MODE = RX;
-              shiftMODE=shiftMODE_old;
-              strcpy(FRQ,FRQ_old);
+              //shiftMODE=shiftMODE_old;
+              //strcpy(FRQ,FRQ_old);
+              numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
               write_FRQ(calc_frequency);              
-
           break; // 'C'
           case '#':
             if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
