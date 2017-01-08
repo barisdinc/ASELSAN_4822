@@ -946,6 +946,7 @@ void loop() {
             int shiftMODE_old;
             shiftMODE_old = shiftMODE; //store shitODE for recall
             shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
+            SetRFPower(LOW_POWER);
             for (long vna_freq=14000; vna_freq < 15000; vna_freq += 10)
               {
                 TRX_MODE = TX;
@@ -961,6 +962,7 @@ void loop() {
                 digitalWrite(PTT_OUTPUT_PIN,HIGH);
               }
               //Restoring OLD values or displaying the best frequency
+              SetRFPower(RF_POWER_STATE);
               TRX_MODE = RX;
               //shiftMODE=shiftMODE_old;
               //strcpy(FRQ,FRQ_old);
