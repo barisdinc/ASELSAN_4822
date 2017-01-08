@@ -97,8 +97,8 @@ int LST_MODE = TX; //this will hold the last receive transmit state. Start with 
 
 //RF power control definitions
 #define RF_POWER_PIN A0
-#define HIGH_POWER 1
-#define LOW_POWER  0
+#define HIGH_POWER 0
+#define LOW_POWER  1
 int RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 
@@ -365,7 +365,7 @@ void writeFRQToLcd(const char frq[9])
   //if (SQL_MODE == SQL_OFF) hasARRW = true; else hasARRW = false;
    
   //if (SQL_MODE == SQL_OFF) hasMENU = true; else hasMENU = false;
-  //if (SQL_MODE == SQL_OFF) hasTHUN = true; else hasTHUN = false;
+  if (RF_POWER_STATE == HIGH_POWER) hasTHUN = true; else hasTHUN = false;
   if (TONE_CTRL == CTCSS_ON) hasNOTE = true; else hasNOTE = false;
   
   if (hasSPKR) {
