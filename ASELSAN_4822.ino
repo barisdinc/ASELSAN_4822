@@ -534,7 +534,7 @@ void SetTone(int toneSTATE) {
 
 void Alert_Tone(int ToneType)
 {
-  
+  if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
   noTone(TONE_PIN); //First silence the TONE output first
   if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
   if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
