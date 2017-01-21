@@ -564,7 +564,7 @@ void readRfPower()
 {
    int refPower = 0;
    int fwdPower = 0;
-   
+  //TODO: Set RF power to LOW for this operation, and restore user setting on exit..   
    fwdPower = analogRead(FWD_POWER_PIN);
    refPower = analogRead(REF_POWER_PIN);
    refPower = refPower * 2;
@@ -587,6 +587,7 @@ void readRfPower()
    {
       highestFRQ=calc_frequency;
    }
+     
      
   
 }
