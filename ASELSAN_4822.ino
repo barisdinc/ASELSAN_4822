@@ -527,8 +527,10 @@ void write_FRQ(unsigned long Frequency) {
 void SetTone(int toneSTATE) {
   Serial.println(toneSTATE);
   noTone(ALERT_PIN);
-  if (toneSTATE == CTCSS_ON) tone(TONE_PIN, 88.5);
-    else noTone(TONE_PIN);
+  if (toneSTATE == CTCSS_ON) { 
+    if (TRX_MODE == TX)  tone(TONE_PIN, 88.5);
+      else noTone(TONE_PIN);
+  }
 }
 
 
@@ -789,6 +791,8 @@ void loop() {
   }
   if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, HIGH);
+
+  SetTone(TONE_CTRL); //Change Tone Generation State
 
   //if (subMENU == menuRPT) writeToLcd(cstr);
 
