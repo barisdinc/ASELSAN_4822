@@ -1,5 +1,7 @@
 #include <Wire.h>
 #include <EEPROM.h>
+#include <avr/pgmspace.h>
+
 
 //8576 LCD Driver settings
 #define NEXTCMD 128     // Issue when there will be more commands after this one
@@ -525,7 +527,7 @@ void write_FRQ(unsigned long Frequency) {
 
 
 void SetTone(int toneSTATE) {
-  Serial.println(toneSTATE);
+  //Serial.println(toneSTATE);
   noTone(ALERT_PIN);
   if (toneSTATE == CTCSS_ON) { 
     if (TRX_MODE == TX)  tone(TONE_PIN, 88.5);
@@ -579,7 +581,7 @@ void readRfPower()
    Serial.print(refPower);
    Serial.print("\t");
    Serial.print(swr);
-   //Serial.println("");
+   Serial.println("");
    if (swr < minSWR)
    {
       minSWR=swr;
@@ -631,18 +633,18 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  EEPROM.write(2, 0);   //
  EEPROM.write(3, 'T'); // Callsign
  EEPROM.write(4, 'A'); // Callsign
- EEPROM.write(5, '7'); // Callsign
- EEPROM.write(6, 'W'); // Callsign
- EEPROM.write(7, ' '); // Callsign
- EEPROM.write(8, ' '); // Callsign
- EEPROM.write(9, 'T'); // Message
- EEPROM.write(10,'A'); // Message
- EEPROM.write(11,'M'); // Message
- EEPROM.write(12,'S'); // Message
- EEPROM.write(13,'A'); // Message
- EEPROM.write(14,'T'); // Message
- EEPROM.write(15,' '); // Message
- EEPROM.write(16,' '); // Message
+ EEPROM.write(5, 'M'); // Callsign
+ EEPROM.write(6, 'S'); // Callsign
+ EEPROM.write(7, 'A'); // Callsign
+ EEPROM.write(8, 'T'); // Callsign
+ EEPROM.write(9, ' '); // Message
+ EEPROM.write(10,' '); // Message
+ EEPROM.write(11,'T'); // Message
+ EEPROM.write(12,'A'); // Message
+ EEPROM.write(13,'M'); // Message
+ EEPROM.write(14,'S'); // Message
+ EEPROM.write(15,'A'); // Message
+ EEPROM.write(16,'T'); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -685,7 +687,7 @@ void GetMemoryChannel(char mFRQ[9]) {
 
 
 void setup() {
-
+  
   //
   // Let's prepare the radio
   //
@@ -699,6 +701,7 @@ void setup() {
  byte eeprom_state=0;
  eeprom_state = EEPROM.read(0); // first address tells us eeprom status, if different then 127, we need to initialize eeprom structure for first use
  if (eeprom_state != 127) initialize_eeprom();
+ if (eeprom_state != 127) Serial.println("EPROM sifirlaniyor");
 
  //Read Last used frequency
  byte byte1,byte2;
@@ -759,6 +762,15 @@ void setup() {
   validFRQ = Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
 
   scrTimer = TimeoutValue;  
+
+
+
+  if (pgm_read_byte (32700) != 188)
+   while (1) 
+    Alert_Tone(ERR_tone);
+
+
+
 //  Serial.println("Init completed");
 }
 
@@ -929,14 +941,14 @@ void loop() {
           case 'U':
             //Serial.print("pressedKEY");
             //Serial.println(pressedKEY,DEC);
-            Calculate_Frequency(FRQ);            
             numberToFrequency(calc_frequency+25,FRQ);
+            Calculate_Frequency(FRQ);            
           break; // 'U' 
           case 'D':
             //Serial.print("pressedKEY");
             //Serial.println(pressedKEY,DEC);
-            Calculate_Frequency(FRQ);            
             numberToFrequency(calc_frequency-25,FRQ);
+            Calculate_Frequency(FRQ);            
           break; // 'D'
           case 'M':
             Serial.print("pressedKEY");
