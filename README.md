@@ -7,21 +7,21 @@ New generation Modifications for ASELSAN 4822... Added many many features...
 
 TODO List:
 ----------
-//TODO: join 4822 and 4826 in one code
-//TODO: add PC routines
-//TODO: fix keypad entry speed
-//TODO: add antenna test step size and upper lower freq limits
-//TODO: fix power on/offissues
-//TODO: fix CTCSS tone signal
-//TODO: add internal (onboard) eeprom usage
-//TODO: fix memory structure for channels
-//TODO: add callsign change feature
-//TODO: try to add packet radio AX25 and/or APRS
-//TODO: add scan function
-//TODO: add dual watch
-//TODO: try to add squelch level control
-//TODO: add end beep
-//TODO: Add SWR alarm
-//TODO: Power control using DAC
+- join 4822 and 4826 in one code
+- add PC routines
+- fix keypad entry speed
+- add antenna test step size and upper lower freq limits
+- fix power on/offissues
+- fix CTCSS tone signal
+- add internal (onboard) eeprom usage
+- fix memory structure for channels
+- add callsign change feature
+- try to add packet radio AX25 and/or APRS
+- add scan function
+- add dual watch
+- try to add squelch level control
+- add end beep
+- Add SWR alarm
+- Power control using DAC
   
 
