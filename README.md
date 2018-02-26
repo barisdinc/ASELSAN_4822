@@ -1,15 +1,12 @@
-# ASELSAN_4822
-New generation Modifications for ASELSAN 4822... Added many many features...
-
-
-
+# ASELSAN 4822 , ASELSAN 4826 , ASELSAN 4926
+Aselsan 48XX serisi cihazlara yeni özellikler kazandıran dönüşüm kiti yazılımı.
 
 
 TODO List:
 ----------
 - join 4822 and 4826 in one code
 - add PC routines
-- fix keypad entry speed - Fixed - v1.0b
+#- fix keypad entry speed - Fixed - v1.0b
 - add antenna test step size and upper lower freq limits
 - fix power on/offissues
 - fix CTCSS tone signal
