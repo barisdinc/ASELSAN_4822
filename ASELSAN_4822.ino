@@ -2,10 +2,10 @@
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
 #include "./libraries/fontsandicons.h"
-
+#include "./libraries/PinChangeInt.h"
 //TODO: join 4822 and 4826 in one code
 //TODO: add PC routines
-//TODO: fix keypad entry speed
+//TODO: fix keypad entry speed - Fixed V.1.0b
 //TODO: add antenna test step size and upper lower freq limits
 //TODO: fix power on/offissues
 //TODO: fix CTCSS tone signal
@@ -221,6 +221,12 @@ const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 float minSWR;
 long lowestFRQ;
 long highestFRQ;
+void KeyPadInterrupt()
+{
+ //Serial.println("INTTERPUT");
+ detachPinChangeInterrupt(KeypadIntPin);
+ KeyVal = digitalRead(KeypadIntPin);
+}			   
 
 
 // Initialize the LCD
@@ -266,7 +272,7 @@ void Greetings() {
  MSG[7] = EEPROM.read(16);
  MSG[8] = 0;
  writeToLcd(MSG);
- delay(500);
+ delay(1000);
  MSG[0] = EEPROM.read(3);
  MSG[1] = EEPROM.read(4);
  MSG[2] = EEPROM.read(5);
@@ -671,7 +677,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
  EEPROM.write(15,'0'); // Message
- EEPROM.write(16,' '); // Message
+ EEPROM.write(16,'B'); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -827,7 +833,9 @@ void setup() {
   pinMode(REF_POWER_PIN, INPUT);
 
 
-  pinMode(KeypadIntPin,    INPUT);
+  //pinMode(KeypadIntPin,    INPUT);
+	pinMode(KeypadIntPin, INPUT_PULLUP);
+  attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
   pinMode(pll_clk_pin, OUTPUT);
   pinMode(pll_data_pin,OUTPUT);
   pinMode(pll_ena_pin, OUTPUT);
