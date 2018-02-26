@@ -6,7 +6,7 @@ TODO List:
 ----------
 - join 4822 and 4826 in one code
 - add PC routines
-#- fix keypad entry speed - Fixed - v1.0b
+- fix keypad entry speed - Fixed - v1.0b
 - add antenna test step size and upper lower freq limits
 - fix power on/offissues
 - fix CTCSS tone signal
