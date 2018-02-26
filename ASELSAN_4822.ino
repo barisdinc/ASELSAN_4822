@@ -3,6 +3,23 @@
 #include <avr/pgmspace.h>
 #include "fontsandicons.h"
 
+//TODO: join 4822 and 4826 in one code
+//TODO: add PC routines
+//TODO: fix keypad entry speed
+//TODO: add antenna test step size and upper lower freq limits
+//TODO: fix power on/offissues
+//TODO: fix CTCSS tone signal
+//TODO: add internal (onboard) eeprom usage
+//TODO: fix memory structure for channels
+//TODO: add callsign change feature
+//TODO: try to add packet radio AX25 and/or APRS
+//TODO: add scan function
+//TODO: add dual watch
+//TODO: try to add squelch level control
+//TODO: add end beep
+//TODO: Add SWR alarm
+//TODO:  
+
 //8576 LCD Driver settings
 #define NEXTCMD 128     // Issue when there will be more commands after this one
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
@@ -85,7 +102,9 @@ int frqSHIFT = 600;
 #define noSHIFT     0
 #define  SIMPLEX    0 //Just incase that we can use this term for noSHIFT
 #define plusSHIFT   1
-int shiftMODE = minusSHIFT; // we start with noSHIFT (SIMPLEX)
+int shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
+int old_frqSHIFT;       //to store old shift value before entering submenu
+
 
 //Receive/Transmit and PTT
 #define PTT_OUTPUT_PIN 5
@@ -123,6 +142,14 @@ int ALERT_MODE = ALERT_ON;
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
 int TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
+int ctcss_tone_pos = 8;
+float ctcss_tone_list[50] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3,131.8,136.5,141.3,146.3,151.4,156.7,159.8,162.2,165.5,167.9,171.3,173.8,177.3,179.9,183.5,186.2,189.9,192.8,196.6,199.5,203.5,206.5,210.7,218.1,225.7,229.1,233.6,241.8,250.3,254.1};
+int old_ctcss_tone_pos; //to store old tone selection before getting into submenu
+
+
+
+
+
 
 #define SQL_ACTIVE 2 //CHANNEL ACTIVE (SQUELCH) PIN
 #define MUTE_PIN_1 6 //PIN for Audio Muting
@@ -165,7 +192,17 @@ boolean hasNOTE = false; //NOTE sign
 
 byte Position_Signs[8][3] = { 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0 } ; //The signs that appear while printing at position 0 to 7 
 
-
+byte SPKR[3] = { B00000000, B00000000, B10000000 }; //pos 1 
+byte LOOP[3] = { B00000000, B00010000, B00000000 }; //pos 1
+byte LOCK[3] = { B00000000, B10000000, B00000000 }; //pos 1
+byte ARRW[3] = { B00000000, B00010000, B00000000 }; //pos 2
+byte ASEL[3] = { B00000000, B10000000, B00000000 }; //pos 2
+byte MENU[3] = { B00000000, B00000000, B10000000 }; //pos 7
+byte THUN[3] = { B00000000, B00000000, B00100000 }; //pos 7
+byte NOTE[3] = { B00000000, B00000000, B00010000 }; //pos 7
+byte PLUS[3] = { B00100101, B01000000, B00000000 }; //pos 7
+byte MINS[3] = { B00100000, B01000000, B00000000 }; //pos 7
+byte SPLX[3] = { B00000000, B00000000, B00000000 }; //pos 7
 
 // Matrix which hold the LCD data (8 segments * 3 bytes per segment)
 unsigned char matrix[24];
@@ -183,7 +220,57 @@ boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
-
+const unsigned char font[] = {     // only first 20 bits belong to this character, rest is 1 for logica & (AND) operation
+  B00010000, B00000000, B00001111, // _ underscore
+  B00000000, B00000000, B00000000, // space  
+  B01000000, B00000010, B00000000, // / division
+  B00100000, B00000100, B00000000, // - dash  
+  B00000000, B00000000, B00010000, // - dot
+  B11100101, B00000111, B00000000, // * asterix
+  B00000101, B00000000, B00010000, // ! exclamation mark
+  B00000011, B00000010, B00110000, // ? question mark
+  B00000000, B00000011, B00000000, // < less than
+  B11000000, B00000000, B00000000, // > greater than
+  B00010010, B00000000, B01100000, // [ bracket open
+  B00010010, B01100000, B00000000, // ] bracket close 
+  B00100010, B01100100, B01100000, //A
+  B00110010, B01100100, B01100000, //B
+  B00010010, B00000000, B01100000, //C
+  B00010010, B01100000, B01100000, //D
+  B00110010, B00000100, B01100000, //E
+  B00100010, B00000000, B01100000, //F
+  B00110010, B01000100, B01100000, //G
+  B00100000, B01100100, B01100000, //H
+  B00010111, B00000000, B00000000, //I
+  B01000110, B00000000, B01000000, //J
+  B00000101, B00000011, B00000000, //K
+  B00010000, B00000000, B01100000, //L
+  B10000000, B01100010, B01100000, //M
+  B10000000, B01100001, B01100000, //N
+  B00010010, B01100000, B01100000, //O
+  B00100010, B00100100, B01100000, //P
+  B00010010, B01100001, B01100000, //Q
+  B00100010, B00100101, B01100000, //R
+  B00110010, B01000100, B00100000, //S
+  B00000111, B00000000, B00000000, //T
+  B00010000, B01100000, B01100000, //U
+  B10000000, B01100001, B00000000, //V
+  B01000000, B01100001, B01100000, //W
+  B11000000, B00000011, B00000000, //X
+  B10000001, B00000010, B00000000, //Y
+  B01010010, B00000010, B00000000, //Z
+  B00010010, B01100000, B01100000, //O
+  B00000000, B01100010, B00000000, //1
+  B00110010, B00100100, B01000000, //2
+  B00110010, B01100100, B00000000, //3
+  B00100000, B01100100, B00100000, //4
+  B00110010, B01000100, B00100000, //5
+  B00110010, B01000100, B01100000, //6
+  B00000010, B01100000, B00000000, //7
+  B00110010, B01100100, B01100000, //8
+  B00110010, B01100100, B00100000, //9
+  B00000000, B00000000, B11110000, //% Special character to light all segments
+};
 
 //VNA variables
 float minSWR;
@@ -444,13 +531,20 @@ void write_FRQ(unsigned long Frequency) {
     byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
     EEPROM.write(50,FRQ_L); 
     EEPROM.write(51,FRQ_H);  
+    write_SHIFTtoEE(frqSHIFT);
+    write_TONEtoEE(ctcss_tone_pos);
+//    EEPROM.write(52,0x00); // SHFT_L
+//    EEPROM.write(53,0x00); // SHFT_H
+//    EEPROM.write(54,0x00); // TONE
+    
+    
     
     if (TRX_MODE == RX) Frequency = Frequency + 45000L;
     if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
   
-    int R_Counter = 12800 / 25;  //12.8Mhz reference clock, 25Khz step
-    int N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
-    int A_Counter = (Frequency / 25) - (80 * N_Counter);
+    int R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
+    int N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
+    int A_Counter = (Frequency / 12.5) - (80 * N_Counter);
   
     digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
     send_SPIBit(R_Counter,14);
@@ -466,13 +560,61 @@ void write_FRQ(unsigned long Frequency) {
 }
 
 
+void write_SHIFTtoEE(unsigned long FRQshift) {
+   byte FRQshift_L; 
+   byte FRQshift_H;
+   if (shiftMODE==noSHIFT)    {FRQshift_L=0; FRQshift_H=0;}
+   else
+     {
+      FRQshift_L=FRQshift / 256; FRQshift_H=FRQshift - (FRQshift_L * 256); //pozitive shift
+      if (shiftMODE==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
+     }
+   EEPROM.write(52,FRQshift_L); // SHFT_L
+   EEPROM.write(53,FRQshift_H); // SHFT_H
+   Serial.print("Shift Change Written to EE");
+   Serial.println(shiftMODE);
+   Serial.println("shft val :");
+   Serial.println(FRQshift_L);
+   Serial.println(FRQshift_H);
+      
+}
+
+void write_SHIFTtoLCD(unsigned long FRQshift) {
+
+ if (FRQshift>=9975) FRQshift=9975; //upper limit check
+ if (FRQshift<=0)    FRQshift=0;    //lower limit check
+ 
+ char MSG[8];
+ dtostrf(FRQshift, 7, 0, MSG);
+ MSG[8] = 0;
+ writeToLcd(MSG);
+    
+}
+
+void write_TONEtoEE(int tone_pos) {
+
+  if (TONE_CTRL==CTCSS_ON) EEPROM.write(54,tone_pos+128); else EEPROM.write(54,tone_pos); // first bit is TONE STATE
+    
+}
+
+void write_TONEtoLCD(unsigned long tone_pos) {
+ 
+ char MSG[8];
+ dtostrf(ctcss_tone_list[tone_pos], 7, 1, MSG);
+ MSG[8] = 0;
+ writeToLcd(MSG);
+    
+}
+
+
 void SetTone(int toneSTATE) {
   //Serial.println(toneSTATE);
   noTone(ALERT_PIN);
   if (toneSTATE == CTCSS_ON) { 
-    if (TRX_MODE == TX)  tone(TONE_PIN, 88.5);
+    if (TRX_MODE == TX)  tone(TONE_PIN, ctcss_tone_list[ctcss_tone_pos]);
       else noTone(TONE_PIN);
   }
+  write_TONEtoEE(ctcss_tone_pos);
 }
 
 
@@ -578,13 +720,13 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  EEPROM.write(7, 'A'); // Callsign
  EEPROM.write(8, 'T'); // Callsign
  EEPROM.write(9, ' '); // Message
- EEPROM.write(10,' '); // Message
- EEPROM.write(11,'T'); // Message
- EEPROM.write(12,'A'); // Message
- EEPROM.write(13,'M'); // Message
- EEPROM.write(14,'S'); // Message
- EEPROM.write(15,'A'); // Message
- EEPROM.write(16,'T'); // Message
+ EEPROM.write(10,'S'); // Message
+ EEPROM.write(11,'W'); // Message
+ EEPROM.write(12,' '); // Message
+ EEPROM.write(13,'1'); // Message
+ EEPROM.write(14,'.'); // Message
+ EEPROM.write(15,'0'); // Message
+ EEPROM.write(16,' '); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -592,7 +734,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  EEPROM.write(51,0xF0); // FRQ_H (Default frequency 145.600)
  EEPROM.write(52,0x02); // SHFT_L
  EEPROM.write(53,0x58); // SHFT_H
- EEPROM.write(54,0x01); // TONE
+ EEPROM.write(54,0x08); // TONE
  Serial.println("done..");
 }
 
@@ -606,8 +748,30 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
  byte FRQ_H = FrqToStore - ( FRQ_L * 256);
  EEPROM.write(ChannelLocation  ,FRQ_L); 
  EEPROM.write(ChannelLocation+1,FRQ_H);  
- //TODO: Add shift and tone information for the channel
- //TODO: Store power level into channel
+//shiftMODE
+ byte FRQshift_L; 
+ byte FRQshift_H;
+ Serial.print("SHIFT :");
+ Serial.println(shiftMODE);
+ if (shiftMODE==noSHIFT)    {Serial.println("noSHIFT");FRQshift_L=0; FRQshift_H=0;}
+ else
+   {
+    FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
+    if (shiftMODE==minusSHIFT) {FRQshift_L +=128;Serial.println("minusSHIFT");} //first bit is sign bit (negative shift)
+   }
+ EEPROM.write(ChannelLocation+2,FRQshift_L); // SHFT_L
+ EEPROM.write(ChannelLocation+3,FRQshift_H); // SHFT_H
+
+ if (TONE_CTRL==CTCSS_ON) EEPROM.write(ChannelLocation+4,ctcss_tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
+ Serial.println("storing Channel Parameters");
+ Serial.println(ChannelNumber);
+ Serial.println(ChannelLocation);
+ Serial.println(FRQ_L);
+ Serial.println(FRQ_H);
+ Serial.println(FRQshift_L);
+ Serial.println(FRQshift_H);
+ Serial.println(ctcss_tone_pos);
+ 
 }
 
 //Retrieves the requested Memory Channel Information from EEPROM
@@ -619,9 +783,31 @@ void GetMemoryChannel(char mFRQ[9]) {
  byte2 = EEPROM.read(ChannelLocation+1);
  long freq = 130000 + (byte1 * 256) + byte2 ;
  numberToFrequency(freq, FRQ);
- Serial.println(FRQ);
- //strcpy(FRQ_old,FRQ);
- //TODO: retrieve shift, tone and power elvels as well
+ 
+ 
+ byte FRQshift_L = EEPROM.read(ChannelLocation+2);
+ byte FRQshift_H = EEPROM.read(ChannelLocation+3);
+
+ shiftMODE=noSHIFT;//default value for SHIFTMODE
+ if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
+ if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+ frqSHIFT = FRQshift_L * 256 + FRQshift_H;
+
+ ctcss_tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
+ TONE_CTRL=CTCSS_OFF;
+ if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
+ //TONE_CTRL=CTCSS_ON;
+ 
+ Serial.println("retrieving Channel Parameters");
+ Serial.println(ChannelNumber);
+ Serial.println(ChannelLocation);
+ Serial.println(byte1);
+ Serial.println(byte2);
+ Serial.println(FRQshift_L);
+ Serial.println(FRQshift_H);
+ Serial.println(ctcss_tone_pos);
+ Serial.print("SHHIFT ");
+ Serial.println(shiftMODE);
 }
 
 
@@ -642,7 +828,8 @@ void setup() {
  eeprom_state = EEPROM.read(0); // first address tells us eeprom status, if different then 127, we need to initialize eeprom structure for first use
  if (eeprom_state != 127) initialize_eeprom();
  if (eeprom_state != 127) Serial.println("EPROM sifirlaniyor");
-
+ //TODO: remove this for production
+ //initialize_eeprom();
  //Read Last used frequency
  byte byte1,byte2;
  byte1 = EEPROM.read(50);
@@ -650,6 +837,23 @@ void setup() {
  long freq = 130000 + (byte1 * 256) + byte2 ;
  numberToFrequency(freq, FRQ);
  strcpy(FRQ_old,FRQ);
+ 
+ byte FRQshift_L = EEPROM.read(52);
+ byte FRQshift_H = EEPROM.read(53);
+
+ shiftMODE=noSHIFT;//default value for SHIFTMODE
+ if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
+ if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+ frqSHIFT = FRQshift_L * 256 + FRQshift_H;
+
+ ctcss_tone_pos  = EEPROM.read(54) ; // TONE
+ TONE_CTRL=CTCSS_OFF;
+ if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
+ Serial.print("Startu pwith shift : ");
+ Serial.println(frqSHIFT);
+ Serial.print("shiftmode : ");
+ Serial.println(shiftMODE);
+
   
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
@@ -704,7 +908,6 @@ void setup() {
   scrTimer = TimeoutValue;  
 
 
-
   if (pgm_read_byte (32700) != 188)
    while (1) 
     Alert_Tone(ERR_tone);
@@ -756,16 +959,15 @@ void loop() {
 
   
   //Long press on a key detection...
-  
   if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
     else if (KeyVal==1) {
      if (scrTimer==0) { //key released and timeout occured
-       writeToLcd("SELECT   ");
-       delay(500); //TODO do not use DELAY, change to a timer
-       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; }
+//       writeToLcd("SELECT   ");
+//       delay(500); //TODO do not use DELAY, change to a timer
+       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(ctcss_tone_pos); old_ctcss_tone_pos = ctcss_tone_pos;}
        if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
        if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
-       if (pressedKEY=='R') { writeToLcd("REPEAT   "); subMENU = menuRPT;  }
+       if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(frqSHIFT); old_frqSHIFT=frqSHIFT;}
        if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
        delay(500); //TODO do not use DELAY, change to a timer
        scrTimer = TimeoutValue; //Restart the timer
@@ -774,7 +976,6 @@ void loop() {
      }//scrTimer
     }//Keyval==0
 
-  
   
   if (KeyVal != old_KeyVal) { 
     if (KeyVal == 0) Alert_Tone(OK_tone);  
@@ -810,22 +1011,31 @@ void loop() {
     pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
     
   /* -----------------------------------------------------
-  /* SCREEN MODE MENU..  
-  /* ----------------------------------------------------- */
+     SCREEN MODE MENU..  
+     ----------------------------------------------------- */
 
     if (scrMODE == scrMENU)  { 
       if (pressedKEY != 'X') {
         switch (pressedKEY) {
           case 'U':
-            Serial.println("UP");
-            if ( subMENU == menuRPT) frqSHIFT += 25;
+            if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT);}
+            if ( subMENU == menuTONE) { ctcss_tone_pos += 1; if (ctcss_tone_pos>=49) ctcss_tone_pos = 49 ; write_TONEtoLCD(ctcss_tone_pos);}
+            break;
           case 'D':
-            if ( subMENU == menuRPT) frqSHIFT -= 25;            
+            if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
+            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);}
+            
+            break;
           case '#': //means CANCEL
+            if (subMENU == menuRPT)  frqSHIFT = old_frqSHIFT;
+            if (subMENU == menuTONE) ctcss_tone_pos = old_ctcss_tone_pos;
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
             subMENU = menuNONE;
           break; // '#'
           case '*': //means OK
+            if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
+            if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
+            
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
             subMENU = menuNONE;
           break; // '*'
@@ -854,6 +1064,7 @@ void loop() {
             } else { 
               shiftMODE = noSHIFT;
             }
+            write_SHIFTtoEE(frqSHIFT);
           break; //'R'
           case 'B':
             if (TONE_CTRL == CTCSS_OFF) {
@@ -879,14 +1090,10 @@ void loop() {
              SetRFPower(RF_POWER_STATE);           
           break; //'O'
           case 'U':
-            //Serial.print("pressedKEY");
-            //Serial.println(pressedKEY,DEC);
             numberToFrequency(calc_frequency+25,FRQ);
             Calculate_Frequency(FRQ);            
           break; // 'U' 
           case 'D':
-            //Serial.print("pressedKEY");
-            //Serial.println(pressedKEY,DEC);
             numberToFrequency(calc_frequency-25,FRQ);
             Calculate_Frequency(FRQ);            
           break; // 'D'
@@ -984,5 +1191,5 @@ void loop() {
     //Toggle interupt PIN state holder
     old_KeyVal = KeyVal;
    } //KeyVal!=old_keyval
-//  scroll("       TA7W.... MERHABA BIR TELSIZIM, SIMDILIK SADECE YAZI YAZIYORUM... AMA YAKINDA HERSEYIM CALISACAK...   ", 200);
 } //loop
+
