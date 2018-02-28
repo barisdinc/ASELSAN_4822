@@ -1,8 +1,5 @@
-# ASELSAN_4822
-New generation Modifications for ASELSAN 4822... Added many many features...
-
-
-
+# ASELSAN 4822 , ASELSAN 4826 , ASELSAN 4926
+Aselsan 48XX serisi cihazlara yeni özellikler kazandıran dönüşüm kiti yazılımı.
 
 
 TODO List:
