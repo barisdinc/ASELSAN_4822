@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
-#include "./libraries/fontsandicons.h"
+#include "./libraries/fontsandicons.h" 
 //TODO: join 4822 and 4826 in one code
 //TODO: add PC routines
 //TODO: fix keypad entry speed - Fixed V.1.0b
