@@ -1,8 +1,7 @@
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
-#include "./libraries/fontsandicons.h"
-#include "./libraries/PinChangeInt.h"
+#include "./libraries/fontsandicons.h" 
 //TODO: join 4822 and 4826 in one code
 //TODO: add PC routines
 //TODO: fix keypad entry speed - Fixed V.1.0b
@@ -198,7 +197,6 @@ byte Position_Signs[8][3] = { 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0
 
 
 
-
 // Matrix which hold the LCD data (8 segments * 3 bytes per segment)
 unsigned char matrix[24];
 unsigned char chr2wr[3];
@@ -221,12 +219,11 @@ const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 float minSWR;
 long lowestFRQ;
 long highestFRQ;
-void KeyPadInterrupt()
+		   
+ISR(PCINT20_vect)
 {
- //Serial.println("INTTERPUT");
- detachPinChangeInterrupt(KeypadIntPin);
  KeyVal = digitalRead(KeypadIntPin);
-}			   
+}
 
 
 // Initialize the LCD
@@ -764,7 +761,10 @@ void GetMemoryChannel(char mFRQ[9]) {
 
 
 void setup() {
-  
+  cli(); // Turn Off Interrupts
+  PCICR |= 0b00000100;  
+  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
+  sei();
   //
   // Let's prepare the radio
   //
@@ -835,7 +835,7 @@ void setup() {
 
   //pinMode(KeypadIntPin,    INPUT);
 	pinMode(KeypadIntPin, INPUT_PULLUP);
-  attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
+ // attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
   pinMode(pll_clk_pin, OUTPUT);
   pinMode(pll_data_pin,OUTPUT);
   pinMode(pll_ena_pin, OUTPUT);
