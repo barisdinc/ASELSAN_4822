@@ -86,7 +86,6 @@ byte old_KeyVal= 0;
 //int SYS_MODE = SYS_OFF; 
 
 #define PLL_SEC A2
-
 //Band Selection PINS for RX and TX VCOs
 //BS0=0, BS1=0   152.2 Mhz - 172.6 Mhz
 //BS0=0, BS1=1   147.9 Mhz - 165.5 Mhz
@@ -104,7 +103,7 @@ int frqSHIFT = 600;
 #define plusSHIFT   1
 byte shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
 int old_frqSHIFT;       //to store old shift value before entering submenu
-
+byte radio_type = 0;
 
 //Receive/Transmit and PTT
 #define PTT_OUTPUT_PIN 5
@@ -455,7 +454,8 @@ char numberToArray (int Number) //max 4 digits
 boolean Calculate_Frequency (char mFRQ[9]) {
 
   calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
-  if ((calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency
+  if (radio_type==0 && (calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency for VHF
+  else if (radio_type==1 && (calc_frequency >= 406000L) & (calc_frequency <= 470000L)) return true; //valid frequency for UHF
   else 
     {
       Alert_Tone(ERR_tone);
@@ -464,16 +464,48 @@ boolean Calculate_Frequency (char mFRQ[9]) {
 }
 
 void write_FRQ(unsigned long Frequency) {
-// 0 0     152.2   172.6
-// 0 1     147.9   165.5
-// 1 0     141.6   157.1
-// 1 1     137.2   151.4
+//VHF BAND SELECTION  
+//BS0 BS1
+// 0  0     152.2   172.6
+// 0  1     147.9   165.5
+// 1  0     141.6   157.1
+// 1  1     137.2   151.4
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| VHF        | 152.2   172.6 |   0 |   0 |
+//|            | 147.9   165.5 |   0 |   1 |
+//|            | 141.6   157.1 |   1 |   0 |
+//|            | 137.2   151.4 |   1 |   1 |
+//+------------+---------------+-----+-----+
+
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| UHF        | 406.0   418.0 |   1 |   1 |
+//|            | 418.0   430.0 |   0 |   1 |
+//|            | 440.0   455.0 |   1 |   1 |
+//|            | 455.0   470.0 |   0 |   1 |
+//+------------+---------------+-----+-----+
+
+
+
   if (validFRQ) {
+    if(radio_type==0)
+    {
     if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
     if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
     if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
     if ((Frequency < 146000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
-
+    }
+    else if(radio_type==1)
+    {
+    if ((Frequency < 470000L) & Frequency >= (455000L))  { digitalWrite(BAND_SELECT_0, LOW); digitalWrite(BAND_SELECT_1, HIGH); }
+    if ((Frequency < 455000L) & Frequency >= (440000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH);  }
+    if ((Frequency < 430000L) & Frequency >= (418000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); }  
+    if ((Frequency < 418000L) & Frequency >= (406000L))  { digitalWrite(BAND_SELECT_0, HIGH);  digitalWrite(BAND_SELECT_1, HIGH);  }
+    }
+    
     // Update EEPROM for last used Frequncy
     double UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     byte FRQ_L = UpdatedFrq / 256;
@@ -783,6 +815,7 @@ void setup() {
  //TODO: remove this for production
  //initialize_eeprom();
  //Read Last used frequency
+ radio_type = EEPROM.read(17);//UHF VHF Seçimi
  byte byte1,byte2;
  byte1 = EEPROM.read(50);
  byte2 = EEPROM.read(51);
