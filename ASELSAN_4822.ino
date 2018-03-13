@@ -831,6 +831,8 @@ void setup() {
  if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
+ if (frqSHIFT = 0) frqSHIFT=600; 
+	
  ctcss_tone_pos  = EEPROM.read(54) ; // TONE
  TONE_CTRL=CTCSS_OFF;
  if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
