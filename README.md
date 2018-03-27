@@ -21,4 +21,4 @@ TODO List:
 - Add SWR alarm
 - Power control using DAC
 - The debug mnessages printed using Serial.print should be placed in a function (debug()) and altered using a macro  
-
+- Add UHF Shift Function
