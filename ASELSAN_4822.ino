@@ -628,8 +628,8 @@ void Alert_Tone(int ToneType)
 {
   if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
   noTone(TONE_PIN); //First silence the TONE output first
-  //if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
- // if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
   delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
   SetTone(TONE_CTRL);
   
@@ -720,11 +720,11 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(1, 1);   //Version is 1.0
  EEPROM.write(2, 0);   //
  EEPROM.write(3, 'T'); // Callsign
- EEPROM.write(4, 'O'); // Callsign
- EEPROM.write(5, 'Y'); // Callsign
- EEPROM.write(6, 'G'); // Callsign
+ EEPROM.write(4, 'A'); // Callsign
+ EEPROM.write(5, 'M'); // Callsign
+ EEPROM.write(6, 'S'); // Callsign
  EEPROM.write(7, 'A'); // Callsign
- EEPROM.write(8, 'R'); // Callsign
+ EEPROM.write(8, 'T'); // Callsign
  EEPROM.write(9, ' '); // Message
  EEPROM.write(10,'S'); // Message
  EEPROM.write(11,'W'); // Message
@@ -741,7 +741,7 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(52,0x02); // SHFT_L
  EEPROM.write(53,0x58); // SHFT_H
  EEPROM.write(54,0x08); // TONE
-Serialprint("done..");
+ Serialprint("done..");
 }
 
 // Stores frequency data to the desired EEPROM location
@@ -1077,16 +1077,14 @@ void loop() {
              SetRFPower(RF_POWER_STATE);           
           break; //'O'
           case 'U':
-            numberToFrequency(calc_frequency+1000,FRQ);
-            //delay(1000);
+            numberToFrequency(calc_frequency+25,FRQ);
             Calculate_Frequency(FRQ);  
-          //  delay(1000);
             write_FRQ(calc_frequency); 
-           // delay(2000);
           break; // 'U' 
           case 'D':
             numberToFrequency(calc_frequency-25,FRQ);
-            Calculate_Frequency(FRQ);            
+            Calculate_Frequency(FRQ);
+             write_FRQ(calc_frequency);             
           break; // 'D'
           case 'M':
            Serialprint("pressedKEY");
