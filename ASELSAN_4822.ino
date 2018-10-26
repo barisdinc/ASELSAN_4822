@@ -103,7 +103,7 @@ int frqSHIFT = 600;
 #define noSHIFT     0
 #define  SIMPLEX    0 //Just incase that we can use this term for noSHIFT
 #define plusSHIFT   1
-byte shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
+int shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
 int old_frqSHIFT;       //to store old shift value before entering submenu
 byte radio_type = 0;
 
