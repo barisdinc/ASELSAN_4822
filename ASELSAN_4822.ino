@@ -720,11 +720,11 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(1, 1);   //Version is 1.0
  EEPROM.write(2, 0);   //
  EEPROM.write(3, 'T'); // Callsign
- EEPROM.write(4, 'O'); // Callsign
- EEPROM.write(5, 'Y'); // Callsign
- EEPROM.write(6, 'G'); // Callsign
+ EEPROM.write(4, 'A'); // Callsign
+ EEPROM.write(5, 'M'); // Callsign
+ EEPROM.write(6, 'S'); // Callsign
  EEPROM.write(7, 'A'); // Callsign
- EEPROM.write(8, 'R'); // Callsign
+ EEPROM.write(8, 'T'); // Callsign
  EEPROM.write(9, ' '); // Message
  EEPROM.write(10,'S'); // Message
  EEPROM.write(11,'W'); // Message
