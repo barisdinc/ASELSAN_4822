@@ -1,0 +1,78 @@
+[10:19, 7/26/2019] Baris DINC: 8155 in PC0 i
+---> 37 ile 40 numarali bacagin kisa devre olma durumu... Bu durum gondermede mikrofonu kapali tutmak icin kullaniliyor 
+normalde. Bzai mikrofonlar mandala basinca mikrofon kapsulunu bagliyor ama bazilarinda hep bagli. Bu durumda alici 
+tarafina ses siziyor ve dinlemede kendi mikrofonumuza olan konuslmalarimizi duyuyoruz hoparlorden. Bunu engellemek 
+icin PTT nin basildigi durumda mikrofon MUTE u kapatmayi dusundugumuz icin ayormistik. Ama 37 yi hicbiryere baglamamisiz.
+Bunu ilerde baska durumalr icin de (APRS sinyali olusturmak vb) kullanabiliriz.. yani APRS tonu bastigimizda normal 
+mikrofonu mute etmek gibi.
+Ya da kolayca PTT sinyalinin tersi olan bu sinyali bir BJT transistor ile surerek devam edebiliriz.. duruma gore karar verilecek
+
+[10:29, 7/26/2019] Baris DINC: @Karagoz TA2GY abi acilista TAMSAT yazisinin yaninda SW 1.0B gibi birsey yaziyor mu
+[10:29, 7/26/2019] Baris DINC: ya da ne yaziyor ?
+[11:06, 7/26/2019] Karagoz TA2GY: Evet, burası mic enable ise, sanırım sorun bu. Pcb revizyonu isteğinde, sebeplerini bilmiyorum, 24 boşken 25 ile birleştirilmiş, 37 ve 40 birbirine bağlıyken 37 boşta bırakılmıştı. Ama yazılımda da buna uygun birşeyler düzenlenecekti.
+37. Pin denemesini akşam yapabileceğim.
+[11:07, 7/26/2019] Karagoz TA2GY: Çok hızlı geçiyor. Okuyamamıştım.
+[11:07, 7/26/2019] Baris DINC: ok
+[11:08, 7/26/2019] Baris DINC: evet sanirim bi kartta bagliydi.. oyle olunca orjinal mikrofon kullanmayanlari sesi cihazin hoparlorunden cikiyordu.. bunu bir pine baglayip sadece PTT ye basildiginda devreye alalim demistik.. SIMDI hatirladim ben de ;)
+[11:08, 7/26/2019] Baris DINC: su durumda 37 ve 40 kisadevre degil sanirim
+[11:08, 7/26/2019] Baris DINC: 37 de MCU ya bir yere mi gidiyor ?
+[11:08, 7/26/2019] Baris DINC: oyle ise KODDA hemen hizlica bir duzenleme yapabirilirim sanirim
+[11:09, 7/26/2019] Karagoz TA2GY: 37 boşta 40 MCU ya.
+[11:18, 7/26/2019] Baris DINC: 40 power degil miydi zaten
+[11:22, 7/26/2019] Karagoz TA2GY: evet gördüm, 40.pin 5v imiş.
+[11:22, 7/26/2019] Baris DINC: arduino nun kacinci bacagina gidiyor?
+[11:22, 7/26/2019] Baris DINC: buyuk ihtimal 40 degil 37 yi goturursek duzelecek
+[11:22, 7/26/2019] Baris DINC: ya da 37 ile 40 i kisadevre edince
+[11:28, 7/26/2019] Karagoz TA2GY: ardu 27. bacak 5v ....37 ile 40 kısadevre hali eski hal...niye ayrılması istenmişti?
+[11:29, 7/26/2019] Baris DINC: ok.. ordada 5v ise dogru.. aynen kalacak
+[11:30, 7/26/2019] Baris DINC: 37 eskiden 40 ile birlikte mikrofon herzaman enable idi.. mikrofon kendi icinde mandalla mikrofon kapslunu ayirmiyorsa (cengiz hocaninki gibi) hoparlorden ses duyuyorduk hatirlarsan
+[11:30, 7/26/2019] Baris DINC: 37 yi ayirip arduino nun bir pinine takip mandala basinda devreye girmesini saglayacaktik sanirim...
+[11:30, 7/26/2019] Baris DINC: aslinda bunu PTT ye baglayabilriiz ama sanirim sinyal ters.. PTT saseye cekiyor.. enable tarafina +5V lazim
+[11:30, 7/26/2019] Baris DINC: hmmmm.....
+[11:31, 7/26/2019] Baris DINC: sanki simdilik aksam sen bi 37 ile 40 i kisadevre etmeyi dene
+[11:31, 7/26/2019] Baris DINC: hersey yolunda ise ben bir cozum ureteyim o ise
+[11:31, 7/26/2019] Karagoz TA2GY: 👍
+[21:34, 7/26/2019] Karagoz TA2GY: 37 ile 40 bağlandı ve sorun çözüldü. Eski hale dönmüş olduk.
+[21:35, 7/26/2019] Sahin Kulig: 👍👍
+[22:08, 7/26/2019] Karagoz TA2GY: SW 1.0
+[22:56, 7/26/2019] Baris DINC: Ok
+[22:56, 7/26/2019] Baris DINC: Ok2
+
+
+----> BIRTAKIM HATA TESPITLERI
+
+
+
+1) TX power in kademeli yukselmesi
+
+[00:42, 7/27/2019] Karagoz TA2GY: Freq aşağı yukarı tuşları: Aşağı yukarı tuşları hareket ediyor. Fakat TX yapmadan görüldüğü frekansta RX yapmıyor. TX yapılmazsa daha önceki tx yapılmış frekansta kalıyor,yanıltıyor.
+[00:49, 7/27/2019] Karagoz TA2GY: 2 adet 4822 de de daha önce söylediğim, mandal sonrası çıkış gücünün ~5-6sn sonra normal seviyeye gelmesi. 5-6sn sonra 0.5w dan 2w (veya 15w) çıkıyor. Bundan sonra anlık ardışıklarda beklemiyor. 10-15 sn sonra tekrar mandala basılınca yine o ~5-6sn lik aynı davranış biçimi oluyor.Bu 4822 nin sorunumu anlamadım.
+[10:02, 7/27/2019] Baris DINC: guzel bir BUG tespiti :) . tebrikler
+[10:02, 7/27/2019] Baris DINC: bununla ben de birkac kez karsilastim... sanki bir kapasite sarj suresi var gibi...   @Sahin Kulig
+[10:03, 7/27/2019] Baris DINC: @Sahin Kulig sayin hocam semadan ilgili yeri gostersek bir yorum isteyebiliriz mi sizden acaba :)
+[10:03, 7/27/2019] Baris DINC: ben de bir goz atayim bakalim Cem... sana yazarim
+
+2) frekans yukari asagi tuslarinin devreye girmemesi
+
+[10:09, 7/27/2019] Karagoz TA2GY: 👍🙏. Daha önce TX gecikmesi sorununu değişiklik yapılmamış cihazda görmediğimi hatırlıyorum. TX konusu için bugün değişiklik yapılmamış bir 4822 daha getireceğim.Ondaki durumu da iletirim.
+
+3) Yukari asagi tuslarina uzun sure basinca birsey olmamasi
+
+[10:19, 7/27/2019] Karagoz TA2GY: Freq aşağı yukarı tuşlarında bir şey daha vardı.Dert etmeye değer mi bilmem. ardışık kesikli değilde 1sn den fazla sürekli basılırsa işlev duruyor orada takılı kalıyor. Çentik dışındaki tuşlarla kurtulamıyorsun. Sadece çentik kurtarıyor.
+
+4) MENU islevinin bos olmasi ?????
+
+[10:19, 7/27/2019] Karagoz TA2GY: MENÜ boş,işlev yok demiştim.
+
+5) SQUELCH e uzun basiNCA
+
+[10:20, 7/27/2019] Karagoz TA2GY: SQL uzun basılınca SQL yazıyor,başka işlev yok.
+[10:20, 7/27/2019] Karagoz TA2GY: Yüksek-Alçak güç tuşuna uzun basılınca SCAN yazısı çıkıyor, ama işlev bulamadım.
+[10:21, 7/27/2019] Karagoz TA2GY: Sebebini bilemediğim,daha doğrusu sanırım benim yanlış hareketlerimden veya temassızlıklardan belki de, "bazen" girişlerin yarıda kaldığı takılı kaldığını görüyorum ve kurtulamıyorum. Bundan kurtulmak için aç-kapa yapmam yetmiyor. Gücü kablodan tamamen kesmem gerekiyor.
+[10:29, 7/27/2019] Baris DINC: onu step araligini ayarlayan menuye girmek icin yazmistim.. 5khz, 10khz, 25khz, 50khz, 100khz gibi..... ama menunun icini yazma sansim olmadiydi.. :) . GUZELLLLLLLLLLLL
+[10:30, 7/27/2019] Baris DINC: bunu anlamadim
+[10:31, 7/27/2019] Baris DINC: onu da ileride SQUELCH seviyesini 1-9 ayarlariz gibi dusunmustum.... ama sonra SQUELCH devresine baktim 4822 nin.. sanirim biraz bekleyecek.. cunku normalde orda bi POT var, onun yerine gececek bir PWM ya da DAC yapmamiz lazim.. ama olsa guzel olur.. 4822 orjinalinde de olmayan bir ozellik olur
+[10:31, 7/27/2019] Baris DINC: bunu not edelim
+[10:32, 7/27/2019] Baris DINC: bunu anlamadim
+
+
