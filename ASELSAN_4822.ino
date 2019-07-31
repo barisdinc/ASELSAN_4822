@@ -744,7 +744,7 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(12,' '); // Message
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
- EEPROM.write(15,'2'); // Message
+ EEPROM.write(15,'3'); // Message
  EEPROM.write(16,'B'); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
@@ -1090,7 +1090,8 @@ void loop() {
              SetRFPower(RF_POWER_STATE);           
           break; //'O'
           case 'U':
-            numberToFrequency(calc_frequency+1000,FRQ);
+            //numberToFrequency(calc_frequency+1000,FRQ);
+            numberToFrequency(calc_frequency+25,FRQ);
             //delay(1000);
             Calculate_Frequency(FRQ);  
           //  delay(1000);
@@ -1099,7 +1100,8 @@ void loop() {
           break; // 'U' 
           case 'D':
             numberToFrequency(calc_frequency-25,FRQ);
-            Calculate_Frequency(FRQ);            
+            Calculate_Frequency(FRQ);  
+            write_FRQ(calc_frequency);           
           break; // 'D'
           case 'M':
            Serialprint("pressedKEY");
@@ -1152,7 +1154,7 @@ void loop() {
           break; // '#'
           case '*':
             if (numChar == 2) GetMemoryChannel(FRQ); // User wanted to retrieve the memory channel from EEPRM
-            else strcpy(FRQ,FRQ_old); // Otherwise user wanted to cancel the ongoing operatin=on.. return to previous (old) frequency
+            else strcpy(FRQ,FRQ_old); // Otherwise user wanted to cancel the ongoing operation.. return to previous (old) frequency
             validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
