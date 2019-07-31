@@ -865,7 +865,7 @@ void setup() {
 
   pinMode(PTT_INPUT_PIN,  INPUT_PULLUP);
   pinMode(PTT_OUTPUT_PIN, OUTPUT);
-  digitalWrite(PTT_OUTPUT_PIN, HIGH); //No PTT at startup
+  digitalWrite(PTT_OUTPUT_PIN, LOW); //No PTT at startup
 
   pinMode(FWD_POWER_PIN, INPUT);
   pinMode(REF_POWER_PIN, INPUT);
@@ -931,8 +931,8 @@ void loop() {
     LST_MODE = TRX_MODE;
     write_FRQ(calc_frequency); //Update frequenct on every state change
   }
-  if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,LOW); // now start transmitting
-    else digitalWrite(PTT_OUTPUT_PIN, HIGH);
+  if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
+    else digitalWrite(PTT_OUTPUT_PIN, LOW);
 
   SetTone(TONE_CTRL); //Change Tone Generation State
 
@@ -1115,11 +1115,11 @@ void loop() {
                 validFRQ = Calculate_Frequency(FRQ);
                 write_FRQ(calc_frequency);
                 writeFRQToLcd(FRQ);
-                digitalWrite(PTT_OUTPUT_PIN,LOW);
+                digitalWrite(PTT_OUTPUT_PIN,HIGH);
                 delay(50);
                 readRfPower(); //TODO: Move under a menu item
                 delay(25);
-                digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                digitalWrite(PTT_OUTPUT_PIN,LOW);
               }
               //Restoring OLD values or displaying the best frequency
               SetRFPower(RF_POWER_STATE);
