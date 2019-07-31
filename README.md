@@ -22,3 +22,13 @@ TODO List:
 - Power control using DAC
 - The debug mnessages printed using Serial.print should be placed in a function (debug()) and altered using a macro  
 - Add UHF Shift Function
+
+
+ONEMLI GUNCELLEME :
+------------------
+PTT kontrolu icin TAMSAT Kit uzerindeki PTT cikisini ana kontrol karti uzerindeki J2'nin 3. pinine bagliyorduk. Ancak bu durumun dogru olmadigini farkettik ve J2'nin 3.pini yerine 8155 entegresini soktugumuz bacaklarindan 26 numarali bacaga lehimlemek gerekmektedir.
+1 Agustoz 2019 tarihinden sonra hazirlanan HEX dosyalarini yuklediginizde, kartiniz uzerinde PTT out un bu 26 numarali bacaga baglanmis oldugu duruma gore calisacaktir, eski cihazlarda (yani bu modifikasyonun / duzenlemenin yapilmadigi cihazlarda PTT islevi ters calisacaktir)
+Baglantinin nasil yapilacagi detayi icin guncellenmis olan modifikasyon dokumanindan inceleyiniz.
+
+
+
