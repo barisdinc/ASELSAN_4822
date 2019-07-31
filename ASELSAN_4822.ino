@@ -1,6 +1,11 @@
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
+//#if defined(AVR)
+//#include <avr/pgmspace.h>
+//#else  //defined(AVR)
+//#include <pgmspace.h>
+//#endif  //defined(AVR)
 #include "./libraries/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
 //TODO: join 4822 and 4826 in one code
@@ -221,11 +226,19 @@ const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 float minSWR;
 long lowestFRQ;
 long highestFRQ;
-		   
+
+
+
+//Function definitions
+//TODO: move these to a header file
+void StreamPrint_progmem(Print &out,PGM_P format,...);
+
+//Interrupts       
 ISR(PCINT20_vect)
 {
  KeyVal = digitalRead(KeypadIntPin);
 }
+
 
 
 // Initialize the LCD
@@ -731,7 +744,7 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(12,' '); // Message
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
- EEPROM.write(15,'0'); // Message
+ EEPROM.write(15,'2'); // Message
  EEPROM.write(16,'B'); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
