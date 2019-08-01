@@ -744,7 +744,7 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(12,' '); // Message
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
- EEPROM.write(15,'3'); // Message
+ EEPROM.write(15,'4'); // Message
  EEPROM.write(16,'B'); // Message
 
  for (int location=17;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
@@ -830,7 +830,7 @@ void setup() {
  eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
  if (eeprom_state != 127) initialize_eeprom();
  if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor");
- initialize_eeprom();
+ //initialize_eeprom();
  //Read Last used frequency
  radio_type = EEPROM.read(17);//UHF VHF Seçimi
  byte byte1,byte2;
