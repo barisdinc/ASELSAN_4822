@@ -110,7 +110,7 @@ int frqSHIFT = 600;
 #define plusSHIFT   1
 int shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
 int old_frqSHIFT;       //to store old shift value before entering submenu
-byte radio_type = 1;
+byte radio_type = 0; //0 VHF 1 UHF
 
 //Receive/Transmit and PTT
 #define PTT_OUTPUT_PIN 5
@@ -748,8 +748,8 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(12,' '); // Message
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
- EEPROM.write(15,'6'); // Message
- EEPROM.write(16,'C'); // Message
+ EEPROM.write(15,'7'); // Message
+ EEPROM.write(16,'A'); // Message
  EEPROM.write(17,1); // Program device as VHF=0 or UHF=1
 
  for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
