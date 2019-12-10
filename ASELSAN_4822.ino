@@ -8,7 +8,6 @@
 //#endif  //defined(AVR)
 #include "./libraries/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
-//TODO: join 4822 and 4826 in one code
 //TODO: add PC routines
 //TODO: fix keypad entry speed - Fixed V.1.0b
 //TODO: add antenna test step size and upper lower freq limits
@@ -102,15 +101,18 @@ byte old_KeyVal= 0;
 #define BAND_SELECT_1  11
 #define BAND_SELECT_0  8
 
+//RADIO Type
+byte radio_type = 0; //0 VHF 1 UHF
+
 //DUPLEX mode Shift Settinngs
-int frqSHIFT = 600;
+int frqSHIFT;
+
 #define minusSHIFT -1
 #define noSHIFT     0
 #define  SIMPLEX    0 //Just incase that we can use this term for noSHIFT
 #define plusSHIFT   1
 int shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
 int old_frqSHIFT;       //to store old shift value before entering submenu
-byte radio_type = 0; //0 VHF 1 UHF
 
 //Receive/Transmit and PTT
 #define PTT_OUTPUT_PIN 5
@@ -734,8 +736,8 @@ void numberToFrequency(long Freq, char *rFRQ) {
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
 Serialprint("initializing EEPROM...");
  EEPROM.write(0, 127); // make eeprom initialized
- EEPROM.write(1, 1);   //Version is 1.0
- EEPROM.write(2, 0);   //
+ EEPROM.write(1, 1);   //Version is 1.7
+ EEPROM.write(2, 7);   //
  EEPROM.write(3, 'T'); // Callsign
  EEPROM.write(4, 'A'); // Callsign
  EEPROM.write(5, 'M'); // Callsign
@@ -749,8 +751,8 @@ Serialprint("initializing EEPROM...");
  EEPROM.write(13,'1'); // Message
  EEPROM.write(14,'.'); // Message
  EEPROM.write(15,'7'); // Message
- EEPROM.write(16,'A'); // Message
- EEPROM.write(17,1); // Program device as VHF=0 or UHF=1
+ EEPROM.write(16,'C'); // Message
+ EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
 
  for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -764,8 +766,16 @@ if (radio_type == 0)
  EEPROM.write(50,0x0A); // FRQ_L
  EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
  }
- EEPROM.write(52,0x02); // SHFT_L
- EEPROM.write(53,0x58); // SHFT_H
+ if (radio_type==0)
+  {
+   EEPROM.write(52,0x02); // SHFT_L
+   EEPROM.write(53,0x58); // SHFT_H
+  } else
+  {
+   EEPROM.write(52,0x1D); // SHFT_L
+   EEPROM.write(53,0xB0); // SHFT_H    
+  }
+ 
  EEPROM.write(54,0x08); // TONE
 Serialprint("done..");
 }
@@ -793,7 +803,12 @@ if (radio_type==0)
  byte FRQshift_L; 
  byte FRQshift_H;
  Serialprint("SHIFT : %d \n\r",shiftMODE);
- if (shiftMODE==noSHIFT)    {Serialprint("noSHIFT \n\r");FRQshift_L=0; FRQshift_H=0;}
+ if (shiftMODE==noSHIFT)    
+   {
+    Serialprint("noSHIFT \n\r");
+    FRQshift_L=0; 
+    FRQshift_H=0;
+    }
  else
    {
     FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
@@ -833,9 +848,10 @@ if (radio_type==0)
  byte FRQshift_H = EEPROM.read(ChannelLocation+3);
 
  shiftMODE=noSHIFT;//default value for SHIFTMODE
- if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
- if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+ if ((FRQshift_L>0) || (FRQshift_H>0)) shiftMODE=plusSHIFT;
+ if ( FRQshift_L>127) {FRQshift_L=FRQshift_L - 128; shiftMODE=minusSHIFT;}
  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
+
 
  ctcss_tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
  TONE_CTRL=CTCSS_OFF;
@@ -858,6 +874,14 @@ void setup() {
  Serial.begin(57600);
  #endif
 
+if (radio_type == 1)
+  { 
+    frqSHIFT = 600;
+  } else
+  {
+    frqSHIFT = 7600;
+  }
+
  Serialprint("Init Start \n\r");
  //Serial.println("Init start");
  // Check EEPROM for stored values
@@ -865,7 +889,7 @@ void setup() {
  eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
  if (eeprom_state != 127) initialize_eeprom();
  if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
- //initialize_eeprom();
+// initialize_eeprom();
  //Read Last used frequency
  radio_type = EEPROM.read(17);//UHF VHF Seçimi
  byte byte1,byte2;
@@ -893,8 +917,7 @@ void setup() {
  if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
- if (frqSHIFT = 0) frqSHIFT=600; 
-	
+
  ctcss_tone_pos  = EEPROM.read(54) ; // TONE
  TONE_CTRL=CTCSS_OFF;
  if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
