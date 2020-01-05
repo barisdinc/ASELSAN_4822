@@ -3,6 +3,8 @@
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
+#include <math.h>
+#include <stdio.h>
 //#if defined(AVR)
 //#include <avr/pgmspace.h>
 //#else  //defined(AVR)
@@ -33,7 +35,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 4
+#define SW_MINOR 5
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -89,6 +91,9 @@ byte old_KeyVal= 0;
 
 #define FWD_POWER_PIN A6
 #define REF_POWER_PIN A7
+
+//Will be used for toogling PTT from serial port
+bool pttToggler = false;
 
 //#define POWER_ON_PIN A2
 //#define POWER_ON_OFF A3
@@ -150,12 +155,15 @@ byte ALERT_MODE = ALERT_ON;
 
 
 //Tone Control For CTCSS tones
-#define TONE_PIN  3  //D3 is our tone generation PIN (PWM)
+#define MIC_PIN  3  //D3 is our tone generation PIN (PWM)
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
 byte TONE_CTRL = CTCSS_ON; //we start without CTCSS Tone Control
 byte ctcss_tone_pos = 8;
 #define TOTAL_TONES 20
+#define TONE_CORRECTION 0.7 //tone shift correction
+//Cem ile digital role tetsi yapiyoruz
+//float ctcss_tone_list[18] = { 87.70, 87.75,87.80,87.85 ,87.9 ,87.95,88.0,88.05,88.1,88.15,88.2,88.25,88.3,88.35,88.4,88.45,88.5};
 float ctcss_tone_list[TOTAL_TONES] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3};
 //float ctcss_tone_list[50] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3,131.8,136.5,141.3,146.3,151.4,156.7,159.8,162.2,165.5,167.9,171.3,173.8,177.3,179.9,183.5,186.2,189.9,192.8,196.6,199.5,203.5,206.5,210.7,218.1,225.7,229.1,233.6,241.8,250.3,254.1};
 byte old_ctcss_tone_pos; //to store old tone selection before getting into submenu
@@ -227,6 +235,64 @@ long highestFRQ;
 String commandString = "";         // a String to hold incoming commands
 bool commandComplete = false;  // whether the command is complete
 String CALLSIGN = "TAMSAT";
+
+//APRS Defines
+// Defines the Square Wave Output Pin
+#define _1200   1
+#define _2400   0
+
+#define _FLAG       0x7e
+#define _CTRL_ID    0x03
+#define _PID        0xf0
+#define _DT_EXP     ','
+#define _DT_STATUS  '>'
+#define _DT_POS     '!'
+
+#define _FIXPOS         1
+#define _STATUS         2
+#define _FIXPOS_STATUS  3
+
+bool nada = _2400;
+const float baud_adj = 0.975;
+const float adj_1200 = 1.0 * baud_adj;
+const float adj_2400 = 1.0 * baud_adj;
+unsigned int tc1200 = (unsigned int)(0.5 * adj_1200 * 1000000.0 / 1200.0);
+unsigned int tc2400 = (unsigned int)(0.5 * adj_2400 * 1000000.0 / 2400.0);
+
+const char *mycall = "TA7W";
+char myssid = 1;
+const char *dest = "APRS";
+const char *digi = "WIDE2";
+char digissid = 1;
+String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
+const char *lat = "6009.43N";
+const char *lon = "02442.13E";
+const char sym_ovl = 'H';
+const char sym_tab = 'd';
+unsigned int APRS_Timeout = 300;
+unsigned int APRS_Counter = 0;
+
+char bit_stuff = 0;
+unsigned short crc=0xffff;
+
+void set_nada_1200(void);
+void set_nada_2400(void);
+void set_nada(bool nada);
+
+void send_char_NRZI(unsigned char in_byte, bool enBitStuff);
+void send_string_len(String in_string, int len);
+
+void calc_crc(bool in_bit);
+void send_crc(void);
+
+void send_packet(char packet_type);
+void send_flag(unsigned char flag_len);
+void send_header(void);
+void send_payload(char type);
+
+void set_io(void);
+
+
 
 //Function definitions
 //TODO: move these to a header file
@@ -450,7 +516,7 @@ void send_SPIEnable() {
   digitalWrite(pll_ena_pin, LOW);    // Then back low  
 }
 
-
+/*
 char numberToArray (int Number) //max 4 digits
 {
 //TODO: 
@@ -462,7 +528,7 @@ char numberToArray (int Number) //max 4 digits
   
   
 }
-
+*/
 boolean Calculate_Frequency (char mFRQ[9]) {
 
   calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
@@ -500,28 +566,28 @@ void write_FRQ(unsigned long Frequency) {
 //|            | 455.0   470.0 |   0 |   0 |
 //+------------+---------------+-----+-----+
 
-double UpdatedFrq;
-float divider = 0;
+double UpdatedFrq = 0;
+//float divider = 0;
   if (validFRQ) {
     if(radio_type==0)
     {
-    if ((Frequency < 174000L) & Frequency >= (164000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
-    if ((Frequency < 164000L) & Frequency >= (154000L))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
-    if ((Frequency < 154000L) & Frequency >= (144000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
-    if ((Frequency < 146000L) & Frequency >= (134000L))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+    if ((Frequency < 174000L) & (Frequency >= (164000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
+    if ((Frequency < 164000L) & (Frequency >= (154000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
+    if ((Frequency < 154000L) & (Frequency >= (144000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
+    if ((Frequency < 146000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
     // Update EEPROM for last used Frequncy
     UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
 
     }
     else if(radio_type==1)
     {
-       if ((Frequency < 470000L) & Frequency >= (452000L))  
+       if ((Frequency < 470000L) & (Frequency >= (452000L)))  
           {
             //Serialprint("UHF 4: [468.400-452.000]"); 
             digitalWrite(BAND_SELECT_0, LOW); 
             digitalWrite(BAND_SELECT_1, LOW); 
           }
-       if ((Frequency < 452000L) & Frequency >= (430000L))  
+       if ((Frequency < 452000L) & (Frequency >= (430000L)))  
           {
             //Serialprint("UHF 3: [430.000-451.99]"); 
             digitalWrite(BAND_SELECT_0, HIGH); 
@@ -636,8 +702,8 @@ void write_TONEtoLCD(unsigned long tone_pos) {
 void SetTone(int toneSTATE) {
   noTone(ALERT_PIN);
   if (toneSTATE == CTCSS_ON) { 
-    if (TRX_MODE == TX)  tone(TONE_PIN, ctcss_tone_list[ctcss_tone_pos]);
-      else noTone(TONE_PIN);
+    if (TRX_MODE == TX)  tone(MIC_PIN, ctcss_tone_list[ctcss_tone_pos]);
+      else noTone(MIC_PIN);
   }
   write_TONEtoEE(ctcss_tone_pos);
 }
@@ -646,7 +712,7 @@ void SetTone(int toneSTATE) {
 void Alert_Tone(int ToneType)
 {
   if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
-  noTone(TONE_PIN); //First silence the TONE output first
+  noTone(MIC_PIN); //First silence the TONE output first
   //if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
  // if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
   delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
@@ -655,7 +721,8 @@ void Alert_Tone(int ToneType)
   //SetTone(TONE_CTRL); //resume Tone Generation 
 }
 
-void SetRFPower(int rfpowerSTATE) {
+//void SetRFPower(int rfpowerSTATE) {
+void SetRFPower() {
     digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
 }
 
@@ -869,6 +936,7 @@ if (radio_type==0)
 
 void PrintMenu()
 {  
+//  print_version();
   Serialprint("ASELSAN 48xx - TAMSAT Kit\n\r");
   Serialprint("-------------------------\n\r");
   Serialprint("Y-Yardim                 \n\r");
@@ -877,11 +945,14 @@ void PrintMenu()
   Serialprint("A-Acilis Ekrani Degistir \n\r");
   Serialprint("F-Frekans Sinirlari      \n\r");
   Serialprint("V-Analizor Sinirlari     \n\r");
+  Serialprint("T-APRS sessizlik suresi  \n\r");
+  Serialprint("M-APRS Mesaji            \n\r");  
   Serialprint("Seciminiz >");
 }
 
 void commandYardim(char komut)
 {
+  /*
   Serial.print("Yardim Menusu\r\n=====================\r\n");
   if (komut=='\n')
   {
@@ -899,8 +970,17 @@ void commandYardim(char komut)
   {
     Serial.print("Kullanimi:   H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4] \r\n");
     Serial.print("Ornek:       H 01 ROLE-0 145600 +0600 0885 \r\n");
+  } else if (komut == 'T')
+  {
+    Serial.print("Kullanimi:   T [3 basamakli olarak Sure (saniye) (000-999)] \r\n");
+    Serial.print("Ornek:       T 300\r\n");
+  } else if (komut == 'M')
+  {
+    Serial.print("Kullanimi:   M [MESAJ (maksimum 30 karakter) \r\n");
+    Serial.print("Ornek:       M Merhaba, Ben BARIS DINC - OH2UDS  \r\n");
   }
   
+*/  
 }
 
 
@@ -936,6 +1016,32 @@ void commandHafiza()
   Serial.println("Henuz bu komut yazilmadi.");
 }
 
+void commandAPRSSure()
+{
+  Serial.print("APRS bekleme suresi ");
+  Serial.print(commandString.substring(2,5));
+  Serial.println(" olarak duzenlendir");
+  APRS_Timeout = commandString.substring(2,3).toInt();
+  
+}
+
+void commandAPRSMesaj()
+{
+  Serial.print("APRS mesajiniz '");
+  Serial.print(commandString.substring(2,30));
+  Serial.println("' olarak duzenlendi");
+  APRS_Mesaj = commandString.substring(2,30);
+  Serial.println(APRS_Mesaj);
+  
+}
+
+void commandTogglePTT()
+{
+  pttToggler = !pttToggler; 
+  if (pttToggler) Serial.println("Transmitting...");
+  else Serial.println("Receiving...");
+  
+}
 
 void setup() {
   cli(); // Turn Off Interrupts
@@ -962,7 +1068,7 @@ void setup() {
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
   if (eeprom_state != 127) initialize_eeprom();
   // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
-  // initialize_eeprom();
+  //initialize_eeprom();
   //Read Last used frequency
   radio_type = EEPROM.read(17);//UHF VHF Seçimi
   byte byte1,byte2;
@@ -999,7 +1105,7 @@ void setup() {
   //pinMode(POWER_ON_OFF, INPUT);
   //pinMode(POWER_ON_PIN, OUTPUT);
 
-  pinMode(TONE_PIN, OUTPUT);
+  pinMode(MIC_PIN, OUTPUT);
   SetTone(TONE_CTRL);
 
   pinMode(RF_POWER_PIN, OUTPUT); //RF power control is output
@@ -1065,7 +1171,9 @@ void loop() {
   Wire.beginTransmission(PCF8574_KEYB_LED);
   Led_Status = 240;
   if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
+  if (CHANNEL_BUSY==0) APRS_Counter = 0; //If channel is busy, dont transmit APRS, wait the musy to finish and restart counter
   if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
+  if (pttToggler) send_packet(_STATUS);
 
   //Led_Status = Led_Status - yellow_led;
   //Led_Status = Led_Status - red_led;
@@ -1079,18 +1187,25 @@ void loop() {
       else digitalWrite(MUTE_PIN_1, LOW);
 
   TRX_MODE = digitalRead(PTT_INPUT_PIN); //read PTT state
+//  if (pttToggler && TRX_MODE == RX) TRX_MODE = TX; //if pttToggler set from serial, then mode is transmission
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
     write_FRQ(calc_frequency); //Update frequenct on every state change
   }
-  if (TRX_MODE == TX) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
+  if (TRX_MODE == TX ) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, LOW);
 
   SetTone(TONE_CTRL); //Change Tone Generation State
 
   //if (subMENU == menuRPT) writeToLcd(cstr);
 
-
+ //check APRS timer timeout, and send APRS message if timeout reached
+ //TODO: Convert timeout to seconds instead of loop counter
+  APRS_Counter += 1;
+  if (APRS_Counter >= APRS_Timeout * 2000) {
+     send_packet(_FIXPOS_STATUS);
+     APRS_Counter = 0;
+  }
 
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
@@ -1118,6 +1233,8 @@ void loop() {
   
   if (KeyVal != old_KeyVal) { 
     if (KeyVal == 0) Alert_Tone(OK_tone);  
+
+    APRS_Counter = 0; //if a key is pressed, restart the APRS timer
 
     scrTimer = TimeoutValue; //Restart the timer
     int satir,sutun;
@@ -1165,7 +1282,7 @@ void loop() {
             break;
           case 'D':
             if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
-            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos>=19) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);}
+            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);}
             
             break;
           case '#': //means CANCEL
@@ -1198,8 +1315,8 @@ void loop() {
     
     
   /* -----------------------------------------------------
-  /* SCREEN MODE NORMAL.. WE READ FREQUENCY AND OTHER KEYS 
-  /* ----------------------------------------------------- */
+   SCREEN MODE NORMAL.. WE READ FREQUENCY AND OTHER KEYS 
+   ----------------------------------------------------- */
     if (scrMODE == scrNORMAL) { //mode NORMAL and key released
       // Serialprint("src normal pressedKey:%d \n\r  ", pressedKEY);
       if (pressedKEY != 'X') {
@@ -1236,7 +1353,8 @@ void loop() {
              } else {
                 RF_POWER_STATE = HIGH_POWER;
              }
-             SetRFPower(RF_POWER_STATE);           
+//             SetRFPower(RF_POWER_STATE);           
+             SetRFPower();           
           break; //'O'
           case 'U':
             //numberToFrequency(calc_frequency+1000,FRQ);
@@ -1266,10 +1384,9 @@ void loop() {
             //TODO: Put transmitter on low power before operation
             //TODO: If any key pressed cancel VNA operation
             strcpy(FRQ_old,FRQ); //store old frequency for recall
-            int shiftMODE_old;
-            shiftMODE_old = shiftMODE; //store shitODE for recall
             shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
-            SetRFPower(LOW_POWER);
+//            SetRFPower(LOW_POWER);
+            SetRFPower();
             long min_vna_freq;
             long max_vna_freq;
             if (radio_type==0)
@@ -1297,9 +1414,9 @@ void loop() {
                 digitalWrite(PTT_OUTPUT_PIN,LOW);
               }
               //Restoring OLD values or displaying the best frequency
-              SetRFPower(RF_POWER_STATE);
+//              SetRFPower(RF_POWER_STATE);
+              SetRFPower();
               TRX_MODE = RX;
-              //shiftMODE=shiftMODE_old;
               //strcpy(FRQ,FRQ_old);
               numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
@@ -1378,11 +1495,21 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'C') commandCevrim(commandString.charAt(2));
     if (commandString.charAt(0) == 'A') commandAcilis();
     if (commandString.charAt(0) == 'H') commandHafiza();
+    if (commandString.charAt(0) == 'T') commandAPRSSure();
+    if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
+    if (commandString.charAt(0) == 'P') commandTogglePTT();
+    
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
     commandComplete = false;
     Serial.print("\r\nSeciminiz>");
   }
+
+
+//  send_packet(_STATUS);  
+//  delay(tx_delay);
+//  randomize(tx_delay, 10, 5000);
+//  randomize(str_len, 10, 420);
    
 } //loop
 
@@ -1418,3 +1545,326 @@ void serialEvent() {
   }
   sei();
 }
+
+
+
+/*
+ * 
+ */
+void set_nada_1200(void)
+{
+  digitalWrite(MIC_PIN, HIGH);
+  delayMicroseconds(tc1200);
+  digitalWrite(MIC_PIN, LOW);
+  delayMicroseconds(tc1200);
+}
+
+void set_nada_2400(void)
+{
+  digitalWrite(MIC_PIN, HIGH);
+  delayMicroseconds(tc2400);
+  digitalWrite(MIC_PIN, LOW);
+  delayMicroseconds(tc2400);
+  
+  digitalWrite(MIC_PIN, HIGH);
+  delayMicroseconds(tc2400);
+  digitalWrite(MIC_PIN, LOW);
+  delayMicroseconds(tc2400);
+}
+
+void set_nada(bool nada)
+{
+  if(nada)
+    set_nada_1200();
+  else
+    set_nada_2400();
+}
+
+/*
+ * This function will calculate CRC-16 CCITT for the FCS (Frame Check Sequence)
+ * as required for the HDLC frame validity check.
+ * 
+ * Using 0x1021 as polynomial generator. The CRC registers are initialized with
+ * 0xFFFF
+ */
+void calc_crc(bool in_bit)
+{
+  unsigned short xor_in;
+  
+  xor_in = crc ^ in_bit;
+  crc >>= 1;
+
+  if(xor_in & 0x01)
+    crc ^= 0x8408;
+}
+
+void send_crc(void)
+{
+  unsigned char crc_lo = crc ^ 0xff;
+  unsigned char crc_hi = (crc >> 8) ^ 0xff;
+
+  send_char_NRZI(crc_lo, HIGH);
+  send_char_NRZI(crc_hi, HIGH);
+}
+
+void send_header(void)
+{
+  char temp;
+
+  /*
+   * APRS AX.25 Header 
+   * ........................................................
+   * |   DEST   |  SOURCE  |   DIGI   | CTRL FLD |    PID   |
+   * --------------------------------------------------------
+   * |  7 bytes |  7 bytes |  7 bytes |   0x03   |   0xf0   |
+   * --------------------------------------------------------
+   * 
+   * DEST   : 6 byte "callsign" + 1 byte ssid
+   * SOURCE : 6 byte your callsign + 1 byte ssid
+   * DIGI   : 6 byte "digi callsign" + 1 byte ssid
+   * 
+   * ALL DEST, SOURCE, & DIGI are left shifted 1 bit, ASCII format.
+   * DIGI ssid is left shifted 1 bit + 1
+   * 
+   * CTRL FLD is 0x03 and not shifted.
+   * PID is 0xf0 and not shifted.
+   */
+
+  /********* DEST ***********/
+  temp = strlen(dest);
+  for(int j=0; j<temp; j++)
+    send_char_NRZI(dest[j] << 1, HIGH);
+  if(temp < 6)
+  {
+    for(int j=0; j<(6 - temp); j++)
+      send_char_NRZI(' ' << 1, HIGH);
+  }
+  send_char_NRZI('0' << 1, HIGH);
+
+  
+  /********* SOURCE *********/
+  temp = strlen(mycall);
+  for(int j=0; j<temp; j++)
+    send_char_NRZI(mycall[j] << 1, HIGH);
+  if(temp < 6)
+  {
+    for(int j=0; j<(6 - temp); j++)
+      send_char_NRZI(' ' << 1, HIGH);
+  }
+  send_char_NRZI((myssid + '0') << 1, HIGH);
+
+  
+  /********* DIGI ***********/
+  temp = strlen(digi);
+  for(int j=0; j<temp; j++)
+    send_char_NRZI(digi[j] << 1, HIGH);
+  if(temp < 6)
+  {
+    for(int j=0; j<(6 - temp); j++)
+      send_char_NRZI(' ' << 1, HIGH);
+  }
+  send_char_NRZI(((digissid + '0') << 1) + 1, HIGH);
+
+  /***** CTRL FLD & PID *****/
+  send_char_NRZI(_CTRL_ID, HIGH);
+  send_char_NRZI(_PID, HIGH);
+}
+
+void send_payload(char type)
+{
+  /*
+   * APRS AX.25 Payloads
+   * 
+   * TYPE : POSITION
+   * ........................................................
+   * |DATA TYPE |    LAT   |SYMB. OVL.|    LON   |SYMB. TBL.|
+   * --------------------------------------------------------
+   * |  1 byte  |  8 bytes |  1 byte  |  9 bytes |  1 byte  |
+   * --------------------------------------------------------
+   * 
+   * DATA TYPE  : !
+   * LAT        : ddmm.ssN or ddmm.ssS
+   * LON        : dddmm.ssE or dddmm.ssW
+   * 
+   * 
+   * TYPE : STATUS
+   * ..................................
+   * |DATA TYPE |    STATUS TEXT      |
+   * ----------------------------------
+   * |  1 byte  |       N bytes       |
+   * ----------------------------------
+   * 
+   * DATA TYPE  : >
+   * STATUS TEXT: Free form text
+   * 
+   * 
+   * TYPE : POSITION & STATUS
+   * ..............................................................................
+   * |DATA TYPE |    LAT   |SYMB. OVL.|    LON   |SYMB. TBL.|    STATUS TEXT      |
+   * ------------------------------------------------------------------------------
+   * |  1 byte  |  8 bytes |  1 byte  |  9 bytes |  1 byte  |       N bytes       |
+   * ------------------------------------------------------------------------------
+   * 
+   * DATA TYPE  : !
+   * LAT        : ddmm.ssN or ddmm.ssS
+   * LON        : dddmm.ssE or dddmm.ssW
+   * STATUS TEXT: Free form text
+   * 
+   * 
+   * All of the data are sent in the form of ASCII Text, not shifted.
+   * 
+   */
+  if(type == _FIXPOS)
+  {
+    send_char_NRZI(_DT_POS, HIGH);
+    send_string_len(lat, strlen(lat));
+    send_char_NRZI(sym_ovl, HIGH);
+    send_string_len(lon, strlen(lon));
+    send_char_NRZI(sym_tab, HIGH);
+  }
+  else if(type == _STATUS)
+  {
+    send_char_NRZI(_DT_STATUS, HIGH);
+    send_string_len(APRS_Mesaj, APRS_Mesaj.length());
+  }
+  else if(type == _FIXPOS_STATUS)
+  {
+    send_char_NRZI(_DT_POS, HIGH);
+    send_string_len(lat, strlen(lat));
+    send_char_NRZI(sym_ovl, HIGH);
+    send_string_len(lon, strlen(lon));
+    send_char_NRZI(sym_tab, HIGH);
+
+    send_char_NRZI(' ', HIGH);
+    send_string_len(APRS_Mesaj, APRS_Mesaj.length());
+  }
+}
+
+/*
+ * This function will send one byte input and convert it
+ * into AFSK signal one bit at a time LSB first.
+ * 
+ * The encode which used is NRZI (Non Return to Zero, Inverted)
+ * bit 1 : transmitted as no change in tone
+ * bit 0 : transmitted as change in tone
+ */
+void send_char_NRZI(unsigned char in_byte, bool enBitStuff)
+{
+  bool bits;
+  
+  for(int i = 0; i < 8; i++)
+  {
+    bits = in_byte & 0x01;
+
+    calc_crc(bits);
+
+    if(bits)
+    {
+      set_nada(nada);
+      bit_stuff++;
+
+      if((enBitStuff) && (bit_stuff == 5))
+      {
+        nada ^= 1;
+        set_nada(nada);
+        
+        bit_stuff = 0;
+      }
+    }
+    else
+    {
+      nada ^= 1;
+      set_nada(nada);
+
+      bit_stuff = 0;
+    }
+
+    in_byte >>= 1;
+  }
+}
+
+void send_string_len(String in_string, int len)
+{
+  for(int j=0; j<len; j++)
+    send_char_NRZI(in_string[j], HIGH);
+}
+
+void send_flag(unsigned char flag_len)
+{
+  for(int j=0; j<flag_len; j++)
+    send_char_NRZI(_FLAG, LOW); 
+}
+
+/*
+ * In this preliminary test, a packet is consists of FLAG(s) and PAYLOAD(s).
+ * Standard APRS FLAG is 0x7e character sent over and over again as a packet
+ * delimiter. In this example, 100 flags is used the preamble and 3 flags as
+ * the postamble.
+ */
+void send_packet(char packet_type)
+{
+  /*
+   * AX25 FRAME
+   * 
+   * ........................................................
+   * |  FLAG(s) |  HEADER  | PAYLOAD  | FCS(CRC) |  FLAG(s) |
+   * --------------------------------------------------------
+   * |  N bytes | 22 bytes |  N bytes | 2 bytes  |  N bytes |
+   * --------------------------------------------------------
+   * 
+   * FLAG(s)  : 0x7e
+   * HEADER   : see header
+   * PAYLOAD  : 1 byte data type + N byte info
+   * FCS      : 2 bytes calculated from HEADER + PAYLOAD
+   */
+
+   strcpy(FRQ_old,FRQ); //store old frequency for recall
+   shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
+   TRX_MODE = TX;
+   numberToFrequency(144800,FRQ);
+   validFRQ = Calculate_Frequency(FRQ);
+   write_FRQ(calc_frequency);
+   writeFRQToLcd(FRQ);
+   digitalWrite(PTT_OUTPUT_PIN,HIGH);
+   
+  Serial.println("Sending packet..."); 
+  noTone(MIC_PIN);
+  delay(300); //TODO: put define for TXDELAY
+  
+  //prepare and send APRS message
+  send_flag(100);
+  crc = 0xffff;
+  send_header();
+  send_payload(packet_type);
+  send_crc();
+  send_flag(3);
+
+  //APRS message transmission ended
+  digitalWrite(PTT_OUTPUT_PIN,LOW); // now stop transmitting
+  //Restoring OLD values
+  TRX_MODE = RX;
+  strcpy(FRQ,FRQ_old);
+  //numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
+  validFRQ = Calculate_Frequency(FRQ);
+  write_FRQ(calc_frequency);              
+}
+
+/*
+ * Function to randomized the value of a variable with defined low and hi limit value.
+ * Used to create random AFSK pulse length.
+ */
+ /*
+void randomize(unsigned int &var, unsigned int low, unsigned int high)
+{
+  var = random(low, high);
+}
+*/
+/*
+void print_version(void)
+{
+  Serial.println(" ");
+  Serial.print("Sketch:   ");   Serial.println(__FILE__);
+  Serial.print("Uploaded: ");   Serial.println(__DATE__);
+  Serial.println(" ");
+}
+*/
