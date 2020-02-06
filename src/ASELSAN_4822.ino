@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
@@ -10,7 +11,7 @@
 //#else  //defined(AVR)
 //#include <pgmspace.h>
 //#endif  //defined(AVR)
-#include "./libraries/fontsandicons.h"
+#include "../lib/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
 //TODO: add PC routines
 //TODO: fix keypad entry speed - Fixed V.1.0b
@@ -1046,7 +1047,8 @@ void commandTogglePTT()
 void setup() {
   cli(); // Turn Off Interrupts
   PCICR  |= 0b00000100;  
-  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
+//  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
+  PCMSK2 |= 0b00010000; // PCINT20 - Digital 4 Pin
   sei();
   delay(100);
 
@@ -1209,7 +1211,7 @@ void loop() {
 
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
-  KeyVal = digitalRead(KeypadIntPin);
+  //KeyVal = digitalRead(KeypadIntPin);
 
   
   //Long press on a key detection...
