@@ -1,4 +1,3 @@
-#include "Arduino.h"
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
@@ -6,22 +5,20 @@
 #include <avr/io.h>
 #include <math.h>
 #include <stdio.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS.h>
 //#if defined(AVR)
 //#include <avr/pgmspace.h>
 //#else  //defined(AVR)
 //#include <pgmspace.h>
 //#endif  //defined(AVR)
-#include "../lib/fontsandicons.h"
+#include "./libraries/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
 //TODO: add PC routines
-//TODO: fix keypad entry speed - Fixed V.1.0b
 //TODO: add antenna test step size and upper lower freq limits
-//TODO: fix power on/offissues
-//TODO: fix CTCSS tone signal
+//TODO: fix power on/off issues
 //TODO: add internal (onboard) eeprom usage
 //TODO: fix memory structure for channels
-//TODO: add callsign change feature
-//TODO: try to add packet radio AX25 and/or APRS
 //TODO: add scan function
 //TODO: add dual watch
 //TODO: try to add squelch level control
@@ -36,7 +33,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 5
+#define SW_MINOR 6
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -260,18 +257,22 @@ const float adj_2400 = 1.0 * baud_adj;
 unsigned int tc1200 = (unsigned int)(0.5 * adj_1200 * 1000000.0 / 1200.0);
 unsigned int tc2400 = (unsigned int)(0.5 * adj_2400 * 1000000.0 / 2400.0);
 
-const char *mycall = "TA7W";
-char myssid = 1;
+//Allowed to change
+String mycall = "TA7W";
+String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
+String lat = "6009.43N";
+String lon = "02442.13E";
+unsigned int APRS_Timeout = 300;
+unsigned int APRS_Counter = 0;
+
+//Not allowed to change
+char myssid = 9;
 const char *dest = "APRS";
 const char *digi = "WIDE2";
 char digissid = 1;
-String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
-const char *lat = "6009.43N";
-const char *lon = "02442.13E";
-const char sym_ovl = 'H';
-const char sym_tab = 'd';
-unsigned int APRS_Timeout = 300;
-unsigned int APRS_Counter = 0;
+const char sym_ovl = '>';
+const char sym_tab = '/';
+
 
 char bit_stuff = 0;
 unsigned short crc=0xffff;
@@ -291,9 +292,9 @@ void send_flag(unsigned char flag_len);
 void send_header(void);
 void send_payload(char type);
 
-void set_io(void);
+//void set_io(void);
 
-
+void getGPSData();
 
 //Function definitions
 //TODO: move these to a header file
@@ -340,14 +341,14 @@ void InitLCD() {
 void Greetings() {
 
  char MSG[8];
- MSG[0] = EEPROM.read(9);
- MSG[1] = EEPROM.read(10);
- MSG[2] = EEPROM.read(11);
- MSG[3] = EEPROM.read(12);
- MSG[4] = EEPROM.read(13);
- MSG[5] = EEPROM.read(14);
- MSG[6] = EEPROM.read(15);
- MSG[7] = EEPROM.read(16);
+ MSG[0] = EEPROM.read(9);   //T
+ MSG[1] = EEPROM.read(10);  //A
+ MSG[2] = EEPROM.read(11);  //M
+ MSG[3] = EEPROM.read(12);  //S
+ MSG[4] = EEPROM.read(13);  //A
+ MSG[5] = EEPROM.read(14);  //T
+ MSG[6] = 48+EEPROM.read(1);  //SW_MAJOR
+ MSG[7] = 48+EEPROM.read(2);  //SW_MINOR
  MSG[8] = 0;
  writeToLcd(MSG);
  delay(1000);
@@ -714,12 +715,10 @@ void Alert_Tone(int ToneType)
 {
   if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
   noTone(MIC_PIN); //First silence the TONE output first
-  //if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
- // if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
   delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
-  SetTone(TONE_CTRL);
-  
-  //SetTone(TONE_CTRL); //resume Tone Generation 
+  SetTone(TONE_CTRL); //resume Tone Generation 
 }
 
 //void SetRFPower(int rfpowerSTATE) {
@@ -799,19 +798,6 @@ void numberToFrequency(long Freq, char *rFRQ) {
   //strcpy(rFRQ,"145.775 ");
 }
 
-void update_sw_version(){
- EEPROM.write(9, ' '); // Message
- EEPROM.write(10,'S'); // Message
- EEPROM.write(11,'W'); // Message
- EEPROM.write(12,' '); // Message
- EEPROM.write(13,30+SW_MAJOR); // Message
- EEPROM.write(14,'.'); // Message
- EEPROM.write(15,30+SW_MINOR); // Message
- EEPROM.write(16,'A'); // Message
-
-}
-
-
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  //Serialprint("initializing EEPROM...");
  EEPROM.write(0, 127); // make eeprom initialized
@@ -823,7 +809,14 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
  EEPROM.write(6, CALLSIGN[3]); // Callsign
  EEPROM.write(7, CALLSIGN[4]); // Callsign
  EEPROM.write(8, CALLSIGN[5]); // Callsign
- update_sw_version();
+ EEPROM.write(9, 'T'); // Message
+ EEPROM.write(10,'A'); // Message
+ EEPROM.write(11,'M'); // Message
+ EEPROM.write(12,'S'); // Message
+ EEPROM.write(13,'A'); // Message
+ EEPROM.write(14,'T'); // Message
+ EEPROM.write(15,' '); // Message
+ EEPROM.write(16,' '); // Message
  EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
 
  for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
@@ -940,14 +933,16 @@ void PrintMenu()
 //  print_version();
   Serialprint("ASELSAN 48xx - TAMSAT Kit\n\r");
   Serialprint("-------------------------\n\r");
-  Serialprint("Y-Yardim                 \n\r");
-  Serialprint("C-VHF/UHF Cevrimi Yap    \n\r");
-  Serialprint("H-Hafiza Islemleri       \n\r");
-  Serialprint("A-Acilis Ekrani Degistir \n\r");
-  Serialprint("F-Frekans Sinirlari      \n\r");
-  Serialprint("V-Analizor Sinirlari     \n\r");
-  Serialprint("T-APRS sessizlik suresi  \n\r");
-  Serialprint("M-APRS Mesaji            \n\r");  
+  Serialprint("Y-Yardim\n\r");
+  Serialprint("C-VHF/UHF Cevrimi Yap\n\r");
+  Serialprint("H-Hafiza Islemleri\n\r");
+  Serialprint("A-Acilis Mesaji Degistir\n\r");
+  Serialprint("F-Frekans Sinirlari\n\r");
+  Serialprint("V-Analizor Sinirlari\n\r");
+  Serialprint("S-APRS cagri isareti\n\r");
+  Serialprint("T-APRS sessizlik suresi\n\r");
+  Serialprint("M-APRS Mesaji\n\r");  
+  Serialprint("G-GPS Oku\n\r");  
   Serialprint("Seciminiz >");
 }
 
@@ -1021,9 +1016,9 @@ void commandAPRSSure()
 {
   Serial.print("APRS bekleme suresi ");
   Serial.print(commandString.substring(2,5));
-  Serial.println(" olarak duzenlendir");
+  Serial.println(" olarak duzenlendi");
   APRS_Timeout = commandString.substring(2,3).toInt();
-  
+  if (APRS_Timeout <= 60) APRS_Timeout = 60;  
 }
 
 void commandAPRSMesaj()
@@ -1036,6 +1031,15 @@ void commandAPRSMesaj()
   
 }
 
+void commandAPRSmycall()
+{
+  Serial.print("APRS cagri isaretiniz '");
+  Serial.print(commandString.substring(2,8));
+  Serial.println("' olarak duzenlendi");
+  mycall = commandString.substring(2,8);  
+}
+
+
 void commandTogglePTT()
 {
   pttToggler = !pttToggler; 
@@ -1047,15 +1051,12 @@ void commandTogglePTT()
 void setup() {
   cli(); // Turn Off Interrupts
   PCICR  |= 0b00000100;  
-//  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
-  PCMSK2 |= 0b00010000; // PCINT20 - Digital 4 Pin
+  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
   sei();
   delay(100);
 
   Serial.begin(9600);
   commandString.reserve(200);
-
-  update_sw_version();
 
   if (radio_type == 1)
     { 
@@ -1204,14 +1205,14 @@ void loop() {
  //check APRS timer timeout, and send APRS message if timeout reached
  //TODO: Convert timeout to seconds instead of loop counter
   APRS_Counter += 1;
-  if (APRS_Counter >= APRS_Timeout * 2000) {
+  if (APRS_Counter >= APRS_Timeout * 20000) {
      send_packet(_FIXPOS_STATUS);
      APRS_Counter = 0;
   }
 
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
-  //KeyVal = digitalRead(KeypadIntPin);
+  KeyVal = digitalRead(KeypadIntPin);
 
   
   //Long press on a key detection...
@@ -1499,7 +1500,9 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'H') commandHafiza();
     if (commandString.charAt(0) == 'T') commandAPRSSure();
     if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
+    if (commandString.charAt(0) == 'S') commandAPRSmycall();    
     if (commandString.charAt(0) == 'P') commandTogglePTT();
+    if (commandString.charAt(0) == 'G') getGPSData();
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
@@ -1535,6 +1538,7 @@ void StreamPrint_progmem(Print &out,PGM_P format,...)
 
 
 void serialEvent() {
+  Serial.print(".");
   cli();
   while (Serial.available()) {
     //char inChar = UDR0; //
@@ -1645,7 +1649,7 @@ void send_header(void)
 
   
   /********* SOURCE *********/
-  temp = strlen(mycall);
+  temp = mycall.length();
   for(int j=0; j<temp; j++)
     send_char_NRZI(mycall[j] << 1, HIGH);
   if(temp < 6)
@@ -1719,9 +1723,9 @@ void send_payload(char type)
   if(type == _FIXPOS)
   {
     send_char_NRZI(_DT_POS, HIGH);
-    send_string_len(lat, strlen(lat));
+    send_string_len(lat, lat.length());
     send_char_NRZI(sym_ovl, HIGH);
-    send_string_len(lon, strlen(lon));
+    send_string_len(lon, lon.length());
     send_char_NRZI(sym_tab, HIGH);
   }
   else if(type == _STATUS)
@@ -1732,9 +1736,9 @@ void send_payload(char type)
   else if(type == _FIXPOS_STATUS)
   {
     send_char_NRZI(_DT_POS, HIGH);
-    send_string_len(lat, strlen(lat));
+    send_string_len(lat, lat.length());
     send_char_NRZI(sym_ovl, HIGH);
-    send_string_len(lon, strlen(lon));
+    send_string_len(lon, lon.length());
     send_char_NRZI(sym_tab, HIGH);
 
     send_char_NRZI(' ', HIGH);
@@ -1800,7 +1804,7 @@ void send_flag(unsigned char flag_len)
 /*
  * In this preliminary test, a packet is consists of FLAG(s) and PAYLOAD(s).
  * Standard APRS FLAG is 0x7e character sent over and over again as a packet
- * delimiter. In this example, 100 flags is used the preamble and 3 flags as
+ * delimiter. In this example, 100 flags is used as the preamble and 3 flags as
  * the postamble.
  */
 void send_packet(char packet_type)
@@ -1870,3 +1874,31 @@ void print_version(void)
   Serial.println(" ");
 }
 */
+
+void getGPSData()
+{
+  TinyGPS gps;
+  SoftwareSerial ss(A1, A3);
+  ss.begin(9600);
+  float flat, flon;
+  unsigned long age, date, time, chars = 0;
+  unsigned short sentences = 0, failed = 0;
+  
+  unsigned long start = millis();
+  do 
+  {
+    while (ss.available())
+      gps.encode(ss.read());
+  } while (millis() - start < 1000); //read within 1 second
+
+  Serial.println(gps.satellites());
+  gps.f_get_position(&flat, &flon, &age);
+
+  Serial.println(flat);
+  Serial.println(flon);
+  Serial.println(age);
+  Serial.println(gps.f_altitude());
+  Serial.println(gps.f_course());
+  Serial.println(gps.f_speed_kmph());
+      
+}
