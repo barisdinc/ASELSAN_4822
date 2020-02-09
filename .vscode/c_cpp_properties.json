@@ -8,12 +8,13 @@
             "includePath": [
                 "/home/baris/PROJECTS/ASELSAN_4822/src",
                 "/home/baris/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                 "/home/baris/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "/home/baris/PROJECTS/ASELSAN_4822/.pio/libdeps/nanoatmega328/TinyGPS_ID416",
                 "/home/baris/.platformio/packages/framework-arduino-avr/cores/arduino",
                 "/home/baris/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                 "/home/baris/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                 "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                 "/home/baris/.platformio/packages/tool-unity",
                 ""
             ],
@@ -22,12 +23,13 @@
                 "path": [
                     "/home/baris/PROJECTS/ASELSAN_4822/src",
                     "/home/baris/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                     "/home/baris/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "/home/baris/PROJECTS/ASELSAN_4822/.pio/libdeps/nanoatmega328/TinyGPS_ID416",
                     "/home/baris/.platformio/packages/framework-arduino-avr/cores/arduino",
                     "/home/baris/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
                     "/home/baris/.platformio/packages/framework-arduino-avr/libraries/HID/src",
                     "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
-                    "/home/baris/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
                     "/home/baris/.platformio/packages/tool-unity",
                     ""
                 ]

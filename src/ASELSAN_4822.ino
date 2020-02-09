@@ -1,3 +1,4 @@
+#include <Arduino.h> //For platformio compability
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
@@ -12,7 +13,7 @@
 //#else  //defined(AVR)
 //#include <pgmspace.h>
 //#endif  //defined(AVR)
-#include "./libraries/fontsandicons.h"
+#include "../lib/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
 //TODO: add PC routines
 //TODO: add antenna test step size and upper lower freq limits
@@ -24,7 +25,7 @@
 //TODO: try to add squelch level control
 //TODO: add end beep
 //TODO: Add SWR alarm
-//TODO:  
+//TODO: LCD light control 
 #define Serialprint(format, ...) StreamPrint_progmem(Serial,PSTR(format),##__VA_ARGS__)
 #define Streamprint(stream,format, ...) StreamPrint_progmem(stream,PSTR(format),##__VA_ARGS__)
 #define SERIALMENU 1
@@ -33,7 +34,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 6
+#define SW_MINOR 7
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -83,7 +84,7 @@ byte set_deviceselect = DEVICE_SELECT;
 
 byte Led_Status= 240;
 
-byte KeypadIntPin = 4;  //Interrupt Input PIN for MCU
+byte KeypadIntPin = 4;  //Interrupt Input PIN for MCU, D4 pin (PCINT20)
 byte KeyVal = 0;     // variable to store the read value
 byte old_KeyVal= 0;
 
@@ -224,6 +225,17 @@ boolean validFRQ; //Is the calculated frequenct valid for our ranges
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 
+//Memory and Channel tyoes
+struct channelInfo_t {
+  uint16_t FRQ;
+  uint16_t SHIFT; 
+  uint8_t TONE; 
+  char NAME[4]; 
+  uint8_t RESERVED;
+};
+//channelInfo_t channelInfo;
+
+
 //VNA variables
 float minSWR;
 long lowestFRQ;
@@ -232,7 +244,7 @@ long highestFRQ;
 //Serial port variables
 String commandString = "";         // a String to hold incoming commands
 bool commandComplete = false;  // whether the command is complete
-String CALLSIGN = "TAMSAT";
+String CALLSIGN = "TAMSAT";    //INitial greetings callsign
 
 //APRS Defines
 // Defines the Square Wave Output Pin
@@ -260,14 +272,14 @@ unsigned int tc2400 = (unsigned int)(0.5 * adj_2400 * 1000000.0 / 2400.0);
 //Allowed to change
 String mycall = "TA7W";
 String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
-String lat = "6009.43N";
-String lon = "02442.13E";
+String lat = "3955.50N"; //Anitkabir Latitude
+String lon = "3250.22E"; //Anitkabir longitude
 unsigned int APRS_Timeout = 300;
 unsigned int APRS_Counter = 0;
 
 //Not allowed to change
 char myssid = 9;
-const char *dest = "APRS";
+const char *dest = "TAMSAT";
 const char *digi = "WIDE2";
 char digissid = 1;
 const char sym_ovl = '>';
@@ -301,9 +313,10 @@ void getGPSData();
 void StreamPrint_progmem(Print &out,PGM_P format,...);
 
 //Interrupts       
-ISR(PCINT20_vect)
+ISR(PCINT20_vect) // PCINT20 is in PCINT2 vector
 {
  KeyVal = digitalRead(KeypadIntPin);
+ //digitalWrite(PTT_OUTPUT_PIN, KeyVal); //for testing
 }
 
 
@@ -749,13 +762,13 @@ void readRfPower()
    int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
    float swr = (float)Ptoplam / (float)Pfark;
-   //Serial.print("\t");
-   //Serial.print(fwdPower);
-   //Serial.print("\t");
-   //Serial.print(refPower);
-   //Serial.print("\t");
-   //Serial.print(swr);
-   //Serial.println("");
+   Serial.print("\t");
+   Serial.print(fwdPower);
+   Serial.print("\t");
+   Serial.print(refPower);
+   Serial.print("\t");
+   Serial.print(swr);
+   Serial.println("");
    if (swr < minSWR)
    {
       minSWR=swr;
@@ -799,98 +812,132 @@ void numberToFrequency(long Freq, char *rFRQ) {
 }
 
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
- //Serialprint("initializing EEPROM...");
- EEPROM.write(0, 127); // make eeprom initialized
- EEPROM.write(1, SW_MAJOR);   //SW Version
- EEPROM.write(2, SW_MINOR);   //
- EEPROM.write(3, CALLSIGN[0]); // Callsign
- EEPROM.write(4, CALLSIGN[1]); // Callsign
- EEPROM.write(5, CALLSIGN[2]); // Callsign
- EEPROM.write(6, CALLSIGN[3]); // Callsign
- EEPROM.write(7, CALLSIGN[4]); // Callsign
- EEPROM.write(8, CALLSIGN[5]); // Callsign
- EEPROM.write(9, 'T'); // Message
- EEPROM.write(10,'A'); // Message
- EEPROM.write(11,'M'); // Message
- EEPROM.write(12,'S'); // Message
- EEPROM.write(13,'A'); // Message
- EEPROM.write(14,'T'); // Message
- EEPROM.write(15,' '); // Message
- EEPROM.write(16,' '); // Message
- EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
+    //Serialprint("initializing EEPROM...");
+    EEPROM.write(0, 127); // make eeprom initialized
+    EEPROM.write(1, SW_MAJOR);   //SW Version
+    EEPROM.write(2, SW_MINOR);   //
+    EEPROM.write(3, CALLSIGN[0]); // Callsign
+    EEPROM.write(4, CALLSIGN[1]); // Callsign
+    EEPROM.write(5, CALLSIGN[2]); // Callsign
+    EEPROM.write(6, CALLSIGN[3]); // Callsign
+    EEPROM.write(7, CALLSIGN[4]); // Callsign
+    EEPROM.write(8, CALLSIGN[5]); // Callsign
+    EEPROM.write(9, 'T'); // Message
+    EEPROM.write(10,'A'); // Message
+    EEPROM.write(11,'M'); // Message
+    EEPROM.write(12,'S'); // Message
+    EEPROM.write(13,'A'); // Message
+    EEPROM.write(14,'T'); // Message
+    EEPROM.write(15,' '); // Message
+    EEPROM.write(16,' '); // Message
+    EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
 
- for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
+    for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
-if (radio_type == 0)
- { 
- EEPROM.write(50,0x04); // FRQ_L
- EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
- }
- else
- {
- EEPROM.write(50,0x0A); // FRQ_L
- EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
- }
- if (radio_type==0)
-  {
-   EEPROM.write(52,0x02); // SHFT_L
-   EEPROM.write(53,0x58); // SHFT_H
-  } else
-  {
-   EEPROM.write(52,0x1D); // SHFT_L
-   EEPROM.write(53,0xB0); // SHFT_H    
-  }
- 
- EEPROM.write(54,0x08); // TONE
- //Serialprint("done..");
+    if (radio_type == 0)
+    { 
+      EEPROM.write(50,0x04); // FRQ_L
+      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
+    }
+    else
+    {
+      EEPROM.write(50,0x0A); // FRQ_L
+      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
+    }
+    if (radio_type==0)
+    {
+      EEPROM.write(52,0x02); // SHFT_L
+      EEPROM.write(53,0x58); // SHFT_H
+    } 
+    else
+    {
+      EEPROM.write(52,0x1D); // SHFT_L
+      EEPROM.write(53,0xB0); // SHFT_H    
+    }
+    EEPROM.write(54,0x08); // TONE
+
+    channelInfo_t chINfo;
+    chINfo.FRQ = 1240;
+    chINfo.SHIFT = 0;
+    chINfo.TONE = 0;
+    //chINfo.NAME ="HAFIZA";
+    chINfo.RESERVED = 0;
+    for (int ch=0;ch<100;ch++)
+    {
+
+    }
+
+
+    //Serialprint("done..");
 }
 
 // Stores frequency data to the desired EEPROM location
 void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
- byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
- byte ChannelLocation = 100 + ChannelNumber * 10;
- Calculate_Frequency(mFRQ); 
-double FrqToStore;
-if (radio_type==0)
- {
- FrqToStore = calc_frequency - 130000;
- } else
- {
- FrqToStore = calc_frequency - 400000;
- }
- FrqToStore = FrqToStore / 12.5;
- 
- byte FRQ_L = FrqToStore / 256;
- byte FRQ_H = FrqToStore - ( FRQ_L * 256);
- EEPROM.write(ChannelLocation  ,FRQ_L); 
- EEPROM.write(ChannelLocation+1,FRQ_H);  
-//shiftMODE
- byte FRQshift_L; 
- byte FRQshift_H;
- //Serialprint("SHIFT : %d \n\r",shiftMODE);
- if (shiftMODE==noSHIFT)    
-   {
-    //Serialprint("noSHIFT \n\r");
-    FRQshift_L=0; 
-    FRQshift_H=0;
-    }
- else
-   {
-    FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
-    if (shiftMODE==minusSHIFT) 
+    byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
+    byte ChannelLocation = 100 + ChannelNumber * 10;
+    Calculate_Frequency(mFRQ); 
+    double FrqToStore;
+    if (radio_type==0)
       {
-        FRQshift_L +=128;
-        //Serialprint("minusSHIFT \n\r");
-      } //first bit is sign bit (negative shift)
-   }
- EEPROM.write(ChannelLocation+2,FRQshift_L); // SHFT_L
- EEPROM.write(ChannelLocation+3,FRQshift_H); // SHFT_H
+        FrqToStore = calc_frequency - 130000;
+      } 
+      else
+      {
+        FrqToStore = calc_frequency - 400000;
+      }
+    FrqToStore = FrqToStore / 12.5;
+    
+    byte FRQ_L = FrqToStore / 256;
+    byte FRQ_H = FrqToStore - ( FRQ_L * 256);
+    EEPROM.write(ChannelLocation  ,FRQ_L); 
+    EEPROM.write(ChannelLocation+1,FRQ_H);  
+    //shiftMODE
+    byte FRQshift_L; 
+    byte FRQshift_H;
+    //Serialprint("SHIFT : %d \n\r",shiftMODE);
+    if (shiftMODE==noSHIFT)    
+      {
+        //Serialprint("noSHIFT \n\r");
+        FRQshift_L=0; 
+        FRQshift_H=0;
+        }
+    else
+      {
+        FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
+        if (shiftMODE==minusSHIFT) 
+          {
+            FRQshift_L +=128;
+            //Serialprint("minusSHIFT \n\r");
+          } //first bit is sign bit (negative shift)
+      }
+    EEPROM.write(ChannelLocation+2,FRQshift_L); // SHFT_L
+    EEPROM.write(ChannelLocation+3,FRQshift_H); // SHFT_H
 
- if (TONE_CTRL==CTCSS_ON) EEPROM.write(ChannelLocation+4,ctcss_tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
- // Serialprint("STR Channel Parameters CH NO :%d ChannelLOC:%d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d \n\r",ChannelNumber,ChannelLocation,FRQ_L,FRQ_H,FRQshift_L,FRQshift_H,ctcss_tone_pos);
+    if (TONE_CTRL==CTCSS_ON) EEPROM.write(ChannelLocation+4,ctcss_tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
+    // Serialprint("STR Channel Parameters CH NO :%d ChannelLOC:%d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d \n\r",ChannelNumber,ChannelLocation,FRQ_L,FRQ_H,FRQshift_L,FRQshift_H,ctcss_tone_pos);
 }
 
+
+/*
+ * Retrieves the requested Memory Channel Information from EEPROM and returns a channelInfo_t tyep object
+ */
+channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
+      channelInfo_t l_channelInfo;
+      //byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
+      byte ChannelLocation = 100 + channel_number * 10;
+      l_channelInfo.FRQ = (EEPROM.read(ChannelLocation) * 256 + EEPROM.read(ChannelLocation+1));// * 12.5;
+      //numberToFrequency(freq, FRQ);
+      l_channelInfo.SHIFT = EEPROM.read(ChannelLocation+2) * 256 + EEPROM.read(ChannelLocation+3);
+      l_channelInfo.TONE  = EEPROM.read(ChannelLocation+4) ; 
+      if (dbg) 
+      {
+        Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_frequency,l_channelInfo.SHIFT,l_channelInfo.TONE); //TODO: add name
+      }
+}
+
+
 //Retrieves the requested Memory Channel Information from EEPROM
+//TODO: combine this with the previuous function
 void GetMemoryChannel(char mFRQ[9]) {
  byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
  byte ChannelLocation = 100 + ChannelNumber * 10;
@@ -933,12 +980,12 @@ void PrintMenu()
 //  print_version();
   Serialprint("ASELSAN 48xx - TAMSAT Kit\n\r");
   Serialprint("-------------------------\n\r");
-  Serialprint("Y-Yardim\n\r");
+  //Serialprint("Y-Yardim\n\r");
   Serialprint("C-VHF/UHF Cevrimi Yap\n\r");
-  Serialprint("H-Hafiza Islemleri\n\r");
   Serialprint("A-Acilis Mesaji Degistir\n\r");
   Serialprint("F-Frekans Sinirlari\n\r");
   Serialprint("V-Analizor Sinirlari\n\r");
+  Serialprint("H-Hafiza Islemleri\n\r");
   Serialprint("S-APRS cagri isareti\n\r");
   Serialprint("T-APRS sessizlik suresi\n\r");
   Serialprint("M-APRS Mesaji\n\r");  
@@ -949,31 +996,31 @@ void PrintMenu()
 void commandYardim(char komut)
 {
   /*
-  Serial.print("Yardim Menusu\r\n=====================\r\n");
+  Serialprint("Yardim Menusu\r\n=====================\r\n");
   if (komut=='\n')
   {
-    Serial.print("Yardim almak istediginiz komutu belirtiniz...\r\n");
-    Serial.print("Ornek : Y C  veya Y F  veya Y A \r\n");
+    Serialprint("Yardim almak istediginiz komutu belirtiniz...\r\n");
+    Serialprint("Ornek : Y C  veya Y F  veya Y A \r\n");
   } else if (komut == 'C')
   {
-    Serial.print("Bu komut cihazinizi UHF ya da VHF olarak programlamanizi saglar. (sadece TAMSAT Kartini)\r\n");
-    Serial.print("Kullanimi : \r\n      C V : VHF yap\r\n      C U : UHF yap");  
+    Serialprint("Bu komut cihazinizi UHF ya da VHF olarak programlamanizi saglar. (sadece TAMSAT Kartini)\r\n");
+    Serialprint("Kullanimi : \r\n      C V : VHF yap\r\n      C U : UHF yap");  
   } 
   else if (komut == 'A')
   {
-    Serial.print("Kullanimi : \r\n      A [MESAJ]   Ornek:  A TA7W  (maksimum 6 karakter)\r\n"); 
+    Serialprint("Kullanimi : \r\n      A [MESAJ]   Ornek:  A TA7W  (maksimum 6 karakter)\r\n"); 
   } else if (komut == 'H')
   {
-    Serial.print("Kullanimi:   H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4] \r\n");
-    Serial.print("Ornek:       H 01 ROLE-0 145600 +0600 0885 \r\n");
+    Serialprint("Kullanimi:   H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4] \r\n");
+    Serialprint("Ornek:       H 01 ROLE-0 145600 +0600 0885 \r\n");
   } else if (komut == 'T')
   {
-    Serial.print("Kullanimi:   T [3 basamakli olarak Sure (saniye) (000-999)] \r\n");
-    Serial.print("Ornek:       T 300\r\n");
+    Serialprint("Kullanimi:   T [3 basamakli olarak Sure (saniye) (000-999)] \r\n");
+    Serialprint("Ornek:       T 300\r\n");
   } else if (komut == 'M')
   {
-    Serial.print("Kullanimi:   M [MESAJ (maksimum 30 karakter) \r\n");
-    Serial.print("Ornek:       M Merhaba, Ben BARIS DINC - OH2UDS  \r\n");
+    Serialprint("Kullanimi:   M [MESAJ (maksimum 30 karakter) \r\n");
+    Serialprint("Ornek:       M Merhaba, Ben BARIS DINC - OH2UDS  \r\n");
   }
   
 */  
@@ -982,16 +1029,18 @@ void commandYardim(char komut)
 
 void commandCevrim(char komut)
 {
-  Serialprint("\r\nCevrim Yapiliyor\r\n=====================\r\n");
+  //Serialprint("\r\nCevrim Yapiliyor\r\n=====================\r\n");
   if (komut == 'V')
     {
-      Serial.print("TAMSAT Karti VHF olarak ayarlanmistir. 4822 veya 4922 cihaz ile kullanabilirsiniz\r\n");
+      //Serial.print("TAMSAT Karti VHF olarak ayarlanmistir. 4822 veya 4922 cihaz ile kullanabilirsiniz\r\n");
+      Serialprint("VHF OK\r\n");
       radio_type = 0;
       initialize_eeprom();
     }
   if (komut == 'U')
     {
-      Serial.print("TAMSAT Karti UHF olarak ayarlanmistir. 4826 veya 4926 cihaz ile kullanabilirsiniz\r\n");
+      //Serial.print("TAMSAT Karti UHF olarak ayarlanmistir. 4826 veya 4926 cihaz ile kullanabilirsiniz\r\n");
+      Serialprint("UHF OK\r\n");
       radio_type = 1;
       initialize_eeprom();
     }
@@ -1000,94 +1049,114 @@ void commandCevrim(char komut)
 
 void commandAcilis()
 {
-  Serial.print("ACILIS MESAJI = ");
+  //Serial.print("ACILIS MESAJI = ");
   Serial.print(commandString.substring(2,8));
-  Serial.println(" olarak duzenlendi...");
+  //Serial.println(" olarak duzenlendi...");
   CALLSIGN=commandString.substring(2,8);
   initialize_eeprom();
 }
 
-void commandHafiza()
+/*
+ * Pront the memory channels in form of JSON array
+ * 
+ */
+void commandHafizaDok()
 {
-  Serial.println("Henuz bu komut yazilmadi.");
+    //H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4]
+    //Ornek:       H 01 ROLE-0 145600 +0600 0885
+  Serialprint("\r\n[");
+  for (int ch=0;ch<99;ch++)
+    {
+      channelInfo_t chInfo = GetPrintMemoryChannelInfo(ch,true);
+      Serialprint(",");
+    }
+    Serialprint("{}]\r\n");
+}
+
+void commandHafizaKoy()
+{
+  
+    //H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4]
+    //Ornek:       H 01 ROLE-0 145600 +0600 0885
+
 }
 
 void commandAPRSSure()
 {
-  Serial.print("APRS bekleme suresi ");
+  //Serial.print("APRS bekleme suresi ");
   Serial.print(commandString.substring(2,5));
-  Serial.println(" olarak duzenlendi");
+  Serialprint(" OK\r\n");
+  //Serial.println(" olarak duzenlendi");
   APRS_Timeout = commandString.substring(2,3).toInt();
   if (APRS_Timeout <= 60) APRS_Timeout = 60;  
 }
 
 void commandAPRSMesaj()
 {
-  Serial.print("APRS mesajiniz '");
+  //Serial.print("APRS mesajiniz '");
   Serial.print(commandString.substring(2,30));
-  Serial.println("' olarak duzenlendi");
+  //Serial.println("' olarak duzenlendi");
   APRS_Mesaj = commandString.substring(2,30);
-  Serial.println(APRS_Mesaj);
-  
+  Serial.print(APRS_Mesaj);
+  Serialprint(" OK\r\n");
 }
 
 void commandAPRSmycall()
 {
-  Serial.print("APRS cagri isaretiniz '");
+  //Serial.print("APRS cagri isaretiniz '");
   Serial.print(commandString.substring(2,8));
-  Serial.println("' olarak duzenlendi");
+  Serialprint(" OK\r\n");
+  //Serial.println("' olarak duzenlendi");
   mycall = commandString.substring(2,8);  
 }
-
 
 void commandTogglePTT()
 {
   pttToggler = !pttToggler; 
-  if (pttToggler) Serial.println("Transmitting...");
-  else Serial.println("Receiving...");
-  
+  if (pttToggler) Serialprint("TX\r\n");
+  else Serialprint("RX\r\n");
 }
 
 void setup() {
   cli(); // Turn Off Interrupts
-  PCICR  |= 0b00000100;  
-  PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
+  //PCICR  |= 0b00000100;  
+  PCICR = (1 << PCIE2);  //same as above but different :)
+ // PCMSK1 |= 0b00010000; // PCINT20 - Digital 4 Pin
+ // PCMSK2 |= 0b00010000; // PCINT20 - Digital 4 Pin
+  PCMSK2 |= (1 << PCINT20); //same as above but different :)
   sei();
   delay(100);
 
   Serial.begin(9600);
   commandString.reserve(200);
 
-  if (radio_type == 1)
-    { 
-      frqSHIFT = 600;
-    } else
-    {
-      frqSHIFT = 7600;
-    }
- 
   // Check EEPROM for stored values
   byte eeprom_state=0;
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
   if (eeprom_state != 127) initialize_eeprom();
   // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
+  radio_type = EEPROM.read(17);//UHF VHF Seçimi
+  if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //initialize_eeprom();
   //Read Last used frequency
-  radio_type = EEPROM.read(17);//UHF VHF Seçimi
   byte byte1,byte2;
   byte1 = EEPROM.read(50);
   byte2 = EEPROM.read(51);
   long freq;
   freq = (byte1 * 256) + byte2 ;
   freq = freq * 12.5;
+
    if (radio_type == 0)
      {
        freq = freq + 130000;
+       frqSHIFT = 600;
      }
    else
      {
       freq = freq + 400000;  
+      frqSHIFT = 7600;
      }
+
   numberToFrequency(freq, FRQ);
   strcpy(FRQ_old,FRQ);
  
@@ -1210,11 +1279,10 @@ void loop() {
      APRS_Counter = 0;
   }
 
-
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
 
-  
+
   //Long press on a key detection...
   if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
     else if (KeyVal==1) {
@@ -1252,7 +1320,7 @@ void loop() {
     if (c ==  2) satir = 3;
     if (c ==  1) satir = 4;
     
-    Wire.beginTransmission(B0100000);
+    Wire.beginTransmission(B0100000); //Here we're pushing VCC from one of PCF8574 and reading the other
     Wire.write(0); 
     Wire.endTransmission();
     Wire.beginTransmission(B0100001);
@@ -1392,30 +1460,46 @@ void loop() {
             SetRFPower();
             long min_vna_freq;
             long max_vna_freq;
+            int  stp_vna_freq;
             if (radio_type==0)
             {
               min_vna_freq = 14000;
               max_vna_freq = 15000;
+              stp_vna_freq = 10;
             }
             else
             {
               min_vna_freq = 43000;
               max_vna_freq = 45000;              
+              stp_vna_freq = 10;
             }
-            for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += 10)
+            int cancelCmd;
+            cancelCmd = digitalRead(KeypadIntPin); //TODO: attach this to interrupr and remove
+            Serialprint("#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
+            for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
                 TRX_MODE = TX;
                 //Serial.print(vna_freq); 
                 numberToFrequency(vna_freq*10,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
-                write_FRQ(calc_frequency);
+                //write_FRQ(calc_frequency);
                 writeFRQToLcd(FRQ);
-                digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                Serialprint(">%d\t",vna_freq);
+                //digitalWrite(PTT_OUTPUT_PIN,HIGH);
                 delay(50);
                 readRfPower(); //TODO: Move under a menu item
                 delay(25);
-                digitalWrite(PTT_OUTPUT_PIN,LOW);
+                //digitalWrite(PTT_OUTPUT_PIN,LOW);
+                int cancelCmd2 = 0;
+                cancelCmd2 = digitalRead(KeypadIntPin);
+                Serialprint("(%d %d)",cancelCmd,cancelCmd2);
+                if (cancelCmd < cancelCmd2) 
+                 {
+                   Serialprint("Basildi.....");
+                   break;
+                 }
               }
+              Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
               //Restoring OLD values or displaying the best frequency
 //              SetRFPower(RF_POWER_STATE);
               SetRFPower();
@@ -1494,20 +1578,22 @@ void loop() {
 
 if (commandComplete) {
     if (commandString.charAt(0) == '\n') PrintMenu();
-    if (commandString.charAt(0) == 'Y') commandYardim(commandString.charAt(2));
+    //if (commandString.charAt(0) == 'Y') commandYardim(commandString.charAt(2));
     if (commandString.charAt(0) == 'C') commandCevrim(commandString.charAt(2));
     if (commandString.charAt(0) == 'A') commandAcilis();
-    if (commandString.charAt(0) == 'H') commandHafiza();
     if (commandString.charAt(0) == 'T') commandAPRSSure();
     if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
     if (commandString.charAt(0) == 'S') commandAPRSmycall();    
+    if (commandString.charAt(0) == 'H') commandHafizaDok();
+    if (commandString.charAt(0) == 'K') commandHafizaKoy();
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
     commandComplete = false;
-    Serial.print("\r\nSeciminiz>");
+    PrintMenu();
+    Serialprint("\r\nSeciminiz>");
   }
 
 
@@ -1538,12 +1624,12 @@ void StreamPrint_progmem(Print &out,PGM_P format,...)
 
 
 void serialEvent() {
-  Serial.print(".");
+  //Serialprint(".");
   cli();
   while (Serial.available()) {
     //char inChar = UDR0; //
     char inChar = (char)Serial.read();
-    Serial.print(inChar); //local echo
+    //Serialprint(inChar); //local echo
     commandString += inChar;
     if (inChar == '\n') {
       commandComplete = true;
@@ -1833,7 +1919,7 @@ void send_packet(char packet_type)
    writeFRQToLcd(FRQ);
    digitalWrite(PTT_OUTPUT_PIN,HIGH);
    
-  Serial.println("Sending packet..."); 
+  //Serialprint("Sending packet..."); 
   noTone(MIC_PIN);
   delay(300); //TODO: put define for TXDELAY
   
@@ -1881,8 +1967,9 @@ void getGPSData()
   SoftwareSerial ss(A1, A3);
   ss.begin(9600);
   float flat, flon;
-  unsigned long age, date, time, chars = 0;
-  unsigned short sentences = 0, failed = 0;
+  unsigned long age = 0;
+  //unsigned long age, date, time, chars = 0;
+  //unsigned short sentences = 0, failed = 0;
   
   unsigned long start = millis();
   do 
@@ -1891,14 +1978,21 @@ void getGPSData()
       gps.encode(ss.read());
   } while (millis() - start < 1000); //read within 1 second
 
-  Serial.println(gps.satellites());
+  //Serialprint(gps.satellites());
   gps.f_get_position(&flat, &flon, &age);
-
-  Serial.println(flat);
-  Serial.println(flon);
-  Serial.println(age);
-  Serial.println(gps.f_altitude());
-  Serial.println(gps.f_course());
-  Serial.println(gps.f_speed_kmph());
+/*
+  Serialprint(flat);
+  Serialprint(" ");
+  Serialprint(flon);
+  Serialprint(" ");
+  Serialprint(age);
+  Serialprint(" ");
+  Serialprint(gps.f_altitude());
+  Serialprint(" ");
+  Serialprint(gps.f_course());
+  Serialprint(" ");
+  Serialprint(gps.f_speed_kmph());
+  Serialprint("\r\n");
+*/
       
 }
