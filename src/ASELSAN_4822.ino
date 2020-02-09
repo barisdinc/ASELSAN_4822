@@ -986,6 +986,7 @@ void PrintMenu()
   Serialprint("F-Frekans Sinirlari\n\r");
   Serialprint("V-Analizor Sinirlari\n\r");
   Serialprint("H-Hafiza Islemleri\n\r");
+  Serialprint("K-Konfigurasyon Yaz\n\r");
   Serialprint("S-APRS cagri isareti\n\r");
   Serialprint("T-APRS sessizlik suresi\n\r");
   Serialprint("M-APRS Mesaji\n\r");  
@@ -1076,6 +1077,7 @@ void commandAyarDok()
   CallSign[3] = EEPROM.read(6);
   CallSign[4] = EEPROM.read(7);
   CallSign[5] = EEPROM.read(8);
+  CallSign[6] = 0;
   char Message[8];
   Message[0] = EEPROM.read(9);
   Message[1] = EEPROM.read(10);
@@ -1085,9 +1087,10 @@ void commandAyarDok()
   Message[5] = EEPROM.read(14);
   Message[6] = EEPROM.read(15);
   Message[7] = EEPROM.read(16);
+  Message[8] = 0;
   byte RadioType = EEPROM.read(17);
   Serialprint("\r\nCD{");    //CD Configuration Dump
-  Serialprint("cs:%d,smj:%d,smn:%d,c:%s,m:%s,r:%d",Check,SW_major,SW_minor,CallSign,Message,RadioType);
+  Serialprint("cs:%d,smj:%d,smn:%d,c:'%s',m:'%s',r:%d",Check,SW_major,SW_minor,CallSign,Message,RadioType);
   Serialprint("}\r\n");
 }
 
@@ -1618,7 +1621,8 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
     if (commandString.charAt(0) == 'S') commandAPRSmycall();    
     if (commandString.charAt(0) == 'H') commandHafizaDok();
-    if (commandString.charAt(0) == 'K') commandHafizaKoy();
+    if (commandString.charAt(0) == 'K') commandAyarDok();
+    if (commandString.charAt(0) == 'C') commandHafizaKoy();
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
     
