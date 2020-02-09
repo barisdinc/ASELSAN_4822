@@ -228,8 +228,8 @@ const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 //Memory and Channel tyoes
 struct channelInfo_t {
   uint16_t FRQ;
-  uint16_t SHIFT; 
-  uint8_t TONE; 
+  int16_t SHIFT; 
+  int8_t TONE; 
   char NAME[4]; 
   uint8_t RESERVED;
 };
@@ -931,7 +931,7 @@ channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
       l_channelInfo.TONE  = EEPROM.read(ChannelLocation+4) ; 
       if (dbg) 
       {
-        Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_frequency,l_channelInfo.SHIFT,l_channelInfo.TONE); //TODO: add name
+        Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_channelInfo.FRQ,l_channelInfo.SHIFT,l_channelInfo.TONE); //TODO: add name
       }
 }
 
@@ -1011,7 +1011,7 @@ void commandYardim(char komut)
     Serialprint("Kullanimi : \r\n      A [MESAJ]   Ornek:  A TA7W  (maksimum 6 karakter)\r\n"); 
   } else if (komut == 'H')
   {
-    Serialprint("Kullanimi:   H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4] \r\n");
+    Serialprint("Kullanimi:   H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4] \r\n"); // !!!CHANGED!!!!!
     Serialprint("Ornek:       H 01 ROLE-0 145600 +0600 0885 \r\n");
   } else if (komut == 'T')
   {
@@ -1022,7 +1022,11 @@ void commandYardim(char komut)
     Serialprint("Kullanimi:   M [MESAJ (maksimum 30 karakter) \r\n");
     Serialprint("Ornek:       M Merhaba, Ben BARIS DINC - OH2UDS  \r\n");
   }
-  
+  F [Alt-frekans] [ust-frekans]        Frekans araligi 
+  V [Alt-frekans] [ust-frekans]        VNA Frekans araligi
+  S [0125-5000]                        VNA Step
+  H                                    Memory Dump as Json
+
 */  
 }
 
@@ -1056,16 +1060,45 @@ void commandAcilis()
   initialize_eeprom();
 }
 
+
 /*
- * Pront the memory channels in form of JSON array
- * 
+ * Print the configurations in form of JSON array to Serial Port
+ */
+void commandAyarDok()
+{
+  byte Check = EEPROM.read(0);
+  byte SW_major = EEPROM.read(1);
+  byte SW_minor = EEPROM.read(2);
+  char CallSign[6];
+  CallSign[0] = EEPROM.read(3);
+  CallSign[1] = EEPROM.read(4);
+  CallSign[2] = EEPROM.read(5);
+  CallSign[3] = EEPROM.read(6);
+  CallSign[4] = EEPROM.read(7);
+  CallSign[5] = EEPROM.read(8);
+  char Message[8];
+  Message[0] = EEPROM.read(9);
+  Message[1] = EEPROM.read(10);
+  Message[2] = EEPROM.read(11);
+  Message[3] = EEPROM.read(12);
+  Message[4] = EEPROM.read(13);
+  Message[5] = EEPROM.read(14);
+  Message[6] = EEPROM.read(15);
+  Message[7] = EEPROM.read(16);
+  byte RadioType = EEPROM.read(17);
+  Serialprint("\r\nCD{");    //CD Configuration Dump
+  Serialprint("cs:%d,smj:%d,smn:%d,c:%s,m:%s,r:%d",Check,SW_major,SW_minor,CallSign,Message,RadioType);
+  Serialprint("}\r\n");
+}
+
+
+/*
+ * Print the memory channels in form of JSON array to Serial Port
  */
 void commandHafizaDok()
 {
-    //H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4]
-    //Ornek:       H 01 ROLE-0 145600 +0600 0885
-  Serialprint("\r\n[");
-  for (int ch=0;ch<99;ch++)
+  Serialprint("\r\nMD[");    //Memory Dump
+  for (int ch=0;ch<100;ch++)
     {
       channelInfo_t chInfo = GetPrintMemoryChannelInfo(ch,true);
       Serialprint(",");
