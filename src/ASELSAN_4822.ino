@@ -832,7 +832,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(16,' '); // Message
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
 
-    for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
+    //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
     if (radio_type == 0)
     { 
@@ -842,7 +842,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     else
     {
       EEPROM.write(50,0x0A); // FRQ_L
-      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
+      EEPROM.write(51,0xE0); // FRQ_H (Default frequency UHF)
     }
     if (radio_type==0)
     {
@@ -854,11 +854,12 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
       EEPROM.write(52,0x1D); // SHFT_L
       EEPROM.write(53,0xB0); // SHFT_H    
     }
-    EEPROM.write(54,0x08); // TONE
+    EEPROM.write(54,0x08); // TONE 88.5Hz
 
     //TODO: Move to a common function for PC program integration
     for (int ch=0;ch<100;ch++)
     {
+      Serialprint("%d %d\r\n",ch,100+ch*10);
       EEPROM.write(100+ch*10+0,0x04); //FRQ1 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
       EEPROM.write(100+ch*10+1,0xD8); //FRQ2 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
       EEPROM.write(100+ch*10+3,0x00); //SHFT1 0-NoShift
@@ -1172,10 +1173,14 @@ void setup() {
   // Check EEPROM for stored values
   byte eeprom_state=0;
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
-  if (eeprom_state != 127) initialize_eeprom();
+  Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
+  //if (eeprom_state != 127) initialize_eeprom();
   // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
   radio_type = EEPROM.read(17);//UHF VHF Seçimi
-  if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
+  Serialprint("CIHAZ TIPI %d\r\n",radio_type);
+    //if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
+  Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
+  
   //initialize_eeprom();
   //Read Last used frequency
   byte byte1,byte2;
