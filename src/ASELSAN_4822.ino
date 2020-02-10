@@ -1294,7 +1294,7 @@ void loop() {
 
   //Led_Status = Led_Status - yellow_led;
   //Led_Status = Led_Status - red_led;
-  Led_Status = Led_Status - backlight;
+  if (APRS_Counter < 2000) Led_Status = Led_Status - backlight;
   Wire.write(Led_Status); 
   Wire.endTransmission();
 
@@ -1683,6 +1683,114 @@ void serialEvent() {
   }
   sei();
 }
+
+
+/*
+ * seri olarak okunan byte lari 0x09 veya 0x04 e kadar olanini geri dondurmek icin
+ */
+/*
+void readParam(char *szParam, int iMaxLen) {
+  byte c;
+  int iSize;
+  unsigned long iMilliTimeout = millis() + 2000; 
+
+  for (iSize=0; iSize<iMaxLen; iSize++) szParam[iSize] = 0x00; 
+  iSize = 0;   
+
+  while (millis() < iMilliTimeout) {
+
+    if (Serial.available()) {
+      c = Serial.read();
+
+      if (c == 0x09 || c == 0x04) {
+        Serialprint("\r\n");
+        return;
+      }
+      if (iSize < iMaxLen) {
+        szParam[iSize] = c;
+        iSize++;
+      }
+    }
+  }
+
+}
+
+bool getFromSerialport() {
+  char szParam[10]; //maximum length of a variable value
+  unsigned long iMilliTimeout = millis() + 10000;    
+  while (millis() < iMilliTimeout) {
+  while (!Serial.available()) { } 
+    if (Serial.read() == 0x01) {   //The stream starts with a 0x01
+      readParam(szParam, sizeof(szParam));
+      if (strcmp(szParam, VERSIYON) != 0) {
+        DEBUG_PORT.println(szParam);
+          DEBUG_PORT.println(F("E99 Versiyonlar uyumsuz..."));
+        return false;
+      }
+    
+      readParam(szParam, sizeof(Ayarlar.APRS_CagriIsareti));    //CagriIsareti
+      strcpy(Ayarlar.APRS_CagriIsareti, szParam);
+      readParam(szParam, 1);    //CagriIsareti SSID
+      Ayarlar.APRS_CagriIsaretiSSID = szParam[0];
+
+
+      readParam(szParam, sizeof(Ayarlar.APRS_Destination));    //Destination
+      strcpy(Ayarlar.APRS_Destination, szParam);
+      readParam(szParam, 1);    //SSID
+      Ayarlar.APRS_DestinationSSID = szParam[0];
+
+      readParam(szParam, sizeof(Ayarlar.APRS_Path1));    //Path1
+      strcpy(Ayarlar.APRS_Path1, szParam);
+      readParam(szParam, 1);    //SSID
+      Ayarlar.APRS_Path1SSID = szParam[0];
+
+      readParam(szParam, sizeof(Ayarlar.APRS_Path2));    //Path2
+      strcpy(Ayarlar.APRS_Path2, szParam);
+      readParam(szParam, 1);    //SSID
+      Ayarlar.APRS_Path2SSID = szParam[0];
+
+      //Symbol/Tab
+      readParam(szParam, 1);
+      Ayarlar.APRS_Sembolu = szParam[0];
+      readParam(szParam, 1);
+      Ayarlar.APRS_SembolTabi = szParam[0];
+
+      //BeaconTipi
+      readParam(szParam, sizeof(szParam));
+      Ayarlar.APRS_BeaconTipi = atoi(szParam);
+
+      //Beacon Suresi
+      readParam(szParam, sizeof(szParam));
+      Ayarlar.APRS_BeaconSuresi = atoi(szParam);
+
+      //GPS Seri Hizi
+      readParam(szParam, sizeof(szParam));
+      Ayarlar.APRS_GPSSeriHizi = atoi(szParam);
+
+      //Status Message
+      readParam(szParam, sizeof(szParam));
+      strcpy(Ayarlar.APRS_Mesaj, szParam);
+
+      //GPS Var/Yok
+      readParam(szParam, sizeof(szParam));
+      Ayarlar.gps_varyok = atoi(szParam);    
+
+
+
+      unsigned int iCheckSum = 0;
+      for (int i=0; i<7; i++) {
+        iCheckSum += Ayarlar.APRS_CagriIsareti[i];
+      }
+      Ayarlar.CheckSum = iCheckSum;
+      return true;    //OKuma tamamlandi
+    } // read 0x01
+  } //millis
+  return false;
+
+}
+*/
+
+
 
 
 
