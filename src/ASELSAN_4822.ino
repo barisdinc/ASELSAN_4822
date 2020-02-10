@@ -855,7 +855,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
       EEPROM.write(53,0xB0); // SHFT_H    
     }
     EEPROM.write(54,0x08); // TONE 88.5Hz
-
+/*
     //TODO: Move to a common function for PC program integration
     for (int ch=0;ch<100;ch++)
     {
@@ -870,7 +870,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
       EEPROM.write(100+ch*10+8,0x41); //"0"-"9" Channel Number from Display Array
       EEPROM.write(100+ch*10+9,0x42); //"0"-"9" Channel Number from Display Array
     }
-
+*/
 
     //Serialprint("done..");
 }
@@ -1172,9 +1172,10 @@ void setup() {
 
   // Check EEPROM for stored values
   byte eeprom_state=0;
+ // EEPROM.write(0,127);
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
   Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
-  //if (eeprom_state != 127) initialize_eeprom();
+  if (eeprom_state != 127) initialize_eeprom();
   // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
   radio_type = EEPROM.read(17);//UHF VHF Seçimi
   Serialprint("CIHAZ TIPI %d\r\n",radio_type);
