@@ -856,15 +856,18 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     }
     EEPROM.write(54,0x08); // TONE
 
-    channelInfo_t chINfo;
-    chINfo.FRQ = 1240;
-    chINfo.SHIFT = 0;
-    chINfo.TONE = 0;
-    //chINfo.NAME ="HAFIZA";
-    chINfo.RESERVED = 0;
+    //TODO: Move to a common function for PC program integration
     for (int ch=0;ch<100;ch++)
     {
-
+      EEPROM.write(100+ch*10+0,0x04); //FRQ1 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
+      EEPROM.write(100+ch*10+1,0xD8); //FRQ2 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
+      EEPROM.write(100+ch*10+3,0x00); //SHFT1 0-NoShift
+      EEPROM.write(100+ch*10+4,0x00); //SHFT2 0-NoShift
+      EEPROM.write(100+ch*10+5,0x00); //TONE1 0-NoTone
+      EEPROM.write(100+ch*10+6,0x16); //"K" = 0x16 from Display Array
+      EEPROM.write(100+ch*10+7,0x18); //"N" = 0x18 from Display Array
+      EEPROM.write(100+ch*10+8,0x41); //"0"-"9" Channel Number from Display Array
+      EEPROM.write(100+ch*10+9,0x42); //"0"-"9" Channel Number from Display Array
     }
 
 
