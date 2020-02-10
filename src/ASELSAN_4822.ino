@@ -34,7 +34,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 7
+#define SW_MINOR 8
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -1174,13 +1174,13 @@ void setup() {
   byte eeprom_state=0;
  // EEPROM.write(0,127);
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
-  Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
+  //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
   if (eeprom_state != 127) initialize_eeprom();
   // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
   radio_type = EEPROM.read(17);//UHF VHF Seçimi
-  Serialprint("CIHAZ TIPI %d\r\n",radio_type);
-    //if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
-  Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
+  //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
+  if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
+  //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
   
   //initialize_eeprom();
   //Read Last used frequency
