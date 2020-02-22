@@ -395,6 +395,7 @@ void writeFRQToLcd(const char frq[9])
    
   //if (SQL_MODE == SQL_OFF) hasASEL = true; else hasASEL = false;
   //if (SQL_MODE == SQL_OFF) hasARRW = true; else hasARRW = false;
+  if (APRS_Timeout > 0) hasASEL = true; else hasASEL = false;
    
   //if (SQL_MODE == SQL_OFF) hasMENU = true; else hasMENU = false;
   if (RF_POWER_STATE == HIGH_POWER) hasTHUN = true; else hasTHUN = false;
@@ -735,20 +736,6 @@ void SetRFPower() {
     digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
 }
 
-
-void APRS_Active_sign_check()
-{
-   //Here we will check the aprs active state based on aprs_timeout
-   //and lit the ASELSAN - A sign on screen
-   if (APRS_Timeout > 0)
-   {
-     hasASEL = true;
-   } else
-   {
-     hasASEL = false;
-   }
-}
-
 void setRadioPower() {
   //Is the radio turned on ?
   //SYS_MODE = digitalRead(POWER_ON_OFF);
@@ -841,7 +828,6 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(16,' '); // Message
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
     EEPROM.write(18,APRS_Timeout); //Aprs timeout in minutes
-    APRS_Active_sign_check();
 
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -1138,13 +1124,13 @@ void commandHafizaKoy()
 void commandAPRSSure()
 {
   //Serial.print("APRS bekleme suresi ");
-  Serial.print(commandString.substring(2,5));
+  //Serial.print(commandString.substring(2,4));
   Serialprint(" OK\r\n");
   //Serial.println(" olarak duzenlendi");
-  APRS_Timeout = commandString.substring(2,2).toInt();
+  APRS_Timeout = commandString.substring(2,4).toInt();
   //if (APRS_Timeout <= 60) APRS_Timeout = 60;  
+  //Serialprint("\r\naprstime [%d]\n\r",APRS_Timeout);
   EEPROM.write(18,APRS_Timeout);
-  APRS_Active_sign_check();
 }
 
 void commandAPRSMesaj()
