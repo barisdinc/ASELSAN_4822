@@ -1157,6 +1157,53 @@ void commandTogglePTT()
   else Serialprint("RX\r\n");
 }
 
+
+int readColumn()
+{
+    Wire.beginTransmission(B0100000); //Here we're pushing VCC from one of PCF8574 and reading the other
+    Wire.write(0); 
+    Wire.endTransmission();
+    Wire.beginTransmission(B0100001);
+    Wire.write(255); 
+    Wire.endTransmission();
+    
+    Wire.requestFrom(0x21,1);
+    int c = Wire.read();
+    c = 255 - c;
+    int sutun = 0 ;
+    if (c == 8) sutun = 0;
+    if (c == 4) sutun = 1;
+    if (c == 2) sutun = 2;
+    if (c == 1) sutun = 3;
+
+    return sutun;
+}
+
+int readRow()
+{
+    Wire.requestFrom(0x20,1);
+    int r = Wire.read();    // receive a byte as character
+    r = 255 - (r | B00000011) ; 
+    r = r >> 3;
+    int satir = 5;
+    if (r == 16) satir = 0;
+    if (r ==  8) satir = 1;
+    if (r ==  4) satir = 2;
+    if (r ==  2) satir = 3;
+    if (r ==  1) satir = 4;
+    
+    return satir;
+}
+
+    
+
+
+
+
+
+
+
+
 void setup() {
   cli(); // Turn Off Interrupts
   //PCICR  |= 0b00000100;  
@@ -1353,33 +1400,9 @@ void loop() {
     APRS_Counter = 0; //if a key is pressed, restart the APRS timer
 
     scrTimer = TimeoutValue; //Restart the timer
-    int satir,sutun;
-    Wire.requestFrom(0x20,1);
-    int c = Wire.read();    // receive a byte as character
-    c = 255 - (c | B00000011) ; 
-    c = c >> 3;
-    satir = 5;
-    if (c == 16) satir = 0;
-    if (c ==  8) satir = 1;
-    if (c ==  4) satir = 2;
-    if (c ==  2) satir = 3;
-    if (c ==  1) satir = 4;
-    
-    Wire.beginTransmission(B0100000); //Here we're pushing VCC from one of PCF8574 and reading the other
-    Wire.write(0); 
-    Wire.endTransmission();
-    Wire.beginTransmission(B0100001);
-    Wire.write(255); 
-    Wire.endTransmission();
-    
-    Wire.requestFrom(0x21,1);
-    int r = Wire.read();
-    r = 255 - r;
-    sutun = 0 ;
-    if (r == 8) sutun = 0;
-    if (r == 4) sutun = 1;
-    if (r == 2) sutun = 2;
-    if (r == 1) sutun = 3;
+
+    int satir = readRow();
+    int sutun = readColumn();
     pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
     // Serialprint("set keyboard pressedKey:%d \n\r  ", pressedKEY);
     
@@ -1491,8 +1514,8 @@ void loop() {
           break; // 'M'
           case 'C':
             //VNA Vector Network analizor Subroutines
-            //Serial.print("pressedKEY");
-            //Serial.println(pressedKEY,DEC);
+            Serial.print("pressedKEY");
+            Serial.println(pressedKEY,DEC);
             minSWR = 9999;
             lowestFRQ=0;
             highestFRQ=0;           
@@ -1518,8 +1541,6 @@ void loop() {
               max_vna_freq = 45000;              
               stp_vna_freq = 10;
             }
-            int cancelCmd;
-            cancelCmd = digitalRead(KeypadIntPin); //TODO: attach this to interrupr and remove
             Serialprint("#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
             for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
@@ -1535,24 +1556,18 @@ void loop() {
                 readRfPower(); //TODO: Move under a menu item
                 delay(25);
                 //digitalWrite(PTT_OUTPUT_PIN,LOW);
-                int cancelCmd2 = 0;
-                cancelCmd2 = digitalRead(KeypadIntPin);
-                Serialprint("(%d %d)",cancelCmd,cancelCmd2);
-                if (cancelCmd < cancelCmd2) 
-                 {
-                   Serialprint("Basildi.....");
-                   break;
-                 }
+                if (readColumn() != 0) break; //a key is pressed
               }
               Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
               //Restoring OLD values or displaying the best frequency
-//              SetRFPower(RF_POWER_STATE);
+              //SetRFPower(RF_POWER_STATE);
               SetRFPower();
               TRX_MODE = RX;
               //strcpy(FRQ,FRQ_old);
               numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
-              write_FRQ(calc_frequency);              
+              write_FRQ(calc_frequency);            
+              PrintMenu(); //print menu for user selection  
           break; // 'C'
           case '#':
             if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
