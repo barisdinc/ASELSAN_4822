@@ -1340,7 +1340,19 @@ void setup() {
 void loop() {
   //setRadioPower(); //Check power switch and set radio power mode on or off
   
-  if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
+  //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
+  if (scrMODE==scrNORMAL)
+  {
+    if (TRX_MODE == TX)
+    {
+      numberToFrequency(calc_frequency+shiftMODE*frqSHIFT ,FRQ);
+    } else
+    {
+      numberToFrequency(calc_frequency ,FRQ);
+    }
+    writeFRQToLcd(FRQ);
+  }
+
 
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
