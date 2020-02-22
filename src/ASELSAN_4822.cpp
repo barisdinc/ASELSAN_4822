@@ -1519,7 +1519,16 @@ void loop() {
             Calculate_Frequency(FRQ);  
             write_FRQ(calc_frequency);           
           break; // 'D'
-          case 'M':
+          case 'M': //Reverse
+            numberToFrequency(calc_frequency+shiftMODE*frqSHIFT,FRQ);
+            if (shiftMODE == plusSHIFT) { 
+              shiftMODE = minusSHIFT;
+            } else if (shiftMODE == minusSHIFT) {
+              shiftMODE = plusSHIFT;
+            } 
+            Calculate_Frequency(FRQ);  
+            write_FRQ(calc_frequency);           
+
            //Serialprint(pressedKEY);
           break; // 'M'
           case 'C':
@@ -1814,9 +1823,6 @@ bool getFromSerialport() {
 
 }
 */
-
-
-
 
 
 /*
