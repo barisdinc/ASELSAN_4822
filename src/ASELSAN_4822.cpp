@@ -15,17 +15,6 @@
 //#endif  //defined(AVR)
 #include "../lib/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
-//TODO: add PC routines
-//TODO: add antenna test step size and upper lower freq limits
-//TODO: fix power on/off issues
-//TODO: add internal (onboard) eeprom usage
-//TODO: fix memory structure for channels
-//TODO: add scan function
-//TODO: add dual watch
-//TODO: try to add squelch level control
-//TODO: add end beep
-//TODO: Add SWR alarm
-//TODO: LCD light control 
 #define Serialprint(format, ...) StreamPrint_progmem(Serial,PSTR(format),##__VA_ARGS__)
 #define Streamprint(stream,format, ...) StreamPrint_progmem(stream,PSTR(format),##__VA_ARGS__)
 #define SERIALMENU 1
@@ -274,7 +263,7 @@ String mycall = "TA7W";
 String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
 String lat = "3955.50N"; //Anitkabir Latitude
 String lon = "3250.22E"; //Anitkabir longitude
-unsigned int APRS_Timeout = 300;
+unsigned int APRS_Timeout = 3; //minutes
 unsigned int APRS_Counter = 0;
 
 //Not allowed to change
@@ -747,6 +736,19 @@ void SetRFPower() {
 }
 
 
+void APRS_Active_sign_check()
+{
+   //Here we will check the aprs active state based on aprs_timeout
+   //and lit the ASELSAN - A sign on screen
+   if (APRS_Timeout > 0)
+   {
+     hasASEL = true;
+   } else
+   {
+     hasASEL = false;
+   }
+}
+
 void setRadioPower() {
   //Is the radio turned on ?
   //SYS_MODE = digitalRead(POWER_ON_OFF);
@@ -838,6 +840,8 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(15,' '); // Message
     EEPROM.write(16,' '); // Message
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
+    EEPROM.write(18,APRS_Timeout); //Aprs timeout in minutes
+    APRS_Active_sign_check();
 
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -1029,7 +1033,7 @@ void commandYardim(char komut)
     Serialprint("Ornek:       H 01 ROLE-0 145600 +0600 0885 \r\n");
   } else if (komut == 'T')
   {
-    Serialprint("Kullanimi:   T [3 basamakli olarak Sure (saniye) (000-999)] \r\n");
+    Serialprint("Kullanimi:   T [2 basamakli olarak Sure (dakika) (00-99)] (00 iptal demektir) \r\n");
     Serialprint("Ornek:       T 300\r\n");
   } else if (komut == 'M')
   {
@@ -1137,8 +1141,10 @@ void commandAPRSSure()
   Serial.print(commandString.substring(2,5));
   Serialprint(" OK\r\n");
   //Serial.println(" olarak duzenlendi");
-  APRS_Timeout = commandString.substring(2,3).toInt();
-  if (APRS_Timeout <= 60) APRS_Timeout = 60;  
+  APRS_Timeout = commandString.substring(2,2).toInt();
+  //if (APRS_Timeout <= 60) APRS_Timeout = 60;  
+  EEPROM.write(18,APRS_Timeout);
+  APRS_Active_sign_check();
 }
 
 void commandAPRSMesaj()
@@ -1205,14 +1211,6 @@ int readRow()
     return satir;
 }
 
-    
-
-
-
-
-
-
-
 
 void setup() {
   cli(); // Turn Off Interrupts
@@ -1238,7 +1236,10 @@ void setup() {
   //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
   if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
-  
+
+  //Read last APRS Active state from EEPROM
+  APRS_Timeout = EEPROM.read(18);
+
   //initialize_eeprom();
   //Read Last used frequency
   byte byte1,byte2;
@@ -1376,7 +1377,7 @@ void loop() {
  //check APRS timer timeout, and send APRS message if timeout reached
  //TODO: Convert timeout to seconds instead of loop counter
   APRS_Counter += 1;
-  if (APRS_Counter >= APRS_Timeout * 20000) {
+  if ((APRS_Counter >= APRS_Timeout * 60 * 20000) && (APRS_Timeout > 0)) {
      send_packet(_FIXPOS_STATUS);
      APRS_Counter = 0;
   }
