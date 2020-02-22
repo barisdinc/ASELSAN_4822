@@ -312,13 +312,13 @@ void getGPSData();
 //TODO: move these to a header file
 void StreamPrint_progmem(Print &out,PGM_P format,...);
 
-//Interrupts       
-ISR(PCINT20_vect) // PCINT20 is in PCINT2 vector
-{
- KeyVal = digitalRead(KeypadIntPin);
- //digitalWrite(PTT_OUTPUT_PIN, KeyVal); //for testing
-}
-
+//Interrupts      
+// PCINT20 is in PCINT2 vector 
+//ISR(PCINT20_vect) 
+//{
+// KeyVal = digitalRead(KeypadIntPin);
+// //digitalWrite(PTT_OUTPUT_PIN, KeyVal); //for testing
+//}
 
 
 // Initialize the LCD
@@ -350,34 +350,6 @@ void InitLCD() {
   delay(100);
 }
 
-//Print Greeting messages to LCD
-void Greetings() {
-
- char MSG[8];
- MSG[0] = EEPROM.read(9);   //T
- MSG[1] = EEPROM.read(10);  //A
- MSG[2] = EEPROM.read(11);  //M
- MSG[3] = EEPROM.read(12);  //S
- MSG[4] = EEPROM.read(13);  //A
- MSG[5] = EEPROM.read(14);  //T
- MSG[6] = 48+EEPROM.read(1);  //SW_MAJOR
- MSG[7] = 48+EEPROM.read(2);  //SW_MINOR
- MSG[8] = 0;
- writeToLcd(MSG);
- delay(1000);
- MSG[0] = EEPROM.read(3);
- MSG[1] = EEPROM.read(4);
- MSG[2] = EEPROM.read(5);
- MSG[3] = EEPROM.read(6);
- MSG[4] = EEPROM.read(7);
- MSG[5] = EEPROM.read(8);
- MSG[6] = ' ';
- MSG[7] = ' ';
- MSG[8] = 0;
- writeToLcd(MSG);
- delay(1000);
-
-}
 
 /* Physically send out the given data */
 void sendToLcd(byte *data, byte position) {
@@ -390,7 +362,7 @@ void sendToLcd(byte *data, byte position) {
 
 void writeToLcd(const char text[]) {
   memset(chr2wr, 0, 3);
-  for (int idx=0; idx!=strlen(text); idx++) {
+  for (uint8_t idx=0; idx!=strlen(text); idx++) {
     if (idx > 7) break;   
     char *c = strchr(index, (int)toupper(text[idx]));
     byte pos;
@@ -500,11 +472,42 @@ void writeFRQToLcd(const char frq[9])
 }
 /* Scrolls a text over the LCD */
 void scroll(const char *text, int speed) {
-  for (int i=0; i<=strlen(text)-5; i++) {
+  for (uint8_t i=0; i<=strlen(text)-5; i++) {
      writeToLcd(text+i);
      delay(speed);
   }
 }
+
+
+//Print Greeting messages to LCD
+void Greetings() {
+
+ char MSG[8];
+ MSG[0] = EEPROM.read(9);   //T
+ MSG[1] = EEPROM.read(10);  //A
+ MSG[2] = EEPROM.read(11);  //M
+ MSG[3] = EEPROM.read(12);  //S
+ MSG[4] = EEPROM.read(13);  //A
+ MSG[5] = EEPROM.read(14);  //T
+ MSG[6] = 48+EEPROM.read(1);  //SW_MAJOR
+ MSG[7] = 48+EEPROM.read(2);  //SW_MINOR
+ MSG[8] = 0;
+ writeToLcd(MSG);
+ delay(1000);
+ MSG[0] = EEPROM.read(3);
+ MSG[1] = EEPROM.read(4);
+ MSG[2] = EEPROM.read(5);
+ MSG[3] = EEPROM.read(6);
+ MSG[4] = EEPROM.read(7);
+ MSG[5] = EEPROM.read(8);
+ MSG[6] = ' ';
+ MSG[7] = ' ';
+ MSG[8] = 0;
+ writeToLcd(MSG);
+ delay(1000);
+
+}
+
 //MC145158 programming routines
 //R_counter=512
 //N_counter=100
@@ -531,6 +534,44 @@ void send_SPIEnable() {
   digitalWrite(pll_ena_pin, LOW);    // Then back low  
 }
 
+
+void write_TONEtoEE(int tone_pos) {
+  if (TONE_CTRL==CTCSS_ON) EEPROM.write(54,tone_pos+128); else EEPROM.write(54,tone_pos); // first bit is TONE STATE
+}
+
+void write_SHIFTtoEE(unsigned long FRQshift) {
+   byte FRQshift_L; 
+   byte FRQshift_H;
+   if (shiftMODE==noSHIFT)    {FRQshift_L=0; FRQshift_H=0;}
+   else
+     {
+      FRQshift_L=FRQshift / 256; FRQshift_H=FRQshift - (FRQshift_L * 256); //pozitive shift
+      if (shiftMODE==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
+     }
+   EEPROM.write(52,FRQshift_L); // SHFT_L
+   EEPROM.write(53,FRQshift_H); // SHFT_H
+}
+
+void SetTone(int toneSTATE) {
+  noTone(ALERT_PIN);
+  if (toneSTATE == CTCSS_ON) { 
+    if (TRX_MODE == TX)  tone(MIC_PIN, ctcss_tone_list[ctcss_tone_pos]);
+      else noTone(MIC_PIN);
+  }
+  write_TONEtoEE(ctcss_tone_pos);
+}
+
+void Alert_Tone(int ToneType)
+{
+  if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
+  noTone(MIC_PIN); //First silence the TONE output first
+  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
+  SetTone(TONE_CTRL); //resume Tone Generation 
+}
+
+
 /*
 char numberToArray (int Number) //max 4 digits
 {
@@ -555,6 +596,55 @@ boolean Calculate_Frequency (char mFRQ[9]) {
       return false; //invalid frequency
     }
 }
+
+
+void SetPLLLock(unsigned long Frequency)
+{
+  int R_Counter =0;
+  int N_Counter = 0;
+  int A_Counter = 0;
+  if(radio_type==0)
+  {
+    if (TRX_MODE == RX) Frequency = Frequency + 45000L;
+    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
+  
+     R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
+     N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
+     A_Counter = (Frequency / 12.5) - (80 * N_Counter);
+
+
+    digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
+    send_SPIBit(R_Counter,14);
+    send_SPIBit(1,1); // Tell PLL that it was the R Counter
+    send_SPIEnable();
+    send_SPIBit(N_Counter,10);
+    send_SPIBit(A_Counter,7);
+    send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
+    send_SPIEnable();  
+    digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
+  }
+  else
+  {
+    if (TRX_MODE == RX) Frequency = Frequency - 45000L;
+    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
+  
+     R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
+     N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
+     A_Counter =(Frequency / 12.5) - (80 * N_Counter);
+
+  
+    digitalWrite(PLL_SEC, LOW);
+    send_SPIBit(R_Counter,14);
+    send_SPIBit(1,1); 
+    send_SPIEnable();
+    send_SPIBit(N_Counter,10);
+    send_SPIBit(A_Counter,7);
+    send_SPIBit(0,1); 
+    send_SPIEnable();  
+    digitalWrite(PLL_SEC, HIGH); 
+  }
+}
+
 
 void write_FRQ(unsigned long Frequency) {
 //VHF BAND SELECTION  
@@ -629,67 +719,7 @@ double UpdatedFrq = 0;
   } //validFRQ 
 }
 
-void SetPLLLock(unsigned long Frequency)
-{
-  int R_Counter =0;
-  int N_Counter = 0;
-  int A_Counter = 0;
-  if(radio_type==0)
-  {
-    if (TRX_MODE == RX) Frequency = Frequency + 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
-  
-     R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
-     N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
-     A_Counter = (Frequency / 12.5) - (80 * N_Counter);
 
-
-    digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
-    send_SPIBit(R_Counter,14);
-    send_SPIBit(1,1); // Tell PLL that it was the R Counter
-    send_SPIEnable();
-    send_SPIBit(N_Counter,10);
-    send_SPIBit(A_Counter,7);
-    send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
-    send_SPIEnable();  
-    digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
-  }
-  else
-  {
-    if (TRX_MODE == RX) Frequency = Frequency - 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
-  
-     R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
-     N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
-     A_Counter =(Frequency / 12.5) - (80 * N_Counter);
-
-  
-    digitalWrite(PLL_SEC, LOW);
-    send_SPIBit(R_Counter,14);
-    send_SPIBit(1,1); 
-    send_SPIEnable();
-    send_SPIBit(N_Counter,10);
-    send_SPIBit(A_Counter,7);
-    send_SPIBit(0,1); 
-    send_SPIEnable();  
-    digitalWrite(PLL_SEC, HIGH); 
-  }
-}
-
-
-
-void write_SHIFTtoEE(unsigned long FRQshift) {
-   byte FRQshift_L; 
-   byte FRQshift_H;
-   if (shiftMODE==noSHIFT)    {FRQshift_L=0; FRQshift_H=0;}
-   else
-     {
-      FRQshift_L=FRQshift / 256; FRQshift_H=FRQshift - (FRQshift_L * 256); //pozitive shift
-      if (shiftMODE==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
-     }
-   EEPROM.write(52,FRQshift_L); // SHFT_L
-   EEPROM.write(53,FRQshift_H); // SHFT_H
-}
 
 void write_SHIFTtoLCD(unsigned long FRQshift) {
  if (FRQshift>=9975) FRQshift=9975; //upper limit check
@@ -702,9 +732,6 @@ void write_SHIFTtoLCD(unsigned long FRQshift) {
     
 }
 
-void write_TONEtoEE(int tone_pos) {
-  if (TONE_CTRL==CTCSS_ON) EEPROM.write(54,tone_pos+128); else EEPROM.write(54,tone_pos); // first bit is TONE STATE
-}
 
 void write_TONEtoLCD(unsigned long tone_pos) {
  char MSG[8];
@@ -713,26 +740,6 @@ void write_TONEtoLCD(unsigned long tone_pos) {
  writeToLcd(MSG);
 }
 
-
-void SetTone(int toneSTATE) {
-  noTone(ALERT_PIN);
-  if (toneSTATE == CTCSS_ON) { 
-    if (TRX_MODE == TX)  tone(MIC_PIN, ctcss_tone_list[ctcss_tone_pos]);
-      else noTone(MIC_PIN);
-  }
-  write_TONEtoEE(ctcss_tone_pos);
-}
-
-
-void Alert_Tone(int ToneType)
-{
-  if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
-  noTone(MIC_PIN); //First silence the TONE output first
-  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
-  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
-  delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
-  SetTone(TONE_CTRL); //resume Tone Generation 
-}
 
 //void SetRFPower(int rfpowerSTATE) {
 void SetRFPower() {
@@ -925,7 +932,8 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
 /*
  * Retrieves the requested Memory Channel Information from EEPROM and returns a channelInfo_t tyep object
  */
-channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
+//channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
+void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
       channelInfo_t l_channelInfo;
       //byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
       byte ChannelLocation = 100 + channel_number * 10;
@@ -937,6 +945,7 @@ channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
       {
         Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_channelInfo.FRQ,l_channelInfo.SHIFT,l_channelInfo.TONE); //TODO: add name
       }
+
 }
 
 
@@ -1107,7 +1116,8 @@ void commandHafizaDok()
   Serialprint("\r\nMD[");    //Memory Dump
   for (int ch=0;ch<100;ch++)
     {
-      channelInfo_t chInfo = GetPrintMemoryChannelInfo(ch,true);
+      //channelInfo_t chInfo = 
+      GetPrintMemoryChannelInfo(ch,true);
       Serialprint(",");
     }
     Serialprint("{}]\r\n");
