@@ -1341,16 +1341,19 @@ void loop() {
   //setRadioPower(); //Check power switch and set radio power mode on or off
   
   //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
+
   if (scrMODE==scrNORMAL)
   {
-    if (TRX_MODE == TX)
+    if (TRX_MODE == TX) 
     {
-      numberToFrequency(calc_frequency+shiftMODE*frqSHIFT ,FRQ);
+      numberToFrequency(calc_frequency+shiftMODE*frqSHIFT,FRQ_old);
+      writeFRQToLcd(FRQ_old);
     } else
     {
-      numberToFrequency(calc_frequency ,FRQ);
+      writeFRQToLcd(FRQ);
     }
-    writeFRQToLcd(FRQ);
+    
+    
   }
 
 
