@@ -1382,7 +1382,8 @@ void loop() {
  //check APRS timer timeout, and send APRS message if timeout reached
  //TODO: Convert timeout to seconds instead of loop counter
   APRS_Counter += 1;
-  if ((APRS_Counter >= APRS_Timeout * 60 * 20000) && (APRS_Timeout > 0)) {
+  //if (APRS_Counter % 1000) Serialprint("%d\r\n",APRS_Counter);
+  if ((APRS_Counter >= APRS_Timeout * 60 * 150) && (APRS_Timeout > 0)) {
      send_packet(_FIXPOS_STATUS,144800); //For APRS terrestrial
      send_packet(_FIXPOS_STATUS,145825); //For ISS
      APRS_Counter = 0;
