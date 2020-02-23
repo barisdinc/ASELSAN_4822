@@ -287,7 +287,7 @@ void send_string_len(String in_string, int len);
 void calc_crc(bool in_bit);
 void send_crc(void);
 
-void send_packet(char packet_type, uint16_t frequency);
+void send_packet(char packet_type, uint32_t frequency);
 void send_flag(unsigned char flag_len);
 void send_header(void);
 void send_payload(char type);
@@ -802,7 +802,7 @@ void numberToFrequency(long Freq, char *rFRQ) {
   rFRQ[6] = numbers[f6];
   rFRQ[7] = ' ';
   rFRQ[8] = 0;
-  
+  //Serialprint("%c %c %c %c %c %c \r\n",rFRQ[0],rFRQ[1],rFRQ[2],rFRQ[3],rFRQ[4],rFRQ[5],rFRQ[6]);
   //strcpy(rFRQ,"145.775 ");
 }
 
@@ -2079,7 +2079,7 @@ void send_flag(unsigned char flag_len)
  * delimiter. In this example, 100 flags is used as the preamble and 3 flags as
  * the postamble.
  */
-void send_packet(char packet_type, uint16_t frequency)
+void send_packet(char packet_type, uint32_t frequency)
 {
   /*
    * AX25 FRAME
