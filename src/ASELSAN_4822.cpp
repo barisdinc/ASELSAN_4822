@@ -264,7 +264,7 @@ String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
 String lat = "3955.50N"; //Anitkabir Latitude
 String lon = "3250.22E"; //Anitkabir longitude
 unsigned int APRS_Timeout = 3; //minutes
-unsigned int APRS_Counter = 0;
+unsigned long APRS_Counter = 0;
 
 //Not allowed to change
 char myssid = 9;
@@ -1138,6 +1138,7 @@ void commandAPRSMesaj()
   Serial.print(commandString.substring(2,30));
   //Serial.println("' olarak duzenlendi");
   APRS_Mesaj = commandString.substring(2,30);
+  //TODO: APRS Mesajini EEPROM a kaydet ve oku
   Serial.print(APRS_Mesaj);
   Serialprint(" OK\r\n");
 }
@@ -1148,6 +1149,7 @@ void commandAPRSmycall()
   Serial.print(commandString.substring(2,8));
   Serialprint(" OK\r\n");
   //Serial.println("' olarak duzenlendi");
+  //TODO: APRS callsign eeprom a kaydet ve oku
   mycall = commandString.substring(2,8);  
 }
 
@@ -1677,7 +1679,7 @@ if (commandComplete) {
     Serialprint("\r\nSeciminiz>");
   }
 
-
+//13:49:03$ fm TA7W-9 to TAMSAT-0 via ARISS-1 UI  PID=F0!3955.50N>3250.22E/ TAMSAT KIT - APRS TEST
 //  send_packet(_STATUS);  
 //  delay(tx_delay);
 //  randomize(tx_delay, 10, 5000);
