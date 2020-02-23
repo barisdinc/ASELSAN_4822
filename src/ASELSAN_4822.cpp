@@ -1565,29 +1565,25 @@ void loop() {
             Serialprint("#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
             for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
-                TRX_MODE = TX;
-                //Serial.print(vna_freq); 
                 numberToFrequency(vna_freq*10,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
-                //write_FRQ(calc_frequency);
                 writeFRQToLcd(FRQ);
                 Serialprint(">%d\t",vna_freq);
-                //digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                digitalWrite(PTT_OUTPUT_PIN,HIGH);
                 delay(50);
                 readRfPower(); //TODO: Move under a menu item
                 delay(25);
-                //digitalWrite(PTT_OUTPUT_PIN,LOW);
+                digitalWrite(PTT_OUTPUT_PIN,LOW);
                 if (readColumn() != 0) break; //a key is pressed
               }
               Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
-              //Restoring OLD values or displaying the best frequency
               //SetRFPower(RF_POWER_STATE);
               SetRFPower();
-              TRX_MODE = RX;
               //strcpy(FRQ,FRQ_old);
               numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
               write_FRQ(calc_frequency);            
+              writeFRQToLcd(FRQ);
               PrintMenu(); //print menu for user selection  
           break; // 'C'
           case '#':
