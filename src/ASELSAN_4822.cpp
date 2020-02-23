@@ -23,7 +23,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 8
+#define SW_MINOR 0
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -981,7 +981,7 @@ if (radio_type==0)
 void PrintMenu()
 {  
 //  print_version();
-  Serialprint("ASELSAN 48xx - TAMSAT Kit\n\r");
+  Serialprint("ASELSAN 48xx - TAMSAT Kit (v%d.%d-%s) \n\r",SW_MAJOR,SW_MINOR, __DATE__);
   Serialprint("-------------------------\n\r");
   //Serialprint("Y-Yardim\n\r");
   Serialprint("C-VHF/UHF Cevrimi Yap\n\r");
@@ -1199,6 +1199,44 @@ int readRow()
 
 
 void setup() {
+//pin modes and initial states
+  pinMode(SQL_ACTIVE, INPUT);
+  digitalWrite(SQL_ACTIVE, SQL_ON); //Disable squelch for startup
+  pinMode(MIC_PIN, OUTPUT);
+  SetTone(TONE_CTRL);
+
+  pinMode(RF_POWER_PIN, OUTPUT); //RF power control is output
+  digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
+  //TODO: store last power state and restore on every boot 
+  
+  pinMode(MUTE_PIN_1, OUTPUT);
+  digitalWrite(MUTE_PIN_1, HIGH); //Mute the Audio output
+
+  pinMode(BAND_SELECT_0, OUTPUT);
+  pinMode(BAND_SELECT_1, OUTPUT);
+
+  pinMode(PTT_INPUT_PIN,  INPUT_PULLUP);
+  pinMode(PTT_OUTPUT_PIN, OUTPUT);
+  digitalWrite(PTT_OUTPUT_PIN, LOW); //No PTT at startup
+
+  pinMode(FWD_POWER_PIN, INPUT);
+  pinMode(REF_POWER_PIN, INPUT);
+
+
+  //pinMode(KeypadIntPin,    INPUT);
+	pinMode(KeypadIntPin, INPUT_PULLUP);
+ // attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
+  pinMode(pll_clk_pin, OUTPUT);
+  pinMode(pll_data_pin,OUTPUT);
+  pinMode(pll_ena_pin, OUTPUT);
+  pinMode(PLL_SEC, OUTPUT);
+
+  digitalWrite(pll_clk_pin, LOW);
+  digitalWrite(pll_data_pin,LOW);
+  digitalWrite(pll_ena_pin, LOW);
+
+
+
   cli(); // Turn Off Interrupts
   //PCICR  |= 0b00000100;  
   PCICR = (1 << PCIE2);  //same as above but different :)
@@ -1265,41 +1303,6 @@ void setup() {
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
   //pinMode(POWER_ON_PIN, OUTPUT);
-
-  pinMode(MIC_PIN, OUTPUT);
-  SetTone(TONE_CTRL);
-
-  pinMode(RF_POWER_PIN, OUTPUT); //RF power control is output
-  digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
-  //TODO: store last power state and restore on every boot 
-  
-  pinMode(MUTE_PIN_1, OUTPUT);
-  digitalWrite(MUTE_PIN_1, HIGH); //Mute the Audio output
-
-  pinMode(SQL_ACTIVE, INPUT);
-
-  pinMode(BAND_SELECT_0, OUTPUT);
-  pinMode(BAND_SELECT_1, OUTPUT);
-
-  pinMode(PTT_INPUT_PIN,  INPUT_PULLUP);
-  pinMode(PTT_OUTPUT_PIN, OUTPUT);
-  digitalWrite(PTT_OUTPUT_PIN, LOW); //No PTT at startup
-
-  pinMode(FWD_POWER_PIN, INPUT);
-  pinMode(REF_POWER_PIN, INPUT);
-
-
-  //pinMode(KeypadIntPin,    INPUT);
-	pinMode(KeypadIntPin, INPUT_PULLUP);
- // attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
-  pinMode(pll_clk_pin, OUTPUT);
-  pinMode(pll_data_pin,OUTPUT);
-  pinMode(pll_ena_pin, OUTPUT);
-  pinMode(PLL_SEC, OUTPUT);
-
-  digitalWrite(pll_clk_pin, LOW);
-  digitalWrite(pll_data_pin,LOW);
-  digitalWrite(pll_ena_pin, LOW);
  
   memset(matrix, 0, 24);
   Wire.begin(); 
@@ -2096,7 +2099,7 @@ void send_packet(char packet_type)
    strcpy(FRQ_old,FRQ); //store old frequency for recall
    shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
    TRX_MODE = TX;
-   numberToFrequency(144800,FRQ);
+   numberToFrequency(144800,FRQ);         //TODO: change for ISS
    validFRQ = Calculate_Frequency(FRQ);
    write_FRQ(calc_frequency);
    writeFRQToLcd(FRQ);
@@ -2132,15 +2135,6 @@ void send_packet(char packet_type)
 void randomize(unsigned int &var, unsigned int low, unsigned int high)
 {
   var = random(low, high);
-}
-*/
-/*
-void print_version(void)
-{
-  Serial.println(" ");
-  Serial.print("Sketch:   ");   Serial.println(__FILE__);
-  Serial.print("Uploaded: ");   Serial.println(__DATE__);
-  Serial.println(" ");
 }
 */
 
