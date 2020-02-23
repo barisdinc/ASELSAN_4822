@@ -269,11 +269,10 @@ unsigned int APRS_Counter = 0;
 //Not allowed to change
 char myssid = 9;
 const char *dest = "TAMSAT";
-const char *digi = "WIDE2";
+const char *digi = "ARISS";
 char digissid = 1;
 const char sym_ovl = '>';
 const char sym_tab = '/';
-
 
 char bit_stuff = 0;
 unsigned short crc=0xffff;
@@ -288,7 +287,7 @@ void send_string_len(String in_string, int len);
 void calc_crc(bool in_bit);
 void send_crc(void);
 
-void send_packet(char packet_type);
+void send_packet(char packet_type, uint16_t frequency);
 void send_flag(unsigned char flag_len);
 void send_header(void);
 void send_payload(char type);
@@ -1352,7 +1351,7 @@ void loop() {
   if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
   if (CHANNEL_BUSY==0) APRS_Counter = 0; //If channel is busy, dont transmit APRS, wait the musy to finish and restart counter
   if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
-  if (pttToggler) send_packet(_STATUS);
+  if (pttToggler) send_packet(_STATUS,144800);
 
   //Led_Status = Led_Status - yellow_led;
   //Led_Status = Led_Status - red_led;
@@ -1382,7 +1381,8 @@ void loop() {
  //TODO: Convert timeout to seconds instead of loop counter
   APRS_Counter += 1;
   if ((APRS_Counter >= APRS_Timeout * 60 * 20000) && (APRS_Timeout > 0)) {
-     send_packet(_FIXPOS_STATUS);
+     send_packet(_FIXPOS_STATUS,144800); //For APRS terrestrial
+     send_packet(_FIXPOS_STATUS,145825); //For ISS
      APRS_Counter = 0;
   }
 
@@ -2079,7 +2079,7 @@ void send_flag(unsigned char flag_len)
  * delimiter. In this example, 100 flags is used as the preamble and 3 flags as
  * the postamble.
  */
-void send_packet(char packet_type)
+void send_packet(char packet_type, uint16_t frequency)
 {
   /*
    * AX25 FRAME
@@ -2099,16 +2099,15 @@ void send_packet(char packet_type)
    strcpy(FRQ_old,FRQ); //store old frequency for recall
    shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
    TRX_MODE = TX;
-   numberToFrequency(144800,FRQ);         //TODO: change for ISS
+   numberToFrequency(frequency,FRQ);         //TODO: change for ISS
    validFRQ = Calculate_Frequency(FRQ);
    write_FRQ(calc_frequency);
    writeFRQToLcd(FRQ);
    digitalWrite(PTT_OUTPUT_PIN,HIGH);
-   
-  //Serialprint("Sending packet..."); 
-  noTone(MIC_PIN);
-  delay(300); //TODO: put define for TXDELAY
-  
+   //Serialprint("Sending packet..."); 
+   noTone(MIC_PIN);
+   delay(300); //TODO: put define for TXDELAY
+    
   //prepare and send APRS message
   send_flag(100);
   crc = 0xffff;
