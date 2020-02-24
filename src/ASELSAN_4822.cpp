@@ -260,9 +260,9 @@ unsigned int tc2400 = (unsigned int)(0.5 * adj_2400 * 1000000.0 / 2400.0);
 
 //Allowed to change
 String mycall = "TA7W";
-String APRS_Mesaj = "TAMSAT KIT - APRS TEST";
-String lat = "3955.50N"; //Anitkabir Latitude
-String lon = "3250.22E"; //Anitkabir longitude
+String APRS_Message = "TAMSAT KIT - APRS TEST";
+String lat = "3955.50N"; //Latitude  - Anitkabir
+String lon = "3250.22E"; //longitude - Anitkabir
 unsigned int APRS_Timeout = 3; //minutes
 unsigned long APRS_Counter = 0;
 
@@ -806,6 +806,126 @@ void numberToFrequency(long Freq, char *rFRQ) {
   //strcpy(rFRQ,"145.775 ");
 }
 
+
+void eeprom_readAPRS()
+{
+  //APRS Settings
+  APRS_Message[0] = EEPROM.read(20); //APRS Message
+  APRS_Message[1] = EEPROM.read(21); //APRS Message
+  APRS_Message[2] = EEPROM.read(22); //APRS Message
+  APRS_Message[3] = EEPROM.read(23); //APRS Message
+  APRS_Message[4] = EEPROM.read(24); //APRS Message
+  APRS_Message[5] = EEPROM.read(25); //APRS Message
+  APRS_Message[6] = EEPROM.read(26); //APRS Message
+  APRS_Message[7] = EEPROM.read(27); //APRS Message
+  APRS_Message[8] = EEPROM.read(28); //APRS Message
+  APRS_Message[9] = EEPROM.read(29); //APRS Message
+  APRS_Message[10] = EEPROM.read(30); //APRS Message
+  APRS_Message[11] = EEPROM.read(31); //APRS Message
+  APRS_Message[12] = EEPROM.read(32); //APRS Message
+  APRS_Message[13] = EEPROM.read(33); //APRS Message
+  APRS_Message[14] = EEPROM.read(34); //APRS Message
+  APRS_Message[15] = EEPROM.read(35); //APRS Message
+  APRS_Message[16] = EEPROM.read(36); //APRS Message
+  APRS_Message[17] = EEPROM.read(37); //APRS Message
+  APRS_Message[18] = EEPROM.read(38); //APRS Message
+  APRS_Message[19] = EEPROM.read(39); //APRS Message
+  APRS_Message[20] = EEPROM.read(40); //APRS Message
+  APRS_Message[21] = EEPROM.read(41); //APRS Message
+  APRS_Message[22] = EEPROM.read(42); //APRS Message
+  APRS_Message[23] = EEPROM.read(43); //APRS Message
+  APRS_Message[24] = EEPROM.read(44); //APRS Message
+  APRS_Message[25] = EEPROM.read(45); //APRS Message
+  APRS_Message[26] = EEPROM.read(46); //APRS Message
+  APRS_Message[27] = EEPROM.read(47); //APRS Message
+
+  mycall[0] = EEPROM.read(60); // APRS MYCALL
+  mycall[0] =  EEPROM.read(61); // APRS MYCALL
+  mycall[0] =  EEPROM.read(62); // APRS MYCALL
+  mycall[0] =  EEPROM.read(63); // APRS MYCALL
+  mycall[0] =  EEPROM.read(64); // APRS MYCALL
+  mycall[0] =  EEPROM.read(65); // APRS MYCALL
+  //Read last APRS Timeout value from EEPROM
+  APRS_Timeout = EEPROM.read(66);
+  lat[0] =  EEPROM.read(67); // APRS Latitude   
+  lat[1] =  EEPROM.read(68); // APRS Latitude
+  lat[2] =  EEPROM.read(69); // APRS Latitude
+  lat[3] =  EEPROM.read(70); // APRS Latitude
+  lat[4] =  EEPROM.read(71); // APRS Latitude
+  lat[5] =  EEPROM.read(72); // APRS Latitude
+  lat[6] =  EEPROM.read(73); // APRS Latitude
+  lat[7] =  EEPROM.read(74); // APRS Latitude
+  lon[0] =  EEPROM.read(75); // APRS Longitude
+  lon[1] =  EEPROM.read(76); // APRS Longitude
+  lon[2] =  EEPROM.read(77); // APRS Longitude
+  lon[3] =  EEPROM.read(78); // APRS Longitude
+  lon[4] =  EEPROM.read(79); // APRS Longitude
+  lon[5] =  EEPROM.read(80); // APRS Longitude
+  lon[6] =  EEPROM.read(81); // APRS Longitude
+  lon[7] =  EEPROM.read(82); // APRS Longitude
+}
+
+
+void eeprom_writeAPRS()
+{
+//APRS Settings
+    EEPROM.write(20,APRS_Message[0]); //APRS Message
+    EEPROM.write(21,APRS_Message[1]); //APRS Message
+    EEPROM.write(22,APRS_Message[2]); //APRS Message
+    EEPROM.write(23,APRS_Message[3]); //APRS Message
+    EEPROM.write(24,APRS_Message[4]); //APRS Message
+    EEPROM.write(25,APRS_Message[5]); //APRS Message
+    EEPROM.write(26,APRS_Message[6]); //APRS Message
+    EEPROM.write(27,APRS_Message[7]); //APRS Message
+    EEPROM.write(28,APRS_Message[8]); //APRS Message
+    EEPROM.write(29,APRS_Message[9]); //APRS Message
+    EEPROM.write(30,APRS_Message[10]); //APRS Message
+    EEPROM.write(31,APRS_Message[11]); //APRS Message
+    EEPROM.write(32,APRS_Message[12]); //APRS Message
+    EEPROM.write(33,APRS_Message[13]); //APRS Message
+    EEPROM.write(34,APRS_Message[14]); //APRS Message
+    EEPROM.write(35,APRS_Message[15]); //APRS Message
+    EEPROM.write(36,APRS_Message[16]); //APRS Message
+    EEPROM.write(37,APRS_Message[17]); //APRS Message
+    EEPROM.write(38,APRS_Message[18]); //APRS Message
+    EEPROM.write(39,APRS_Message[19]); //APRS Message
+    EEPROM.write(40,APRS_Message[20]); //APRS Message
+    EEPROM.write(41,APRS_Message[21]); //APRS Message
+    EEPROM.write(42,APRS_Message[22]); //APRS Message
+    EEPROM.write(43,APRS_Message[23]); //APRS Message
+    EEPROM.write(44,APRS_Message[24]); //APRS Message
+    EEPROM.write(45,APRS_Message[25]); //APRS Message
+    EEPROM.write(46,APRS_Message[26]); //APRS Message
+    EEPROM.write(47,APRS_Message[27]); //APRS Message
+
+    EEPROM.write(60,mycall[0]); // APRS MYCALL
+    EEPROM.write(61,mycall[1]); // APRS MYCALL
+    EEPROM.write(62,mycall[2]); // APRS MYCALL
+    EEPROM.write(63,mycall[3]); // APRS MYCALL
+    EEPROM.write(64,mycall[4]); // APRS MYCALL
+    EEPROM.write(65,mycall[5]); // APRS MYCALL
+
+    EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
+
+    EEPROM.write(67,lat[0]); // APRS Latitude - Anitkabir
+    EEPROM.write(68,lat[1]); // APRS Latitude - Anitkabir
+    EEPROM.write(69,lat[2]); // APRS Latitude - Anitkabir
+    EEPROM.write(70,lat[3]); // APRS Latitude - Anitkabir
+    EEPROM.write(71,lat[4]); // APRS Latitude - Anitkabir
+    EEPROM.write(72,lat[5]); // APRS Latitude - Anitkabir
+    EEPROM.write(73,lat[6]); // APRS Latitude - Anitkabir
+    EEPROM.write(74,lat[7]); // APRS Latitude - Anitkabir
+    EEPROM.write(75,lon[0]); // APRS Longitude - Anitkabir
+    EEPROM.write(76,lon[1]); // APRS Longitude - Anitkabir
+    EEPROM.write(77,lon[2]); // APRS Longitude - Anitkabir
+    EEPROM.write(78,lon[3]); // APRS Longitude - Anitkabir
+    EEPROM.write(79,lon[4]); // APRS Longitude - Anitkabir
+    EEPROM.write(80,lon[5]); // APRS Longitude - Anitkabir
+    EEPROM.write(81,lon[6]); // APRS Longitude - Anitkabir
+    EEPROM.write(82,lon[7]); // APRS Longitude - Anitkabir
+
+}
+
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     //Serialprint("initializing EEPROM...");
     EEPROM.write(0, 127); // make eeprom initialized
@@ -826,7 +946,9 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(15,' '); // Message
     EEPROM.write(16,' '); // Message
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
-    EEPROM.write(18,APRS_Timeout); //Aprs timeout in minutes
+
+
+    eeprom_writeAPRS();
 
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
@@ -1129,7 +1251,8 @@ void commandAPRSSure()
   APRS_Timeout = commandString.substring(2,4).toInt();
   //if (APRS_Timeout <= 60) APRS_Timeout = 60;  
   //Serialprint("\r\naprstime [%d]\n\r",APRS_Timeout);
-  EEPROM.write(18,APRS_Timeout);
+  eeprom_writeAPRS();
+
 }
 
 void commandAPRSMesaj()
@@ -1137,10 +1260,11 @@ void commandAPRSMesaj()
   //Serial.print("APRS mesajiniz '");
   Serial.print(commandString.substring(2,30));
   //Serial.println("' olarak duzenlendi");
-  APRS_Mesaj = commandString.substring(2,30);
+  APRS_Message = commandString.substring(2,30);
   //TODO: APRS Mesajini EEPROM a kaydet ve oku
-  Serial.print(APRS_Mesaj);
+  Serial.print(APRS_Message);
   Serialprint(" OK\r\n");
+  eeprom_writeAPRS();
 }
 
 void commandAPRSmycall()
@@ -1151,6 +1275,7 @@ void commandAPRSmycall()
   //Serial.println("' olarak duzenlendi");
   //TODO: APRS callsign eeprom a kaydet ve oku
   mycall = commandString.substring(2,8);  
+  eeprom_writeAPRS();
 }
 
 void commandTogglePTT()
@@ -1262,8 +1387,7 @@ void setup() {
   if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
 
-  //Read last APRS Active state from EEPROM
-  APRS_Timeout = EEPROM.read(18);
+eeprom_readAPRS();
 
   //initialize_eeprom();
   //Read Last used frequency
@@ -1808,7 +1932,7 @@ bool getFromSerialport() {
 
       //Status Message
       readParam(szParam, sizeof(szParam));
-      strcpy(Ayarlar.APRS_Mesaj, szParam);
+      strcpy(Ayarlar.APRS_Message, szParam);
 
       //GPS Var/Yok
       readParam(szParam, sizeof(szParam));
@@ -2007,7 +2131,7 @@ void send_payload(char type)
   else if(type == _STATUS)
   {
     send_char_NRZI(_DT_STATUS, HIGH);
-    send_string_len(APRS_Mesaj, APRS_Mesaj.length());
+    send_string_len(APRS_Message, APRS_Message.length());
   }
   else if(type == _FIXPOS_STATUS)
   {
@@ -2018,7 +2142,7 @@ void send_payload(char type)
     send_char_NRZI(sym_tab, HIGH);
 
     send_char_NRZI(' ', HIGH);
-    send_string_len(APRS_Mesaj, APRS_Mesaj.length());
+    send_string_len(APRS_Message, APRS_Message.length());
   }
 }
 
