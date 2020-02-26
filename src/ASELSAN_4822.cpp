@@ -753,7 +753,7 @@ void readRfPower()
    
    fwdPower = analogRead(FWD_POWER_PIN);
    refPower = analogRead(REF_POWER_PIN);
-   refPower = refPower * 2;
+   //refPower = refPower * 2;
    int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
    float swr = (float)Ptoplam / (float)Pfark;
@@ -1666,8 +1666,7 @@ void loop() {
           break; // 'M'
           case 'C':
             //VNA Vector Network analizor Subroutines
-            Serial.print("pressedKEY");
-            Serial.println(pressedKEY,DEC);
+            TRX_MODE = TX; //needed for PLL locking to TX frequrency
             minSWR = 9999;
             lowestFRQ=0;
             highestFRQ=0;           
@@ -1693,23 +1692,29 @@ void loop() {
               max_vna_freq = 45000;              
               stp_vna_freq = 10;
             }
-            Serialprint("#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
+            digitalWrite(PTT_OUTPUT_PIN,HIGH);
+            Serialprint("\r\n#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
             for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
                 numberToFrequency(vna_freq*10,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
+                write_FRQ(calc_frequency);
                 writeFRQToLcd(FRQ);
                 Serialprint(">%d\t",vna_freq);
-                digitalWrite(PTT_OUTPUT_PIN,HIGH);
-                delay(50);
+                delay(100);
+                //digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                //delay(50);
                 readRfPower(); //TODO: Move under a menu item
-                delay(25);
-                digitalWrite(PTT_OUTPUT_PIN,LOW);
+                //delay(25);
+                //digitalWrite(PTT_OUTPUT_PIN,LOW);
+
                 if (readColumn() != 0) break; //a key is pressed
               }
+              digitalWrite(PTT_OUTPUT_PIN,LOW);
               Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
               //SetRFPower(RF_POWER_STATE);
               SetRFPower();
+              TRX_MODE = RX; //PLL should lock to RX
               //strcpy(FRQ,FRQ_old);
               numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
