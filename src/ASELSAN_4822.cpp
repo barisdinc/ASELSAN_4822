@@ -756,7 +756,7 @@ void readRfPower()
    //refPower = refPower * 2;
    int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
-   float swr = (float)Ptoplam / (float)Pfark;
+   float swr = Pfark; //gecici (float)Ptoplam / (float)Pfark;
    Serial.print("\t");
    Serial.print(fwdPower);
    Serial.print("\t");
