@@ -225,6 +225,17 @@ struct transceiverConfig_t {  // starts at EEPROM address 0
 };
 transceiverConfig_t transceiverConfig;
 
+struct channel_t {
+  uint16_t frequency;
+  uint16_t shift;
+  uint8_t  tone;
+  char     name[6];
+  uint8_t  reserved;
+};
+channel_t last_ch;
+
+
+
 //Memory and Channel tyoes
 struct channelInfo_t {
   uint16_t FRQ;
@@ -694,8 +705,8 @@ double UpdatedFrq = 0;
     UpdatedFrq = UpdatedFrq / 12.5;
     byte FRQ_L = UpdatedFrq / 256;
     byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
-    EEPROM.write(50,FRQ_L); 
-    EEPROM.write(51,FRQ_H);  
+    EEPROM.write(50,FRQ_H);  
+    EEPROM.write(51,FRQ_L); 
     write_SHIFTtoEE(frqSHIFT);
     write_TONEtoEE(ctcss_tone_pos);
 //    EEPROM.write(52,0x00); // SHFT_L
@@ -955,13 +966,13 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
 
     if (transceiverConfig.radiotype == 0)
     { 
-      EEPROM.write(50,0x04); // FRQ_L
-      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
+      EEPROM.write(50,0xE0); // FRQ_H
+      EEPROM.write(51,0x04); // FRQ_L (Default frequency 145.600)
     }
     else
     {
-      EEPROM.write(50,0x0A); // FRQ_L
-      EEPROM.write(51,0xE0); // FRQ_H (Default frequency UHF)
+      EEPROM.write(50,0xE0); // FRQ_H
+      EEPROM.write(51,0x0A); // FRQ_L (Default frequency UHF)
     }
     if (transceiverConfig.radiotype==0)
     {
@@ -1377,22 +1388,18 @@ void setup() {
 
   // Check EEPROM for stored values
   if (transceiverConfig.eeprom_state != 127) initialize_eeprom();
-  // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
-  //radio_type = EEPROM.read(17);//UHF VHF Seçimi
-  //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
   if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
 
   eeprom_readAPRS();
-
-  //initialize_eeprom();
   //Read Last used frequency
-  byte byte1,byte2;
-  byte1 = EEPROM.read(50);
-  byte2 = EEPROM.read(51);
-  long freq;
-  freq = (byte1 * 256) + byte2 ;
-  freq = freq * 12.5;
+  //byte byte1,byte2;
+  //byte1 = EEPROM.read(50);
+  //byte2 = EEPROM.read(51);
+  EEPROM.get(50, last_ch); //read last channel info stored in EEPROM
+  //long freq;
+  long freq = last_ch.frequency * 12.5;// (byte2 * 256) + byte1 ;
+  //freq = freq * 12.5;
 
    if (transceiverConfig.radiotype == 0)
      {
