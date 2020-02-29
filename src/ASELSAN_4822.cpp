@@ -1393,22 +1393,19 @@ void setup() {
 
   eeprom_readAPRS();
   //Read Last used frequency
-  //byte byte1,byte2;
-  //byte1 = EEPROM.read(50);
-  //byte2 = EEPROM.read(51);
   EEPROM.get(50, last_ch); //read last channel info stored in EEPROM
-  //long freq;
   long freq = last_ch.frequency * 12.5;// (byte2 * 256) + byte1 ;
-  //freq = freq * 12.5;
 
    if (transceiverConfig.radiotype == 0)
      {
        freq = freq + 130000;
+       //TODO: why 600, should be the value from EEPROM
        frqSHIFT = 600;
      }
    else
      {
       freq = freq + 400000;  
+      //TODO: why 7600, should be the value from EEPROM
       frqSHIFT = 7600;
      }
 
@@ -1418,9 +1415,12 @@ void setup() {
   byte FRQshift_L = EEPROM.read(52);
   byte FRQshift_H = EEPROM.read(53);
 
+Serialprint("SHIFT : %d \r\n",last_ch.shift);
+Serialprint("H: %d L: %d \r\n",FRQshift_H, FRQshift_L);
+
   shiftMODE=noSHIFT;//default value for SHIFTMODE
-  if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
-  if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+  if ((FRQshift_L>0) && (FRQshift_H>0))   shiftMODE=plusSHIFT;
+  if ( FRQshift_L>127)  {FRQshift_L-=128; shiftMODE=minusSHIFT;}
   frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
   ctcss_tone_pos  = EEPROM.read(54) ; // TONE
