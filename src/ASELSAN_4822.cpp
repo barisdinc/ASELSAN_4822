@@ -80,6 +80,31 @@ byte old_KeyVal= 0;
 #define FWD_POWER_PIN A6
 #define REF_POWER_PIN A7
 
+//EEPROM ADDRESS DEFINITIONS
+#define EEPROM_CONFDATA_BLCKSTART 0
+#define EEPROM_CHECKIT_ADDR 0
+#define EEPROM_VERSMAJ_ADDR 1
+#define EEPROM_VERSMIN_ADDR 2
+#define EEPROM_CLLSIGN_ADDR 3
+#define EEPROM_MESSAGE_ADDR 9
+#define EEPROM_RADIOTP_ADDR 17
+
+#define EEPROM_APRSMSG_ADDR 20
+
+#define EEPROM_CURRCHNL_BLCKSTART 50
+#define EEPROM_CURRFRQ_ADDR 50
+#define EEPROM_CURRSHF_ADDR 52
+#define EEPROM_CURRTON_ADDR 54
+
+#define EEPROM_APRSDATA_BLCKSTART 60
+#define EEPROM_APRSCLL_ADDR 60
+#define EEPROM_APRSTIM_ADDR 66
+#define EEPROM_APRSLAT_ADDR 67
+#define EEPROM_APRSLON_ADDR 75
+
+#define EEPROM_MEMDATA_BLCKSTART 100
+#define EEPROM_CHNNL01_ADDR 100
+
 //Will be used for toogling PTT from serial port
 bool pttToggler = false;
 
@@ -1393,7 +1418,8 @@ void setup() {
 
   eeprom_readAPRS();
   //Read Last used frequency
-  EEPROM.get(50, current_ch); //read last channel info stored in EEPROM
+  EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch); //read last channel info stored in EEPROM
+  Serialprint("Cur Shft %d\r\n",current_ch.shift_dir);
   long freq = current_ch.frequency * 12.5;// (byte2 * 256) + byte1 ;
   //frqSHIFT  = current_ch.shift;
   if (transceiverConfig.radiotype == 0)
