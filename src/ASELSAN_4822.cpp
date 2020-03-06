@@ -158,8 +158,8 @@ byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 //defining structures here
 struct channel_t {	
   uint32_t frequency;	
-  //int16_t  shift;	
-  //int8_t   shift_dir;	
+  int16_t  shift;	
+  int8_t   shift_dir;	
   //uint8_t  tone;	
 };	
 channel_t current_ch;
@@ -574,8 +574,11 @@ void write_SHIFTtoEE(unsigned long FRQshift) {
       FRQshift_L=FRQshift / 256; FRQshift_H=FRQshift - (FRQshift_L * 256); //pozitive shift
       if (shiftMODE==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
      }
-   EEPROM.write(52,FRQshift_L); // SHFT_L
-   EEPROM.write(53,FRQshift_H); // SHFT_H
+   current_ch.shift = FRQshift;
+   current_ch.shift_dir = shiftMODE;
+   EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+   //EEPROM.write(EEPROM_CURRSHF_ADDR,FRQshift_H); // SHFT_L
+   //EEPROM.write(EEPROM_CURRSHF_ADDR+1,FRQshift_L); // SHFT_H
 }
 
 void SetTone(int toneSTATE) {
@@ -1004,13 +1007,19 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     }
     if (radio_type==0)
     {
-      EEPROM.write(52,0x02); // SHFT_H
-      EEPROM.write(53,0x58); // SHFT_L
+      current_ch.shift = 600;
+      current_ch.shift_dir = -1;
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
+      //EEPROM.write(EEPROM_CURRSHF_ADDR,0x58); // SHFT_H
+      //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x02); // SHFT_L
     } 
     else
     {
-      EEPROM.write(52,0x1D); // SHFT_L
-      EEPROM.write(53,0xB0); // SHFT_H    
+      current_ch.shift = 7600;
+      current_ch.shift_dir = -1;
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
+      //EEPROM.write(EEPROM_CURRSHF_ADDR,0xB0); // SHFT_L
+      //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x1D); // SHFT_H    
     }
     EEPROM.write(54,0x08); // TONE 88.5Hz
 /*
@@ -1436,7 +1445,6 @@ eeprom_readAPRS();
   //byte2 = EEPROM.read(EEPROM_CURRFRQ_ADDR+1);
   long freq;
   //freq = (byte2 * 256) + byte1 ;
-  uint16_t freq_read;
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
   freq = current_ch.frequency * 12.5;
 
@@ -1454,13 +1462,16 @@ eeprom_readAPRS();
   numberToFrequency(freq, FRQ);
   strcpy(FRQ_old,FRQ);
  
-  byte FRQshift_L = EEPROM.read(52);
-  byte FRQshift_H = EEPROM.read(53);
+  EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+  //byte FRQshift_H = EEPROM.read(EEPROM_CURRSHF_ADDR);
+  //byte FRQshift_L = EEPROM.read(EEPROM_CURRSHF_ADDR+1);
 
-  shiftMODE=noSHIFT;//default value for SHIFTMODE
-  if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
-  if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
-  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
+  shiftMODE = current_ch.shift_dir;
+  frqSHIFT = current_ch.shift;
+  //shiftMODE=noSHIFT;//default value for SHIFTMODE
+  //if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
+  //if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+  //frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
   ctcss_tone_pos  = EEPROM.read(54) ; // TONE
   TONE_CTRL=CTCSS_OFF;
