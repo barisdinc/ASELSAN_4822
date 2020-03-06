@@ -129,6 +129,43 @@ byte LST_MODE = TX; //this will hold the last receive transmit state. Start with
 byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 
+//EEPROM ADDRESS DEFINITIONS
+#define EEPROM_CONFDATA_BLCKSTART 0
+#define EEPROM_CHECKIT_ADDR 0
+#define EEPROM_VERSMAJ_ADDR 1
+#define EEPROM_VERSMIN_ADDR 2
+#define EEPROM_CLLSIGN_ADDR 3
+#define EEPROM_MESSAGE_ADDR 9
+#define EEPROM_RADIOTP_ADDR 17
+
+#define EEPROM_APRSMSG_ADDR 20
+
+#define EEPROM_CURRCHNL_BLCKSTART 55
+#define EEPROM_CURRFRQ_ADDR 50
+#define EEPROM_CURRSHF_ADDR 52
+#define EEPROM_CURRTON_ADDR 54
+
+#define EEPROM_APRSDATA_BLCKSTART 60
+#define EEPROM_APRSCLL_ADDR 60
+#define EEPROM_APRSTIM_ADDR 66
+#define EEPROM_APRSLAT_ADDR 67
+#define EEPROM_APRSLON_ADDR 75
+
+#define EEPROM_MEMDATA_BLCKSTART 100
+#define EEPROM_CHNNL01_ADDR 100
+
+
+//defining structures here
+struct channel_t {	
+  uint32_t frequency;	
+  //int16_t  shift;	
+  //int8_t   shift_dir;	
+  //uint8_t  tone;	
+};	
+channel_t current_ch;
+
+
+
 //Key sounds and alerts
 #define ALERT_PIN 13
 #define ALERT_OFF 0
@@ -691,10 +728,11 @@ double UpdatedFrq = 0;
     UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     }
     UpdatedFrq = UpdatedFrq / 12.5;
-    byte FRQ_L = UpdatedFrq / 256;
-    byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
-    EEPROM.write(50,FRQ_L); 
-    EEPROM.write(51,FRQ_H);  
+    //byte FRQ_L = UpdatedFrq / 256;
+    //byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
+    current_ch.frequency = UpdatedFrq;
+    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
+    //EEPROM.write(EEPROM_CURRFRQ_ADDR,FRQ_L);  
     write_SHIFTtoEE(frqSHIFT);
     write_TONEtoEE(ctcss_tone_pos);
 //    EEPROM.write(52,0x00); // SHFT_L
@@ -754,7 +792,7 @@ void readRfPower()
    fwdPower = analogRead(FWD_POWER_PIN);
    refPower = analogRead(REF_POWER_PIN);
    //refPower = refPower * 2;
-   int Ptoplam = fwdPower + refPower;
+   //int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
    float swr = Pfark; //gecici (float)Ptoplam / (float)Pfark;
    Serial.print("\t");
@@ -954,18 +992,20 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
 
     if (radio_type == 0)
     { 
-      EEPROM.write(50,0x04); // FRQ_L
-      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
+      current_ch.frequency = 1248;
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
+      //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x04); // FRQ_L (Default frequency 145.600)
     }
     else
     {
-      EEPROM.write(50,0x0A); // FRQ_L
-      EEPROM.write(51,0xE0); // FRQ_H (Default frequency UHF)
+      current_ch.frequency = 2784;
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
+      //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x0A); // FRQ_L (Default frequency UHF)
     }
     if (radio_type==0)
     {
-      EEPROM.write(52,0x02); // SHFT_L
-      EEPROM.write(53,0x58); // SHFT_H
+      EEPROM.write(52,0x02); // SHFT_H
+      EEPROM.write(53,0x58); // SHFT_L
     } 
     else
     {
@@ -1391,12 +1431,14 @@ eeprom_readAPRS();
 
   //initialize_eeprom();
   //Read Last used frequency
-  byte byte1,byte2;
-  byte1 = EEPROM.read(50);
-  byte2 = EEPROM.read(51);
+  //byte byte1,byte2;
+  //byte1 = EEPROM.read(EEPROM_CURRFRQ_ADDR);
+  //byte2 = EEPROM.read(EEPROM_CURRFRQ_ADDR+1);
   long freq;
-  freq = (byte1 * 256) + byte2 ;
-  freq = freq * 12.5;
+  //freq = (byte2 * 256) + byte1 ;
+  uint16_t freq_read;
+  EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+  freq = current_ch.frequency * 12.5;
 
    if (radio_type == 0)
      {
