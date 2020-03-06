@@ -23,7 +23,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 2
-#define SW_MINOR 1
+#define SW_MINOR 0
 
 /* Constants and default settings for the PCF */
 // MODE SET
@@ -80,31 +80,6 @@ byte old_KeyVal= 0;
 #define FWD_POWER_PIN A6
 #define REF_POWER_PIN A7
 
-//EEPROM ADDRESS DEFINITIONS
-#define EEPROM_CONFDATA_BLCKSTART 0
-#define EEPROM_CHECKIT_ADDR 0
-#define EEPROM_VERSMAJ_ADDR 1
-#define EEPROM_VERSMIN_ADDR 2
-#define EEPROM_CLLSIGN_ADDR 3
-#define EEPROM_MESSAGE_ADDR 9
-#define EEPROM_RADIOTP_ADDR 17
-
-#define EEPROM_APRSMSG_ADDR 20
-
-#define EEPROM_CURRCHNL_BLCKSTART 50
-#define EEPROM_CURRFRQ_ADDR 50
-#define EEPROM_CURRSHF_ADDR 52
-#define EEPROM_CURRTON_ADDR 54
-
-#define EEPROM_APRSDATA_BLCKSTART 60
-#define EEPROM_APRSCLL_ADDR 60
-#define EEPROM_APRSTIM_ADDR 66
-#define EEPROM_APRSLAT_ADDR 67
-#define EEPROM_APRSLON_ADDR 75
-
-#define EEPROM_MEMDATA_BLCKSTART 100
-#define EEPROM_CHNNL01_ADDR 100
-
 //Will be used for toogling PTT from serial port
 bool pttToggler = false;
 
@@ -126,15 +101,16 @@ bool pttToggler = false;
 #define BAND_SELECT_0  8
 
 //RADIO Type
-//byte radio_type = 0; //0 VHF 1 UHF .. moved to transceiverConfig structure
+byte radio_type = 0; //0 VHF 1 UHF
 
 //DUPLEX mode Shift Settinngs
 int frqSHIFT;
 
 #define minusSHIFT -1
 #define noSHIFT     0
-#define SIMPLEX     0 //Just incase that we can use this term for noSHIFT
+#define  SIMPLEX    0 //Just incase that we can use this term for noSHIFT
 #define plusSHIFT   1
+int shiftMODE = noSHIFT; // we start with noSHIFT (SIMPLEX)
 int old_frqSHIFT;       //to store old shift value before entering submenu
 
 //Receive/Transmit and PTT
@@ -237,28 +213,6 @@ boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
-
-//Configuration data structure
-struct transceiverConfig_t {  // starts at EEPROM address 0
-  byte eeprom_state;
-  byte swmajor;
-  byte swminor;
-  char callsign[6];
-  char message[8];
-  byte radiotype;
-};
-transceiverConfig_t transceiverConfig;
-
-struct channel_t {
-  uint16_t frequency;
-  int16_t  shift;
-  int8_t   bozuk; //This memory location had problem on my arduino.. just for skipping it
-  int8_t   shift_dir;
-  uint8_t  tone;
-};
-channel_t current_ch;
-
-
 
 //Memory and Channel tyoes
 struct channelInfo_t {
@@ -396,14 +350,9 @@ void sendToLcd(byte *data, byte position) {
 
 void writeToLcd(const char text[]) {
   memset(chr2wr, 0, 3);
-  for (uint8_t idx=0; idx<8; idx++) {
-    //if (idx > 7) break;
-    char *c = NULL;
-    if (idx < strlen(text))   
-      c = strchr(index, (int)toupper(text[idx]));
-    else
-      c = strchr(index, (int)' '); //' ' space character
-    
+  for (uint8_t idx=0; idx!=strlen(text); idx++) {
+    if (idx > 7) break;   
+    char *c = strchr(index, (int)toupper(text[idx]));
     byte pos;
     if (c == NULL) { 
       pos = 0;      // Char not found, use underscore space instead
@@ -492,17 +441,17 @@ void writeFRQToLcd(const char frq[9])
     Position_Signs[7][1] = Position_Signs[7][1] | NOTE[1];
     Position_Signs[7][2] = Position_Signs[7][2] | NOTE[2];      
   }
-  if (current_ch.shift_dir == noSHIFT) {
+  if (shiftMODE == noSHIFT) {
     Position_Signs[7][0] = Position_Signs[7][0] | SPLX[0];
     Position_Signs[7][1] = Position_Signs[7][1] | SPLX[1];
     Position_Signs[7][2] = Position_Signs[7][2] | SPLX[2];            
   }
-  if (current_ch.shift_dir == minusSHIFT) {
+  if (shiftMODE == minusSHIFT) {
     Position_Signs[7][0] = Position_Signs[7][0] | MINS[0];
     Position_Signs[7][1] = Position_Signs[7][1] | MINS[1];
     Position_Signs[7][2] = Position_Signs[7][2] | MINS[2];            
   }
-  if (current_ch.shift_dir == plusSHIFT) {
+  if (shiftMODE == plusSHIFT) {
     Position_Signs[7][0] = Position_Signs[7][0] | PLUS[0];
     Position_Signs[7][1] = Position_Signs[7][1] | PLUS[1];
     Position_Signs[7][2] = Position_Signs[7][2] | PLUS[2];            
@@ -518,19 +467,34 @@ void scroll(const char *text, int speed) {
   }
 }
 
-//Read the whole config into memory variable
-void eeprom_readTransceiverConfig()
-{
-  EEPROM.get(0,transceiverConfig); //Read the data from the beginning of EEPROM into structure of transceiverConfig (callsign, message, type, etc.)
-}
-
 
 //Print Greeting messages to LCD
 void Greetings() {
- writeToLcd(transceiverConfig.message);
+
+ char MSG[8];
+ MSG[0] = EEPROM.read(9);   //T
+ MSG[1] = EEPROM.read(10);  //A
+ MSG[2] = EEPROM.read(11);  //M
+ MSG[3] = EEPROM.read(12);  //S
+ MSG[4] = EEPROM.read(13);  //A
+ MSG[5] = EEPROM.read(14);  //T
+ MSG[6] = 48+EEPROM.read(1);  //SW_MAJOR
+ MSG[7] = 48+EEPROM.read(2);  //SW_MINOR
+ MSG[8] = 0;
+ writeToLcd(MSG);
  delay(1000);
-  writeToLcd(transceiverConfig.callsign);
+ MSG[0] = EEPROM.read(3);
+ MSG[1] = EEPROM.read(4);
+ MSG[2] = EEPROM.read(5);
+ MSG[3] = EEPROM.read(6);
+ MSG[4] = EEPROM.read(7);
+ MSG[5] = EEPROM.read(8);
+ MSG[6] = ' ';
+ MSG[7] = ' ';
+ MSG[8] = 0;
+ writeToLcd(MSG);
  delay(1000);
+
 }
 
 //MC145158 programming routines
@@ -561,23 +525,20 @@ void send_SPIEnable() {
 
 
 void write_TONEtoEE(int tone_pos) {
-  if (TONE_CTRL==CTCSS_ON) EEPROM.write(55,tone_pos+128); else EEPROM.write(55,tone_pos); // first bit is TONE STATE
+  if (TONE_CTRL==CTCSS_ON) EEPROM.write(54,tone_pos+128); else EEPROM.write(54,tone_pos); // first bit is TONE STATE
 }
 
 void write_SHIFTtoEE(unsigned long FRQshift) {
-/*  
    byte FRQshift_L; 
    byte FRQshift_H;
-   if (current_ch.shift_dir==noSHIFT)    {FRQshift_L=0; FRQshift_H=0;}
+   if (shiftMODE==noSHIFT)    {FRQshift_L=0; FRQshift_H=0;}
    else
      {
       FRQshift_L=FRQshift / 256; FRQshift_H=FRQshift - (FRQshift_L * 256); //pozitive shift
-      if (current_ch.shift_dir==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
+      if (shiftMODE==minusSHIFT) {FRQshift_L +=128;} //first bit is sign bit (negative shift)
      }
    EEPROM.write(52,FRQshift_L); // SHFT_L
    EEPROM.write(53,FRQshift_H); // SHFT_H
-  */ 
-   EEPROM.put(50,current_ch);
 }
 
 void SetTone(int toneSTATE) {
@@ -616,8 +577,8 @@ char numberToArray (int Number) //max 4 digits
 boolean Calculate_Frequency (char mFRQ[9]) {
 
   calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
-  if (transceiverConfig.radiotype==0 && (calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency for VHF
-  else if (transceiverConfig.radiotype==1 && (calc_frequency >= 400000L) & (calc_frequency < 468400L)) return true; //valid frequency for UHF
+  if (radio_type==0 && (calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency for VHF
+  else if (radio_type==1 && (calc_frequency >= 400000L) & (calc_frequency < 468400L)) return true; //valid frequency for UHF
   else 
     {
       Alert_Tone(ERR_tone);
@@ -631,14 +592,15 @@ void SetPLLLock(unsigned long Frequency)
   int R_Counter =0;
   int N_Counter = 0;
   int A_Counter = 0;
-  if(transceiverConfig.radiotype==0)
+  if(radio_type==0)
   {
     if (TRX_MODE == RX) Frequency = Frequency + 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency +  current_ch.shift * current_ch.shift_dir; //(current_ch.shift_dir * frqSHIFT) ; // Add/remove transmission shift
+    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
   
-    R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
-    N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
-    A_Counter = (Frequency / 12.5) - (80 * N_Counter);
+     R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
+     N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
+     A_Counter = (Frequency / 12.5) - (80 * N_Counter);
+
 
     digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
     send_SPIBit(R_Counter,14);
@@ -653,11 +615,12 @@ void SetPLLLock(unsigned long Frequency)
   else
   {
     if (TRX_MODE == RX) Frequency = Frequency - 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + current_ch.shift * current_ch.shift_dir; //(current_ch.shift_dir * frqSHIFT) ; // Add/remove transmission shift
+    if (TRX_MODE == TX) Frequency = Frequency + (shiftMODE * frqSHIFT) ; // Add/remove transmission shift
   
      R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
      N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
      A_Counter =(Frequency / 12.5) - (80 * N_Counter);
+
   
     digitalWrite(PLL_SEC, LOW);
     send_SPIBit(R_Counter,14);
@@ -700,7 +663,7 @@ void write_FRQ(unsigned long Frequency) {
 double UpdatedFrq = 0;
 //float divider = 0;
   if (validFRQ) {
-    if(transceiverConfig.radiotype==0)
+    if(radio_type==0)
     {
     if ((Frequency < 174000L) & (Frequency >= (164000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
     if ((Frequency < 164000L) & (Frequency >= (154000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
@@ -710,7 +673,7 @@ double UpdatedFrq = 0;
     UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
 
     }
-    else if(transceiverConfig.radiotype==1)
+    else if(radio_type==1)
     {
        if ((Frequency < 470000L) & (Frequency >= (452000L)))  
           {
@@ -725,21 +688,23 @@ double UpdatedFrq = 0;
             digitalWrite(BAND_SELECT_1, HIGH); 
           }
     // Update EEPROM for last used Frequncy
-    UpdatedFrq = Frequency - 400000; // Subtrack 130000/400000 to fit the frequency into double size (2 bytes) 
+    UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     }
     UpdatedFrq = UpdatedFrq / 12.5;
-    //byte FRQ_L = UpdatedFrq / 256;
-    //byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
-    //EEPROM.write(50,FRQ_H);  
-    //EEPROM.write(51,FRQ_L); 
-    EEPROM.put(50,current_ch); //TODO: put all channel at once
-    //EEPROM.put(50,current_ch.frequency); //TODO: put all channel at once
-    //EEPROM.put(52,current_ch.shift_dir * current_ch.shift);
-
-    //write_SHIFTtoEE(frqSHIFT);
-    //write_TONEtoEE(ctcss_tone_pos);
+    byte FRQ_L = UpdatedFrq / 256;
+    byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
+    EEPROM.write(50,FRQ_L); 
+    EEPROM.write(51,FRQ_H);  
+    write_SHIFTtoEE(frqSHIFT);
+    write_TONEtoEE(ctcss_tone_pos);
+//    EEPROM.write(52,0x00); // SHFT_L
+//    EEPROM.write(53,0x00); // SHFT_H
+//    EEPROM.write(54,0x00); // TONE
     
     SetPLLLock(Frequency);
+    
+  
+    
   } //validFRQ 
 }
 
@@ -789,7 +754,7 @@ void readRfPower()
    fwdPower = analogRead(FWD_POWER_PIN);
    refPower = analogRead(REF_POWER_PIN);
    //refPower = refPower * 2;
-   //int Ptoplam = fwdPower + refPower;
+   int Ptoplam = fwdPower + refPower;
    int Pfark   = fwdPower - refPower;
    float swr = Pfark; //gecici (float)Ptoplam / (float)Pfark;
    Serial.print("\t");
@@ -962,7 +927,7 @@ void eeprom_writeAPRS()
 }
 
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
-    Serialprint("initializing EEPROM...");
+    //Serialprint("initializing EEPROM...");
     EEPROM.write(0, 127); // make eeprom initialized
     EEPROM.write(1, SW_MAJOR);   //SW Version
     EEPROM.write(2, SW_MINOR);   //
@@ -980,36 +945,34 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(14,'T'); // Message
     EEPROM.write(15,' '); // Message
     EEPROM.write(16,' '); // Message
-    EEPROM.write(17,transceiverConfig.radiotype); // Program device as VHF=0 or UHF=1
+    EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
 
 
     eeprom_writeAPRS();
 
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
 
-    if (transceiverConfig.radiotype == 0)
+    if (radio_type == 0)
     { 
-      EEPROM.write(50,0xE0); // FRQ_H
-      EEPROM.write(51,0x04); // FRQ_L (Default frequency 145.600)
+      EEPROM.write(50,0x04); // FRQ_L
+      EEPROM.write(51,0xE0); // FRQ_H (Default frequency 145.600)
     }
     else
     {
-      EEPROM.write(50,0xE0); // FRQ_H
-      EEPROM.write(51,0x0A); // FRQ_L (Default frequency UHF)
+      EEPROM.write(50,0x0A); // FRQ_L
+      EEPROM.write(51,0xE0); // FRQ_H (Default frequency UHF)
     }
-    
-    if (transceiverConfig.radiotype==0)
+    if (radio_type==0)
     {
-      EEPROM.write(52,0x58); // SHFT_L
-      EEPROM.write(53,0x02); // SHFT_H
+      EEPROM.write(52,0x02); // SHFT_L
+      EEPROM.write(53,0x58); // SHFT_H
     } 
     else
     {
-      EEPROM.write(52,0xB0); // SHFT_L
-      EEPROM.write(53,0x1D); // SHFT_H    
+      EEPROM.write(52,0x1D); // SHFT_L
+      EEPROM.write(53,0xB0); // SHFT_H    
     }
-    
-    EEPROM.write(55,0x08); // TONE 88.5Hz
+    EEPROM.write(54,0x08); // TONE 88.5Hz
 /*
     //TODO: Move to a common function for PC program integration
     for (int ch=0;ch<100;ch++)
@@ -1036,7 +999,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte ChannelLocation = 100 + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
     double FrqToStore;
-    if (transceiverConfig.radiotype==0)
+    if (radio_type==0)
       {
         FrqToStore = calc_frequency - 130000;
       } 
@@ -1050,11 +1013,11 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte FRQ_H = FrqToStore - ( FRQ_L * 256);
     EEPROM.write(ChannelLocation  ,FRQ_L); 
     EEPROM.write(ChannelLocation+1,FRQ_H);  
-    //current_ch.shift_dir
+    //shiftMODE
     byte FRQshift_L; 
     byte FRQshift_H;
-    //Serialprint("SHIFT : %d \n\r",current_ch.shift_dir);
-    if (current_ch.shift_dir==noSHIFT)    
+    //Serialprint("SHIFT : %d \n\r",shiftMODE);
+    if (shiftMODE==noSHIFT)    
       {
         //Serialprint("noSHIFT \n\r");
         FRQshift_L=0; 
@@ -1063,7 +1026,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     else
       {
         FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
-        if (current_ch.shift_dir==minusSHIFT) 
+        if (shiftMODE==minusSHIFT) 
           {
             FRQshift_L +=128;
             //Serialprint("minusSHIFT \n\r");
@@ -1109,7 +1072,7 @@ long freq;
  freq = (byte1 * 256) + byte2 ;
  freq = freq * 12.5;
  
-if (transceiverConfig.radiotype==0)
+if (radio_type==0)
  {
   freq = freq + 130000;
  } else 
@@ -1123,9 +1086,9 @@ if (transceiverConfig.radiotype==0)
  byte FRQshift_L = EEPROM.read(ChannelLocation+2);
  byte FRQshift_H = EEPROM.read(ChannelLocation+3);
 
- current_ch.shift_dir=noSHIFT;//default value for current_ch.shift_dir
- if ((FRQshift_L>0) || (FRQshift_H>0)) current_ch.shift_dir=plusSHIFT;
- if ( FRQshift_L>127) {FRQshift_L=FRQshift_L - 128; current_ch.shift_dir=minusSHIFT;}
+ shiftMODE=noSHIFT;//default value for SHIFTMODE
+ if ((FRQshift_L>0) || (FRQshift_H>0)) shiftMODE=plusSHIFT;
+ if ( FRQshift_L>127) {FRQshift_L=FRQshift_L - 128; shiftMODE=minusSHIFT;}
  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
 
@@ -1133,7 +1096,7 @@ if (transceiverConfig.radiotype==0)
  TONE_CTRL=CTCSS_OFF;
  if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
  //TONE_CTRL=CTCSS_ON;
-  // Serialprint("RTR Channel Parameters CH NO :%d ChannelLOC:%d %d %d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d SHIFT:%d \n\r",ChannelNumber,ChannelLocation,byte1,byte2,FRQshift_L,FRQshift_H,ctcss_tone_pos,current_ch.shift_dir);
+  // Serialprint("RTR Channel Parameters CH NO :%d ChannelLOC:%d %d %d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d SHIFT:%d \n\r",ChannelNumber,ChannelLocation,byte1,byte2,FRQshift_L,FRQshift_H,ctcss_tone_pos,shiftMODE);
 }
 
 void PrintMenu()
@@ -1200,14 +1163,14 @@ void commandCevrim(char komut)
     {
       //Serial.print("TAMSAT Karti VHF olarak ayarlanmistir. 4822 veya 4922 cihaz ile kullanabilirsiniz\r\n");
       Serialprint("VHF OK\r\n");
-      transceiverConfig.radiotype = 0;
+      radio_type = 0;
       initialize_eeprom();
     }
   if (komut == 'U')
     {
       //Serial.print("TAMSAT Karti UHF olarak ayarlanmistir. 4826 veya 4926 cihaz ile kullanabilirsiniz\r\n");
       Serialprint("UHF OK\r\n");
-      transceiverConfig.radiotype = 1;
+      radio_type = 1;
       initialize_eeprom();
     }
 }
@@ -1250,8 +1213,9 @@ void commandAyarDok()
   Message[7] = EEPROM.read(16);
   Message[8] = 0;
   byte RadioType = EEPROM.read(17);
-
-  Serialprint("\r\n{CD:{cs:%d,smj:%d,smn:%d,c:'%s',m:'%s',r:%d}}\r\n",Check,SW_major,SW_minor,CallSign,Message,RadioType); //Configuration Dump
+  Serialprint("\r\nCD{");    //CD Configuration Dump
+  Serialprint("cs:%d,smj:%d,smn:%d,c:'%s',m:'%s',r:%d",Check,SW_major,SW_minor,CallSign,Message,RadioType);
+  Serialprint("}\r\n");
 }
 
 
@@ -1384,6 +1348,7 @@ void setup() {
   pinMode(FWD_POWER_PIN, INPUT);
   pinMode(REF_POWER_PIN, INPUT);
 
+
   //pinMode(KeypadIntPin,    INPUT);
 	pinMode(KeypadIntPin, INPUT_PULLUP);
  // attachPinChangeInterrupt(KeypadIntPin, KeyPadInterrupt, RISING);						   
@@ -1396,6 +1361,8 @@ void setup() {
   digitalWrite(pll_data_pin,LOW);
   digitalWrite(pll_ena_pin, LOW);
 
+
+
   cli(); // Turn Off Interrupts
   //PCICR  |= 0b00000100;  
   PCICR = (1 << PCIE2);  //same as above but different :)
@@ -1406,55 +1373,57 @@ void setup() {
   delay(100);
 
   Serial.begin(9600);
-  commandString.reserve(200); //TODO: too much.... shorten for memory
-
-  //Now read the configuration from eeprom into structures
-  eeprom_readTransceiverConfig(); // the results are in transceiverConfig structure
+  commandString.reserve(200);
 
   // Check EEPROM for stored values
-  if (transceiverConfig.eeprom_state != 127) initialize_eeprom();
+  byte eeprom_state=0;
+ // EEPROM.write(0,127);
+  eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
+  //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
+  if (eeprom_state != 127) initialize_eeprom();
+  // if (eeprom_state != 127) Serialprint("EEPROM Sifirlaniyor \n\r");
+  radio_type = EEPROM.read(17);//UHF VHF Seçimi
+  //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
   if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
 
-  eeprom_readAPRS();
+eeprom_readAPRS();
+
+  //initialize_eeprom();
   //Read Last used frequency
-  EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch); //read last channel info stored in EEPROM
-  Serialprint("Cur Shft %d\r\n",current_ch.shift_dir);
-  long freq = current_ch.frequency * 12.5;// (byte2 * 256) + byte1 ;
-  //frqSHIFT  = current_ch.shift;
-  if (transceiverConfig.radiotype == 0)
+  byte byte1,byte2;
+  byte1 = EEPROM.read(50);
+  byte2 = EEPROM.read(51);
+  long freq;
+  freq = (byte1 * 256) + byte2 ;
+  freq = freq * 12.5;
+
+   if (radio_type == 0)
      {
        freq = freq + 130000;
-       //TODO: why 600, should be the value from EEPROM
-       //frqSHIFT = 600;
+       frqSHIFT = 600;
      }
-  else
+   else
      {
       freq = freq + 400000;  
-      //TODO: why 7600, should be the value from EEPROM
-      //frqSHIFT = 7600;
+      frqSHIFT = 7600;
      }
 
   numberToFrequency(freq, FRQ);
   strcpy(FRQ_old,FRQ);
  
-  //byte FRQshift_H = EEPROM.read(52);
-  //byte FRQshift_L = EEPROM.read(53);
+  byte FRQshift_L = EEPROM.read(52);
+  byte FRQshift_H = EEPROM.read(53);
 
-Serialprint("SHIFT : %d %d\r\n",current_ch.shift, current_ch.shift_dir);
-//Serialprint("H: %d L: %d \r\n",FRQshift_H, FRQshift_L);
+  shiftMODE=noSHIFT;//default value for SHIFTMODE
+  if ((FRQshift_L>0) && (FRQshift_H>0)) shiftMODE=plusSHIFT;
+  if ( FRQshift_L>127) {FRQshift_L-=128; shiftMODE=minusSHIFT;}
+  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
-//  current_ch.shift_dir=noSHIFT;//default value for current_ch.shift_dir
-//  if (current_ch.shift_dir > 0) current_ch.shift_dir=plusSHIFT;
-//  if (current_ch.shift_dir < 0) current_ch.shift_dir=minusSHIFT;
-  //if ((FRQshift_L>0) && (FRQshift_H>0))   current_ch.shift_dir=plusSHIFT;
-  //if ( FRQshift_L>127)  {FRQshift_L-=128; current_ch.shift_dir=minusSHIFT;}
-  //frqSHIFT = FRQshift_L * 256 + FRQshift_H;
-
-  ctcss_tone_pos  = EEPROM.read(56) ; // TONE
+  ctcss_tone_pos  = EEPROM.read(54) ; // TONE
   TONE_CTRL=CTCSS_OFF;
   if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
-  //Serialprint("Startup with shift : %d current_ch.shift_dir: %d \n\r",frqSHIFT,current_ch.shift_dir);
+  //Serialprint("Startup with shift : %d ShiftMode: %d \n\r",frqSHIFT,shiftMODE);
 
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
@@ -1491,14 +1460,16 @@ void loop() {
   {
     if (TRX_MODE == TX) 
     {
-      //numberToFrequency(calc_frequency+current_ch.shift_dir*frqSHIFT,FRQ_old);
-      numberToFrequency(calc_frequency+current_ch.shift*current_ch.shift_dir,FRQ_old);
+      numberToFrequency(calc_frequency+shiftMODE*frqSHIFT,FRQ_old);
       writeFRQToLcd(FRQ_old);
     } else
     {
       writeFRQToLcd(FRQ);
     }
+    
+    
   }
+
 
   //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
   Wire.beginTransmission(PCF8574_KEYB_LED);
@@ -1553,12 +1524,11 @@ void loop() {
      if (scrTimer==0) { //key released and timeout occured
 //       writeToLcd("SELECT   ");
 //       delay(500); //TODO do not use DELAY, change to a timer
-       if (pressedKEY=='B') { writeToLcd("TONE" ); subMENU = menuTONE; delay(1000);write_TONEtoLCD(ctcss_tone_pos); old_ctcss_tone_pos = ctcss_tone_pos;}
-       if (pressedKEY=='S') { writeToLcd("SQL"  ); subMENU = menuSQL;  }
-       if (pressedKEY=='O') { writeToLcd("SCAN" ); subMENU = menuSCAN; }
-       //if (pressedKEY=='R') { writeToLcd("SHIFT"); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(frqSHIFT); old_frqSHIFT=frqSHIFT;}
-       if (pressedKEY=='R') { writeToLcd("SHIFT"); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(current_ch.shift); old_frqSHIFT=current_ch.shift*current_ch.shift_dir;}
-       if (pressedKEY=='M') { writeToLcd("MENU" ); subMENU = menuMENU; }
+       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(ctcss_tone_pos); old_ctcss_tone_pos = ctcss_tone_pos;}
+       if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
+       if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
+       if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(frqSHIFT); old_frqSHIFT=frqSHIFT;}
+       if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
        delay(500); //TODO do not use DELAY, change to a timer
        scrTimer = TimeoutValue; //Restart the timer
        numChar = 0; //if we were entering frq from keyboard
@@ -1589,19 +1559,16 @@ void loop() {
         // Serialprint("src menu not X pressedKey:%d \n\r  ", pressedKEY);
         switch (pressedKEY) {
           case 'U':
-            //if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT);}
-            if ( subMENU == menuRPT)  { current_ch.shift += 25; write_SHIFTtoLCD(current_ch.shift);}
+            if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT);}
             if ( subMENU == menuTONE) { ctcss_tone_pos += 1; if (ctcss_tone_pos>=19) ctcss_tone_pos = 19 ; write_TONEtoLCD(ctcss_tone_pos);}
             break;
           case 'D':
-            //if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
-            if ( subMENU == menuRPT)  {current_ch.shift -= 25; write_SHIFTtoLCD(current_ch.shift); }
+            if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
             if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);}
             
             break;
           case '#': //means CANCEL
-            //if (subMENU == menuRPT)  frqSHIFT = old_frqSHIFT;
-            if (subMENU == menuRPT)  current_ch.shift = old_frqSHIFT;
+            if (subMENU == menuRPT)  frqSHIFT = old_frqSHIFT;
             if (subMENU == menuTONE) ctcss_tone_pos = old_ctcss_tone_pos;
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
             numChar = 0;
@@ -1611,7 +1578,7 @@ void loop() {
             subMENU = menuNONE;
           break; // '#'
           case '*': //means OK
-            if ( subMENU == menuRPT)  EEPROM.put(50,current_ch);// write_SHIFTtoEE(frqSHIFT);
+            if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
             if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
             numChar = 0;
@@ -1638,64 +1605,65 @@ void loop() {
         // Check for the COMMAND keys first
         switch (pressedKEY) {
           case 'R':
-            if (current_ch.shift_dir == noSHIFT) { 
-              current_ch.shift_dir = plusSHIFT;
-            } else if (current_ch.shift_dir == plusSHIFT) {
-              current_ch.shift_dir = minusSHIFT;
+            if (shiftMODE == noSHIFT) { 
+              shiftMODE = plusSHIFT;
+            } else if (shiftMODE == plusSHIFT) {
+              shiftMODE = minusSHIFT;
             } else { 
-              current_ch.shift_dir = noSHIFT;
+              shiftMODE = noSHIFT;
             }
-            break; //'R'
+            // write_SHIFTtoEE(frqSHIFT);
+          break; //'R'
           case 'B':
             if (TONE_CTRL == CTCSS_OFF) {
               TONE_CTRL = CTCSS_ON;
             } else {
               TONE_CTRL = CTCSS_OFF;
             }
-            //SetTone(TONE_CTRL); //Change Tone Generation State
-            break; // 'B'
+            SetTone(TONE_CTRL); //Change Tone Generation State
+          break; // 'B'
           case 'S':
             if (SQL_MODE == SQL_OFF) {
               SQL_MODE = SQL_ON;
             } else {
               SQL_MODE = SQL_OFF;
             }
-            break; //'S'
+          break; //'S'
           case 'O':
-            if (RF_POWER_STATE == HIGH_POWER) {
-              RF_POWER_STATE = LOW_POWER;
-            } else {
-              RF_POWER_STATE = HIGH_POWER;
-            }
+             if (RF_POWER_STATE == HIGH_POWER) {
+                RF_POWER_STATE = LOW_POWER;
+             } else {
+                RF_POWER_STATE = HIGH_POWER;
+             }
 //             SetRFPower(RF_POWER_STATE);           
-            SetRFPower();           
-            break; //'O'
+             SetRFPower();           
+          break; //'O'
           case 'U':
             //numberToFrequency(calc_frequency+1000,FRQ);
             numberToFrequency(calc_frequency+25,FRQ);
             //delay(1000);
             Calculate_Frequency(FRQ);  
-            //delay(1000);
+          //  delay(1000);
             write_FRQ(calc_frequency); 
-            // delay(2000);
-            break; // 'U' 
+           // delay(2000);
+          break; // 'U' 
           case 'D':
             numberToFrequency(calc_frequency-25,FRQ);
             Calculate_Frequency(FRQ);  
             write_FRQ(calc_frequency);           
-            break; // 'D'
+          break; // 'D'
           case 'M': //Reverse
-            //numberToFrequency(calc_frequency+current_ch.shift_dir*frqSHIFT,FRQ);
-            numberToFrequency(calc_frequency+current_ch.shift*current_ch.shift_dir,FRQ);
-            if (current_ch.shift_dir == plusSHIFT) { 
-              current_ch.shift_dir = minusSHIFT;
-            } else if (current_ch.shift_dir == minusSHIFT) {
-              current_ch.shift_dir = plusSHIFT;
+            numberToFrequency(calc_frequency+shiftMODE*frqSHIFT,FRQ);
+            if (shiftMODE == plusSHIFT) { 
+              shiftMODE = minusSHIFT;
+            } else if (shiftMODE == minusSHIFT) {
+              shiftMODE = plusSHIFT;
             } 
             Calculate_Frequency(FRQ);  
             write_FRQ(calc_frequency);           
-            //Serialprint(pressedKEY);
-            break; // 'M'
+
+           //Serialprint(pressedKEY);
+          break; // 'M'
           case 'C':
             //VNA Vector Network analizor Subroutines
             TRX_MODE = TX; //needed for PLL locking to TX frequrency
@@ -1706,12 +1674,13 @@ void loop() {
             //TODO: Put transmitter on low power before operation
             //TODO: If any key pressed cancel VNA operation
             strcpy(FRQ_old,FRQ); //store old frequency for recall
-            current_ch.shift_dir = noSHIFT; //get into SIMPLEX mode for caculations
-            //SetRFPower(LOW_POWER);
+            shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
+//            SetRFPower(LOW_POWER);
+            SetRFPower();
             long min_vna_freq;
             long max_vna_freq;
             int  stp_vna_freq;
-            if (transceiverConfig.radiotype==0)
+            if (radio_type==0)
             {
               min_vna_freq = 14000;
               max_vna_freq = 15000;
@@ -1741,33 +1710,33 @@ void loop() {
 
                 if (readColumn() != 0) break; //a key is pressed
               }
-            //SetRFPower();
-            digitalWrite(PTT_OUTPUT_PIN,LOW);
-            Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
-            //SetRFPower(RF_POWER_STATE);
-            SetRFPower();
-            TRX_MODE = RX; //PLL should lock to RX
-            //strcpy(FRQ,FRQ_old);
-            numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
-            validFRQ = Calculate_Frequency(FRQ);
-            write_FRQ(calc_frequency);            
-            writeFRQToLcd(FRQ);
-            PrintMenu(); //print menu for user selection  
-            break; // 'C'
+              digitalWrite(PTT_OUTPUT_PIN,LOW);
+              Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
+              //SetRFPower(RF_POWER_STATE);
+              SetRFPower();
+              TRX_MODE = RX; //PLL should lock to RX
+              //strcpy(FRQ,FRQ_old);
+              numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
+              validFRQ = Calculate_Frequency(FRQ);
+              write_FRQ(calc_frequency);            
+              writeFRQToLcd(FRQ);
+              PrintMenu(); //print menu for user selection  
+          break; // 'C'
           case '#':
             if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
-            strcpy(FRQ,FRQ_old);
-            validFRQ = Calculate_Frequency(FRQ);
-            numChar = 0;
-            write_FRQ(calc_frequency);
-            break; // '#'
+              strcpy(FRQ,FRQ_old);
+              validFRQ = Calculate_Frequency(FRQ);
+              numChar = 0;
+              write_FRQ(calc_frequency);
+          break; // '#'
           case '*':
             if (numChar == 2) GetMemoryChannel(FRQ); // User wanted to retrieve the memory channel from EEPRM
             else strcpy(FRQ,FRQ_old); // Otherwise user wanted to cancel the ongoing operation.. return to previous (old) frequency
             validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
             write_FRQ(calc_frequency);
-            break; // '*'
+          break; // '*'
+         
           default:  
             /* ------------------    FRQ INPUT ------------ */
             // Serialprint("Before If FRQ :%s numChar:%d pressedKey:%d \n\r  ",FRQ,numChar,pressedKEY);
@@ -1805,10 +1774,10 @@ void loop() {
                   //sound audible error here
                 }
               } // numChar==7
-            }//numchar<6            
-            break; 
+            }//numchar<6
+            
+          break; 
         }
-        EEPROM.put(50,current_ch); // user touch at least one key, lets update current channel info at EEPROM  
       }//pressedKEY != 'X'    
     } //scrMODE=scrNORMAL
     //Put 8574_ into READ mode by setting ports high
@@ -2261,7 +2230,7 @@ void send_packet(char packet_type, uint32_t frequency)
    */
 
    strcpy(FRQ_old,FRQ); //store old frequency for recall
-   //current_ch.shift_dir = noSHIFT; //get into SIMPLEX mode for caculations
+   shiftMODE = noSHIFT; //get into SIMPLEX mode for caculations
    TRX_MODE = TX;
    numberToFrequency(frequency,FRQ);         //TODO: change for ISS
    validFRQ = Calculate_Frequency(FRQ);
