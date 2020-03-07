@@ -127,6 +127,27 @@ byte LST_MODE = TX; //this will hold the last receive transmit state. Start with
 byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 
+//defining structures here
+struct channel_t {	
+  uint32_t frequency;	
+  uint8_t  bozuk; //this memory location is corrupted in my development environment
+  int16_t  shift;	
+  int8_t   shift_dir;	
+  uint8_t  tone_pos;
+  uint8_t  tone_enabled;	
+};	
+channel_t current_ch;
+
+struct memorych_t {
+  uint16_t frequency125; //frequency divided by 12.5
+  uint8_t  shift25;      //shift divided bye 25
+  uint8_t  tone_position;
+  uint8_t  SSTP;         //ShiftShiftTonePower 
+  char     ChannelName[4];
+  uint8_t  reserved = 0;
+};
+
+
 //EEPROM ADDRESS DEFINITIONS
 #define EEPROM_CONFDATA_BLCKSTART 0
 #define EEPROM_CHECKIT_ADDR 0
@@ -151,18 +172,7 @@ byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 #define EEPROM_MEMDATA_BLCKSTART 100
 #define EEPROM_CHNNL01_ADDR 100
-
-
-//defining structures here
-struct channel_t {	
-  uint32_t frequency;	
-  uint8_t  bozuk; //this memory location is corrupted in my development environment
-  int16_t  shift;	
-  int8_t   shift_dir;	
-  uint8_t  tone_pos;
-  uint8_t  tone_enabled;	
-};	
-channel_t current_ch;
+#define EEPROM_CHNNL_SIZE   10   Size of memorych_t
 
 
 
@@ -248,16 +258,6 @@ boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
-
-//Memory and Channel tyoes
-struct channelInfo_t {
-  uint16_t FRQ;
-  int16_t SHIFT; 
-  int8_t TONE; 
-  char NAME[4]; 
-  uint8_t RESERVED;
-};
-//channelInfo_t channelInfo;
 
 
 //VNA variables
@@ -935,44 +935,22 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(15,' '); // Message
     EEPROM.write(16,' '); // Message
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
-
-
     eeprom_writeAPRS();
-
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
-
     if (radio_type == 0)
     { 
       current_ch.frequency = 145600; //1248;
-      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
-      //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x04); // FRQ_L (Default frequency 145.600)
-    }
-    else
-    {
-      current_ch.frequency = 433500; //2784;
-      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
-      //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x0A); // FRQ_L (Default frequency UHF)
-    }
-    if (radio_type==0)
-    {
       current_ch.shift = 600;
-      current_ch.shift_dir = -1;
-      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
-      //EEPROM.write(EEPROM_CURRSHF_ADDR,0x58); // SHFT_H
-      //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x02); // SHFT_L
-    } 
+    }
     else
     {
       current_ch.shift = 7600;
-      current_ch.shift_dir = -1;
-      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
-      //EEPROM.write(EEPROM_CURRSHF_ADDR,0xB0); // SHFT_L
-      //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x1D); // SHFT_H    
+      current_ch.frequency = 433500; //2784;
     }
-    current_ch.tone_pos = 0x08;
-    current_ch.tone_enabled = CTCSS_OFF;
+    current_ch.shift_dir = -1; //Default Shift -
+    current_ch.tone_pos = 0x08;//Default tone 88.5
+    current_ch.tone_enabled = CTCSS_OFF; //Tone is disabled by default
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-    //EEPROM.write(54,0x08); // TONE 88.5Hz
 /*
     //TODO: Move to a common function for PC program integration
     for (int ch=0;ch<100;ch++)
@@ -989,57 +967,38 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
       EEPROM.write(100+ch*10+9,0x42); //"0"-"9" Channel Number from Display Array
     }
 */
-
-    //Serialprint("done..");
 }
 
 // Stores frequency data to the desired EEPROM location
 void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
-    byte ChannelLocation = 100 + ChannelNumber * 10;
+    byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
     
-    EEPROM.write(ChannelLocation  ,current_ch.frequency); //WARNING :  4 byte 
-    byte FRQshift_L; 
-    byte FRQshift_H;
-    if (current_ch.shift_dir==noSHIFT)    
-      {
-        //Serialprint("noSHIFT \n\r");
-        FRQshift_L=0; 
-        FRQshift_H=0;
-        }
-    else
-      {
-        FRQshift_L=current_ch.shift / 256; FRQshift_H=current_ch.shift - (FRQshift_L * 256); //pozitive shift
-        if (current_ch.shift_dir==minusSHIFT) 
-          {
-            FRQshift_L +=128;
-            //Serialprint("minusSHIFT \n\r");
-          } //first bit is sign bit (negative shift)
-      }
-    EEPROM.write(ChannelLocation+2,FRQshift_L); // SHFT_L
-    EEPROM.write(ChannelLocation+3,FRQshift_H); // SHFT_H
-
-    if (current_ch.tone_enabled==CTCSS_ON) EEPROM.write(ChannelLocation+4,current_ch.tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
-    
+    memorych_t memch;
+    memch.frequency125 = (uint16_t)(current_ch.frequency / 12.5);
+    memch.shift25 = (uint8_t)(current_ch.shift/25);
+    memch.tone_position= current_ch.tone_pos; 
+    memch.SSTP =  (current_ch.shift_dir + 1)  + (current_ch.tone_enabled * 4);//TODO: Power is missing + ( power * 8);
+    //EEPROM.write(ChannelLocation  ,(uint16_t)current_ch.frequency/12.5); //WARNING :  4 byte 
+  Serialprint("ch frq : [%d] %d \r\n",ChannelLocation, memch.frequency125);
+    EEPROM.put(ChannelLocation, memch);
+   
 }
 
 
 /*
- * Retrieves the requested Memory Channel Information from EEPROM and returns a channelInfo_t tyep object
+ * Retrieves the requested Memory Channel Information from EEPROM and returns a memorych_t tyep object
  */
-//channelInfo_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
+//memorych_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
-      channelInfo_t l_channelInfo;
-      //byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
-      byte ChannelLocation = 100 + channel_number * 10;
-      l_channelInfo.FRQ = (EEPROM.read(ChannelLocation) * 256 + EEPROM.read(ChannelLocation+1));// * 12.5;
+      memorych_t l_memorych;
+      byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + channel_number * 10;
+      EEPROM.get(ChannelLocation, l_memorych);
       //numberToFrequency(freq, FRQ);
-      l_channelInfo.SHIFT = EEPROM.read(ChannelLocation+2) * 256 + EEPROM.read(ChannelLocation+3);
-      l_channelInfo.TONE  = EEPROM.read(ChannelLocation+4) ; 
       if (dbg) 
       {
-        Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_channelInfo.FRQ,l_channelInfo.SHIFT,l_channelInfo.TONE); //TODO: add name
+        Serialprint("{c:%d,f:%d,s:%d,t:%d}",channel_number,l_memorych.frequency125,l_memorych.shift25,l_memorych.tone_position); //TODO: add name
       }
 
 }
@@ -1048,38 +1007,18 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 //Retrieves the requested Memory Channel Information from EEPROM
 //TODO: combine this with the previuous function
 void GetMemoryChannel(char mFRQ[9]) {
- byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
- byte ChannelLocation = 100 + ChannelNumber * 10;
- byte byte1,byte2;
- byte1 = EEPROM.read(ChannelLocation);
- byte2 = EEPROM.read(ChannelLocation+1);
-long freq;
- freq = (byte1 * 256) + byte2 ;
- freq = freq * 12.5;
- 
-if (radio_type==0)
- {
-  freq = freq + 130000;
- } else 
- {
-  freq = freq + 400000; 
- } 
- 
- numberToFrequency(freq, FRQ);
- 
- 
- byte FRQshift_L = EEPROM.read(ChannelLocation+2);
- byte FRQshift_H = EEPROM.read(ChannelLocation+3);
-
- current_ch.shift_dir=noSHIFT;
- if ((FRQshift_L>0) || (FRQshift_H>0)) current_ch.shift_dir=plusSHIFT;
- if ( FRQshift_L>127) {FRQshift_L=FRQshift_L - 128; current_ch.shift_dir=minusSHIFT;}
- current_ch.shift = FRQshift_L * 256 + FRQshift_H;
-
-
- current_ch.tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
- current_ch.tone_enabled=CTCSS_OFF;
-}
+    byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
+    byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
+    memorych_t l_memorych;
+    EEPROM.get(ChannelLocation, l_memorych);
+    current_ch.frequency = l_memorych.frequency125 * 12.5;
+    current_ch.shift     = l_memorych.shift25 * 25;
+    current_ch.tone_pos  = l_memorych.tone_position;
+    current_ch.shift_dir = ((l_memorych.SSTP) & 0x03) - 1; //First 2 bits -1
+    current_ch.tone_enabled= ((l_memorych.SSTP) & 0x04) ; 
+                                                          //TODO read power as well
+    numberToFrequency(current_ch.frequency, FRQ);
+ }
 
 void PrintMenu()
 {  
