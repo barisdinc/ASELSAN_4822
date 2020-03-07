@@ -247,7 +247,7 @@ const char  numbers[] = "0123456789ABCDEF";
 byte numChar = 0;
 char FRQ[9];// = "145.675 ";
 char FRQ_old[9];// = FRQ;
-long calc_frequency;
+uint32_t calc_frequency;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
@@ -681,7 +681,7 @@ void SetPLLLock(unsigned long Frequency)
 }
 
 
-void write_FRQ(unsigned long Frequency) {
+void write_FRQ(uint32_t Frequency) {
 //VHF BAND SELECTION  
 //BS0 BS1
 // 0  0     152.2   172.6
@@ -706,7 +706,7 @@ void write_FRQ(unsigned long Frequency) {
 //|            | 455.0   470.0 |   0 |   0 |
 //+------------+---------------+-----+-----+
 
-double UpdatedFrq = 0;
+//uint32_t UpdatedFrq = 0;
 //float divider = 0;
   if (validFRQ) {
     if(radio_type==0)
@@ -716,7 +716,7 @@ double UpdatedFrq = 0;
     if ((Frequency < 154000L) & (Frequency >= (144000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
     if ((Frequency < 146000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
     // Update EEPROM for last used Frequncy
-    UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
+    //UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
 
     }
     else if(radio_type==1)
@@ -734,12 +734,12 @@ double UpdatedFrq = 0;
             digitalWrite(BAND_SELECT_1, HIGH); 
           }
     // Update EEPROM for last used Frequncy
-    UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
+    //UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     }
-    UpdatedFrq = UpdatedFrq / 12.5;
+    //UpdatedFrq = UpdatedFrq / 12.5;
     //byte FRQ_L = UpdatedFrq / 256;
     //byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
-    current_ch.frequency = UpdatedFrq;
+    current_ch.frequency = Frequency; //UpdatedFrq;
     current_ch.shift = frqSHIFT;
     current_ch.shift_dir = shiftMODE;
     current_ch.tone = ctcss_tone_pos;
@@ -1005,13 +1005,13 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
 
     if (radio_type == 0)
     { 
-      current_ch.frequency = 1248;
+      current_ch.frequency = 145600; //1248;
       //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
       //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x04); // FRQ_L (Default frequency 145.600)
     }
     else
     {
-      current_ch.frequency = 2784;
+      current_ch.frequency = 433500; //2784;
       //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
       //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x0A); // FRQ_L (Default frequency UHF)
     }
@@ -1061,6 +1061,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte ChannelLocation = 100 + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
     double FrqToStore;
+    
     if (radio_type==0)
       {
         FrqToStore = calc_frequency - 130000;
@@ -1403,7 +1404,6 @@ void setup() {
   pinMode(SQL_ACTIVE, INPUT);
   digitalWrite(SQL_ACTIVE, SQL_ON); //Disable squelch for startup
   pinMode(MIC_PIN, OUTPUT);
-  SetTone(TONE_CTRL);
 
   pinMode(RF_POWER_PIN, OUTPUT); //RF power control is output
   digitalWrite(RF_POWER_PIN, RF_POWER_STATE);
@@ -1468,11 +1468,12 @@ eeprom_readAPRS();
   //byte byte1,byte2;
   //byte1 = EEPROM.read(EEPROM_CURRFRQ_ADDR);
   //byte2 = EEPROM.read(EEPROM_CURRFRQ_ADDR+1);
-  long freq;
+  uint32_t freq;
   //freq = (byte2 * 256) + byte1 ;
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  freq = current_ch.frequency * 12.5;
+  freq = current_ch.frequency;// * 12.5;
 
+/*
    if (radio_type == 0)
      {
        freq = freq + 130000;
@@ -1483,7 +1484,7 @@ eeprom_readAPRS();
       freq = freq + 400000;  
       frqSHIFT = 7600;
      }
-
+*/
   numberToFrequency(freq, FRQ);
   strcpy(FRQ_old,FRQ);
  
@@ -1501,6 +1502,8 @@ eeprom_readAPRS();
   //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
   ctcss_tone_pos = current_ch.tone;
   TONE_CTRL = current_ch.tone_enabled;
+
+  SetTone(TONE_CTRL);
   //ctcss_tone_pos  = EEPROM.read(54) ; // TONE
   //TONE_CTRL=CTCSS_OFF;
   //if (ctcss_tone_pos>127) {TONE_CTRL=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
@@ -1708,6 +1711,8 @@ void loop() {
             } else {
               TONE_CTRL = CTCSS_OFF;
             }
+            current_ch.tone_enabled = TONE_CTRL;
+            EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);    
             SetTone(TONE_CTRL); //Change Tone Generation State
           break; // 'B'
           case 'S':
@@ -1899,7 +1904,7 @@ if (commandComplete) {
     PrintMenu();
     Serialprint("\r\nSeciminiz>");
 EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-Serialprint("F1 %d - ",current_ch.frequency);
+Serialprint("F1 %d - ",current_ch.frequency/100);
 Serialprint("S1 %d - ",current_ch.shift);
 Serialprint("D1 %d - ",current_ch.shift_dir);
 Serialprint("T1 %d - ",current_ch.tone);
