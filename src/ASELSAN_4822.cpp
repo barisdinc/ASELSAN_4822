@@ -104,7 +104,6 @@ bool pttToggler = false;
 byte radio_type = 0; //0 VHF 1 UHF
 
 //DUPLEX mode Shift Settinngs
-int frqSHIFT;
 
 #define minusSHIFT -1
 #define noSHIFT     0
@@ -612,7 +611,7 @@ void SetPLLLock(unsigned long Frequency)
   if(radio_type==0)
   {
     if (TRX_MODE == RX) Frequency = Frequency + 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * frqSHIFT) ; // Add/remove transmission shift
+    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * current_ch.shift) ; // Add/remove transmission shift
   
      R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
      N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
@@ -632,7 +631,7 @@ void SetPLLLock(unsigned long Frequency)
   else
   {
     if (TRX_MODE == RX) Frequency = Frequency - 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * frqSHIFT) ; // Add/remove transmission shift
+    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * current_ch.shift) ; // Add/remove transmission shift
   
      R_Counter = 12800 / 12.5;  //12.8Mhz reference clock, 25Khz step
      N_Counter = Frequency / 12.5 / 80 ; //prescaler = 80, channel steps 25Khz
@@ -708,7 +707,6 @@ void write_FRQ(uint32_t Frequency) {
     //UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     }
     current_ch.frequency = Frequency; //UpdatedFrq;
-    current_ch.shift = frqSHIFT;
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     SetPLLLock(Frequency);
     
@@ -719,7 +717,7 @@ void write_FRQ(uint32_t Frequency) {
 
 
 
-void write_SHIFTtoLCD(unsigned long FRQshift) {
+void write_SHIFTtoLCD(uint16_t FRQshift) {
  if (FRQshift>=9975) FRQshift=9975; //upper limit check
  if (FRQshift<=0)    FRQshift=0;    //lower limit check
  
@@ -1044,7 +1042,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
         }
     else
       {
-        FRQshift_L=frqSHIFT / 256; FRQshift_H=frqSHIFT - (FRQshift_L * 256); //pozitive shift
+        FRQshift_L=current_ch.shift / 256; FRQshift_H=current_ch.shift - (FRQshift_L * 256); //pozitive shift
         if (current_ch.shift_dir==minusSHIFT) 
           {
             FRQshift_L +=128;
@@ -1108,7 +1106,7 @@ if (radio_type==0)
  current_ch.shift_dir=noSHIFT;
  if ((FRQshift_L>0) || (FRQshift_H>0)) current_ch.shift_dir=plusSHIFT;
  if ( FRQshift_L>127) {FRQshift_L=FRQshift_L - 128; current_ch.shift_dir=minusSHIFT;}
- frqSHIFT = FRQshift_L * 256 + FRQshift_H;
+ current_ch.shift = FRQshift_L * 256 + FRQshift_H;
 
 
  current_ch.tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
@@ -1430,12 +1428,12 @@ eeprom_readAPRS();
    if (radio_type == 0)
      {
        freq = freq + 130000;
-       frqSHIFT = 600;
+       current_ch.shift = 600;
      }
    else
      {
       freq = freq + 400000;  
-      frqSHIFT = 7600;
+      current_ch.shift = 7600;
      }
 */
   numberToFrequency(freq, FRQ);
@@ -1444,9 +1442,6 @@ eeprom_readAPRS();
   //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
   //byte FRQshift_H = EEPROM.read(EEPROM_CURRSHF_ADDR);
   //byte FRQshift_L = EEPROM.read(EEPROM_CURRSHF_ADDR+1);
-
-  frqSHIFT = current_ch.shift;
-  //frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
   //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
 
@@ -1487,7 +1482,7 @@ void loop() {
   {
     if (TRX_MODE == TX) 
     {
-      numberToFrequency(calc_frequency+current_ch.shift_dir*frqSHIFT,FRQ_old);
+      numberToFrequency(calc_frequency+current_ch.shift_dir*current_ch.shift,FRQ_old);
       writeFRQToLcd(FRQ_old);
     } else
     {
@@ -1554,7 +1549,7 @@ void loop() {
        if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(current_ch.tone_pos); old_ctcss_tone_pos = current_ch.tone_pos;}
        if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
        if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
-       if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(frqSHIFT); old_frqSHIFT=frqSHIFT;}
+       if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(current_ch.shift); old_frqSHIFT=current_ch.shift;}
        if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
        delay(500); //TODO do not use DELAY, change to a timer
        scrTimer = TimeoutValue; //Restart the timer
@@ -1586,16 +1581,16 @@ void loop() {
         // Serialprint("src menu not X pressedKey:%d \n\r  ", pressedKEY);
         switch (pressedKEY) {
           case 'U':
-            if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT); }  //TODO: check overflows... + or -
+            if ( subMENU == menuRPT)  { current_ch.shift += 25; write_SHIFTtoLCD(current_ch.shift); }  //TODO: check overflows... + or -
             if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos>=19) current_ch.tone_pos = 19 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             break;
           case 'D':
-            if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
+            if ( subMENU == menuRPT)  {current_ch.shift -= 25; write_SHIFTtoLCD(current_ch.shift); }
             if ( subMENU == menuTONE) { current_ch.tone_pos -= 1;  if (current_ch.tone_pos<=0) current_ch.tone_pos = 0 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             
             break;
           case '#': //means CANCEL
-            if (subMENU == menuRPT)  frqSHIFT = old_frqSHIFT;
+            if (subMENU == menuRPT)  current_ch.shift = old_frqSHIFT;
             if (subMENU == menuTONE) current_ch.tone_pos = old_ctcss_tone_pos;
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
             numChar = 0;
@@ -1605,7 +1600,6 @@ void loop() {
             subMENU = menuNONE;
           break; // '#'
           case '*': //means OK
-            current_ch.shift = frqSHIFT;
             EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
             //if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
             //if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
@@ -1683,7 +1677,7 @@ void loop() {
             write_FRQ(calc_frequency);           
           break; // 'D'
           case 'M': //Reverse
-            numberToFrequency(calc_frequency+current_ch.shift_dir*frqSHIFT,FRQ);
+            numberToFrequency(calc_frequency+current_ch.shift_dir*current_ch.shift,FRQ);
             if (current_ch.shift_dir == plusSHIFT) { 
               current_ch.shift_dir = minusSHIFT;
             } else if (current_ch.shift_dir == minusSHIFT) {
