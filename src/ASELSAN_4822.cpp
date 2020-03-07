@@ -8,11 +8,6 @@
 #include <stdio.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
-//#if defined(AVR)
-//#include <avr/pgmspace.h>
-//#else  //defined(AVR)
-//#include <pgmspace.h>
-//#endif  //defined(AVR)
 #include "../lib/fontsandicons.h"
 //#include "./libraries/PinChangeInt.h"
 #define Serialprint(format, ...) StreamPrint_progmem(Serial,PSTR(format),##__VA_ARGS__)
@@ -887,6 +882,7 @@ void eeprom_writeAPRS()
     EEPROM.write(46,APRS_Message[26]); //APRS Message
     EEPROM.write(47,APRS_Message[27]); //APRS Message
 
+    //EEPROM.put(60, mycall);
     EEPROM.write(60,mycall[0]); // APRS MYCALL
     EEPROM.write(61,mycall[1]); // APRS MYCALL
     EEPROM.write(62,mycall[2]); // APRS MYCALL
@@ -896,6 +892,7 @@ void eeprom_writeAPRS()
 
     EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
 
+    //EEPROM.put(67,lat);
     EEPROM.write(67,lat[0]); // APRS Latitude - Anitkabir
     EEPROM.write(68,lat[1]); // APRS Latitude - Anitkabir
     EEPROM.write(69,lat[2]); // APRS Latitude - Anitkabir
@@ -904,6 +901,8 @@ void eeprom_writeAPRS()
     EEPROM.write(72,lat[5]); // APRS Latitude - Anitkabir
     EEPROM.write(73,lat[6]); // APRS Latitude - Anitkabir
     EEPROM.write(74,lat[7]); // APRS Latitude - Anitkabir
+
+    //EEPROM.put(75,lon);
     EEPROM.write(75,lon[0]); // APRS Longitude - Anitkabir
     EEPROM.write(76,lon[1]); // APRS Longitude - Anitkabir
     EEPROM.write(77,lon[2]); // APRS Longitude - Anitkabir
@@ -912,7 +911,6 @@ void eeprom_writeAPRS()
     EEPROM.write(80,lon[5]); // APRS Longitude - Anitkabir
     EEPROM.write(81,lon[6]); // APRS Longitude - Anitkabir
     EEPROM.write(82,lon[7]); // APRS Longitude - Anitkabir
-
 }
 
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
@@ -1317,39 +1315,12 @@ void setup() {
   if (EEPROM.read(1) != SW_MAJOR or EEPROM.read(2) != SW_MINOR) initialize_eeprom();
   //Serialprint("MAJOR %d MINOR %d\r\n",EEPROM.read(1),EEPROM.read(2));
 
-eeprom_readAPRS();
+  eeprom_readAPRS();
 
-  //initialize_eeprom();
-  //Read Last used frequency
-  //byte byte1,byte2;
-  //byte1 = EEPROM.read(EEPROM_CURRFRQ_ADDR);
-  //byte2 = EEPROM.read(EEPROM_CURRFRQ_ADDR+1);
-  uint32_t freq;
-  //freq = (byte2 * 256) + byte1 ;
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  freq = current_ch.frequency;// * 12.5;
-
-/*
-   if (radio_type == 0)
-     {
-       freq = freq + 130000;
-       current_ch.shift = 600;
-     }
-   else
-     {
-      freq = freq + 400000;  
-      current_ch.shift = 7600;
-     }
-*/
-  numberToFrequency(freq, FRQ);
+  numberToFrequency(current_ch.frequency, FRQ);
   strcpy(FRQ_old,FRQ);
  
-  //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  //byte FRQshift_H = EEPROM.read(EEPROM_CURRSHF_ADDR);
-  //byte FRQshift_L = EEPROM.read(EEPROM_CURRSHF_ADDR+1);
-
-  //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-
   SetTone(current_ch.tone_enabled);
 
   //setRadioPower();  //Check power switch mode and turn adio on immediately
@@ -1738,13 +1709,7 @@ if (commandComplete) {
     commandComplete = false;
     PrintMenu();
     Serialprint("\r\nSeciminiz>");
-EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-Serialprint("F1 %d - ",current_ch.frequency/100);
-Serialprint("S1 %d - ",current_ch.shift);
-Serialprint("D1 %d - ",current_ch.shift_dir);
-Serialprint("T1 %d - ",current_ch.tone_pos);
-Serialprint("E1 %d\r\n",current_ch.tone_enabled);
-
+    //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
   }
 
 //13:49:03$ fm TA7W-9 to TAMSAT-0 via ARISS-1 UI  PID=F0!3955.50N>3250.22E/ TAMSAT KIT - APRS TEST
