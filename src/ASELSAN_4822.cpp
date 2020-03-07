@@ -597,12 +597,12 @@ boolean Calculate_Frequency (char mFRQ[9]) {
 }
 
 
-void SetPLLLock(unsigned long Frequency)
+void SetPLLLock(uint32_t Frequency)
 {
   int R_Counter =0;
   int N_Counter = 0;
   int A_Counter = 0;
-  if(radio_type==0)
+  if(radio_type==0) //TODO: else portion seems exactly the same ????
   {
     if (TRX_MODE == RX) Frequency = Frequency + 45000L;
     if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * current_ch.shift) ; // Add/remove transmission shift
@@ -686,8 +686,8 @@ void write_FRQ(uint32_t Frequency) {
        if ((Frequency < 452000L) & (Frequency >= (430000L))) {digitalWrite(BAND_SELECT_0, HIGH);digitalWrite(BAND_SELECT_1, HIGH);}
     // Update EEPROM for last used Frequncy
     }
-    current_ch.frequency = Frequency; //UpdatedFrq;
-    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
+//BD1    current_ch.frequency = Frequency; //UpdatedFrq;
+//BD1    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     SetPLLLock(Frequency);
   } //validFRQ 
 }
@@ -1358,14 +1358,12 @@ void loop() {
   {
     if (TRX_MODE == TX) 
     {
-      numberToFrequency(current_ch.frequency+current_ch.shift_dir*current_ch.shift,FRQ_old);
+      numberToFrequency(current_ch.frequency+current_ch.shift_dir*current_ch.shift,FRQ_old); 
       writeFRQToLcd(FRQ_old);
     } else
     {
       writeFRQToLcd(FRQ);
     }
-    
-    
   }
 
 
@@ -1392,7 +1390,7 @@ void loop() {
 //  if (pttToggler && TRX_MODE == RX) TRX_MODE = TX; //if pttToggler set from serial, then mode is transmission
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
-    write_FRQ(current_ch.frequency); //Update frequenct on every state change
+    write_FRQ(current_ch.frequency); //Update frequency on every state change
   }
   if (TRX_MODE == TX ) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, LOW);
@@ -1540,16 +1538,15 @@ void loop() {
           break; //'O'
           case 'U':
             numberToFrequency(current_ch.frequency+25,FRQ);
-            //delay(1000);
             Calculate_Frequency(FRQ);  
-          //  delay(1000);
             write_FRQ(current_ch.frequency); 
-           // delay(2000);
+            //TODO: write to eeprom
           break; // 'U' 
           case 'D':
             numberToFrequency(current_ch.frequency-25,FRQ);
             Calculate_Frequency(FRQ);  
             write_FRQ(current_ch.frequency);           
+            //TODO: write to eeprom
           break; // 'D'
           case 'M': //Reverse
             numberToFrequency(current_ch.frequency+current_ch.shift_dir*current_ch.shift,FRQ);
