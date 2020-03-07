@@ -1252,6 +1252,31 @@ int readRow()
     return satir;
 }
 
+void startScan()
+{
+  boolean breaked_inside = false;
+  while (1)
+  {
+    for (long scan_freq=144000; scan_freq < 146000; scan_freq += 25)
+      {
+        numberToFrequency(scan_freq,FRQ);
+        validFRQ = Calculate_Frequency(FRQ);
+        write_FRQ(current_ch.frequency);
+        writeFRQToLcd(FRQ);
+        //Serialprint(">%d\t",scan_freq);
+        delay(100);
+        CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
+        if ((CHANNEL_BUSY == 0) || (readColumn() != 0))
+        {
+          breaked_inside = true;
+          break;
+        } 
+      }
+      if (breaked_inside) break;
+  }
+
+}
+
 
 void setup() {
 //pin modes and initial states
@@ -1422,7 +1447,7 @@ void loop() {
 //       delay(500); //TODO do not use DELAY, change to a timer
        if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(current_ch.tone_pos); old_ctcss_tone_pos = current_ch.tone_pos;}
        if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
-       if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
+       if (pressedKEY=='O') { writeToLcd("SCAN     "); delay(1000); startScan(); } //subMENU = menuSCAN; }
        if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(current_ch.shift); old_frqSHIFT=current_ch.shift;}
        if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
        delay(500); //TODO do not use DELAY, change to a timer
@@ -1461,7 +1486,6 @@ void loop() {
           case 'D':
             if ( subMENU == menuRPT)  {current_ch.shift -= 25; write_SHIFTtoLCD(current_ch.shift); }
             if ( subMENU == menuTONE) { current_ch.tone_pos -= 1;  if (current_ch.tone_pos<=0) current_ch.tone_pos = 0 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
-            
             break;
           case '#': //means CANCEL
             if (subMENU == menuRPT)  current_ch.shift = old_frqSHIFT;
@@ -1699,6 +1723,8 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
     if (commandString.charAt(0) == 'R') getEEPROMData();
+    if (commandString.charAt(0) == 'N') startScan();
+    
     
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
