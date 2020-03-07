@@ -951,22 +951,23 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     current_ch.tone_pos = 0x08;//Default tone 88.5
     current_ch.tone_enabled = CTCSS_OFF; //Tone is disabled by default
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-/*
+
+    memorych_t memch;
+    memch.frequency125 = 11640; //145500 / 12.5
+    memch.shift25      = 24;    //600 / 25
+    memch.tone_position= 8;     //88.5
+    memch.SSTP         = 1;     // No shift, tone off. power low
+    memch.ChannelName[0]  = 'K';
+    memch.ChannelName[1]  = 'N';
+    memch.ChannelName[2]  = 'L';
+    memch.ChannelName[3]  = ' ';
+
+
     //TODO: Move to a common function for PC program integration
+    // initialize the whole memory channels
     for (int ch=0;ch<100;ch++)
-    {
-      Serialprint("%d %d\r\n",ch,100+ch*10);
-      EEPROM.write(100+ch*10+0,0x04); //FRQ1 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
-      EEPROM.write(100+ch*10+1,0xD8); //FRQ2 //1240 dec = 0x04D8 //VHF 145500, UHF 415500
-      EEPROM.write(100+ch*10+3,0x00); //SHFT1 0-NoShift
-      EEPROM.write(100+ch*10+4,0x00); //SHFT2 0-NoShift
-      EEPROM.write(100+ch*10+5,0x00); //TONE1 0-NoTone
-      EEPROM.write(100+ch*10+6,0x16); //"K" = 0x16 from Display Array
-      EEPROM.write(100+ch*10+7,0x18); //"N" = 0x18 from Display Array
-      EEPROM.write(100+ch*10+8,0x41); //"0"-"9" Channel Number from Display Array
-      EEPROM.write(100+ch*10+9,0x42); //"0"-"9" Channel Number from Display Array
-    }
-*/
+        EEPROM.put(EEPROM_MEMDATA_BLCKSTART+ch*10, memch);
+
 }
 
 // Stores frequency data to the desired EEPROM location
@@ -980,10 +981,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     memch.shift25 = (uint8_t)(current_ch.shift/25);
     memch.tone_position= current_ch.tone_pos; 
     memch.SSTP =  (current_ch.shift_dir + 1)  + (current_ch.tone_enabled * 4);//TODO: Power is missing + ( power * 8);
-    //EEPROM.write(ChannelLocation  ,(uint16_t)current_ch.frequency/12.5); //WARNING :  4 byte 
-  Serialprint("ch frq : [%d] %d \r\n",ChannelLocation, memch.frequency125);
-    EEPROM.put(ChannelLocation, memch);
-   
+    EEPROM.put(ChannelLocation, memch); 
 }
 
 
