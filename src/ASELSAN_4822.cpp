@@ -140,7 +140,7 @@ byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 #define EEPROM_APRSMSG_ADDR 20
 
-#define EEPROM_CURRCHNL_BLCKSTART 55
+#define EEPROM_CURRCHNL_BLCKSTART 50
 #define EEPROM_CURRFRQ_ADDR 50
 #define EEPROM_CURRSHF_ADDR 52
 #define EEPROM_CURRTON_ADDR 54
@@ -158,6 +158,7 @@ byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 //defining structures here
 struct channel_t {	
   uint32_t frequency;	
+  uint8_t  bozuk; //this memory location is corrupted in my development environment
   int16_t  shift;	
   int8_t   shift_dir;	
   uint8_t  tone;
@@ -740,8 +741,9 @@ double UpdatedFrq = 0;
     //byte FRQ_H = UpdatedFrq - ( FRQ_L * 256);
     current_ch.frequency = UpdatedFrq;
     current_ch.shift = frqSHIFT;
-    current_ch.tone_enabled = ctcss_tone_pos;
-    //TODO: put direction and tone enable here
+    current_ch.shift_dir = shiftMODE;
+    current_ch.tone = ctcss_tone_pos;
+    current_ch.tone_enabled = TONE_CTRL;
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     //EEPROM.write(EEPROM_CURRFRQ_ADDR,FRQ_L);  
     //write_SHIFTtoEE(frqSHIFT);
@@ -1004,20 +1006,20 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     if (radio_type == 0)
     { 
       current_ch.frequency = 1248;
-      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
+      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
       //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x04); // FRQ_L (Default frequency 145.600)
     }
     else
     {
       current_ch.frequency = 2784;
-      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
+      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); // FRQ_H
       //EEPROM.write(EEPROM_CURRFRQ_ADDR+1,0x0A); // FRQ_L (Default frequency UHF)
     }
     if (radio_type==0)
     {
       current_ch.shift = 600;
       current_ch.shift_dir = -1;
-      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
+      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
       //EEPROM.write(EEPROM_CURRSHF_ADDR,0x58); // SHFT_H
       //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x02); // SHFT_L
     } 
@@ -1025,7 +1027,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     {
       current_ch.shift = 7600;
       current_ch.shift_dir = -1;
-      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
+      //EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch);
       //EEPROM.write(EEPROM_CURRSHF_ADDR,0xB0); // SHFT_L
       //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x1D); // SHFT_H    
     }
@@ -1327,6 +1329,18 @@ void commandAPRSMesaj()
   eeprom_writeAPRS();
 }
 
+void getEEPROMData()
+{
+  int addr = commandString.substring(2,4).toInt();
+  uint8_t eeprom_val;
+  Serialprint("currentch %d %d %d %d %d\r\n", current_ch.frequency,current_ch.shift, current_ch.shift_dir, current_ch.tone, current_ch.tone_enabled);
+  for (int tt=0;tt<10;tt++)
+    {
+    eeprom_val = EEPROM.read(addr+tt);
+    Serialprint("DATA: %d = %d \r\n", addr+tt, eeprom_val);
+    }
+}
+
 void commandAPRSmycall()
 {
   //Serial.print("APRS cagri isaretiniz '");
@@ -1626,12 +1640,12 @@ void loop() {
         // Serialprint("src menu not X pressedKey:%d \n\r  ", pressedKEY);
         switch (pressedKEY) {
           case 'U':
-            if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT);}
-            if ( subMENU == menuTONE) { ctcss_tone_pos += 1; if (ctcss_tone_pos>=19) ctcss_tone_pos = 19 ; write_TONEtoLCD(ctcss_tone_pos);}
+            if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT); }  //TODO: check overflows... + or -
+            if ( subMENU == menuTONE) { ctcss_tone_pos += 1; if (ctcss_tone_pos>=19) ctcss_tone_pos = 19 ; write_TONEtoLCD(ctcss_tone_pos); current_ch.tone = ctcss_tone_pos; EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             break;
           case 'D':
             if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
-            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);}
+            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);current_ch.tone = ctcss_tone_pos; EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             
             break;
           case '#': //means CANCEL
@@ -1645,8 +1659,13 @@ void loop() {
             subMENU = menuNONE;
           break; // '#'
           case '*': //means OK
-            if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
-            if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
+            current_ch.shift = frqSHIFT;
+            current_ch.shift_dir = shiftMODE;
+            current_ch.tone = ctcss_tone_pos;
+            current_ch.tone_enabled = TONE_CTRL;
+            EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+            //if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
+            //if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
             numChar = 0;
             // Serialprint("set to X * pressedKey:%d \n\r  ", pressedKEY);
@@ -1679,6 +1698,8 @@ void loop() {
             } else { 
               shiftMODE = noSHIFT;
             }
+            current_ch.shift_dir = shiftMODE;
+            EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
             // write_SHIFTtoEE(frqSHIFT);
           break; //'R'
           case 'B':
@@ -1869,12 +1890,21 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'C') commandHafizaKoy();
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
+    if (commandString.charAt(0) == 'R') getEEPROMData();
+    
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
     commandComplete = false;
     PrintMenu();
     Serialprint("\r\nSeciminiz>");
+EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+Serialprint("F1 %d - ",current_ch.frequency);
+Serialprint("S1 %d - ",current_ch.shift);
+Serialprint("D1 %d - ",current_ch.shift_dir);
+Serialprint("T1 %d - ",current_ch.tone);
+Serialprint("E1 %d\r\n",current_ch.tone_enabled);
+
   }
 
 //13:49:03$ fm TA7W-9 to TAMSAT-0 via ARISS-1 UI  PID=F0!3955.50N>3250.22E/ TAMSAT KIT - APRS TEST
