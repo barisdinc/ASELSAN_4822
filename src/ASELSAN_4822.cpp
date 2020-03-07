@@ -161,7 +161,7 @@ struct channel_t {
   uint8_t  bozuk; //this memory location is corrupted in my development environment
   int16_t  shift;	
   int8_t   shift_dir;	
-  uint8_t  tone;
+  uint8_t  tone_pos;
   uint8_t  tone_enabled;	
 };	
 channel_t current_ch;
@@ -185,7 +185,7 @@ byte ALERT_MODE = ALERT_ON;
 #define MIC_PIN  3  //D3 is our tone generation PIN (PWM)
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
-uint8_t ctcss_tone_pos = 8;
+//uint8_t ctcss_tone_pos = 8;
 #define TOTAL_TONES 20
 #define TONE_CORRECTION 0.7 //tone shift correction
 //Cem ile digital role tetsi yapiyoruz
@@ -563,7 +563,7 @@ void send_SPIEnable() {
 void SetTone(int toneSTATE) {
   noTone(ALERT_PIN);
   if (toneSTATE == CTCSS_ON) { 
-    if (TRX_MODE == TX)  tone(MIC_PIN, ctcss_tone_list[ctcss_tone_pos]);
+    if (TRX_MODE == TX)  tone(MIC_PIN, ctcss_tone_list[current_ch.tone_pos]);
       else noTone(MIC_PIN);
   }
 }
@@ -711,7 +711,6 @@ void write_FRQ(uint32_t Frequency) {
     current_ch.frequency = Frequency; //UpdatedFrq;
     current_ch.shift = frqSHIFT;
     current_ch.shift_dir = shiftMODE;
-    current_ch.tone = ctcss_tone_pos;
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     SetPLLLock(Frequency);
     
@@ -992,7 +991,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
       //EEPROM.write(EEPROM_CURRSHF_ADDR,0xB0); // SHFT_L
       //EEPROM.write(EEPROM_CURRSHF_ADDR+1,0x1D); // SHFT_H    
     }
-    current_ch.tone = 0x08;
+    current_ch.tone_pos = 0x08;
     current_ch.tone_enabled = CTCSS_OFF;
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
     //EEPROM.write(54,0x08); // TONE 88.5Hz
@@ -1059,8 +1058,8 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     EEPROM.write(ChannelLocation+2,FRQshift_L); // SHFT_L
     EEPROM.write(ChannelLocation+3,FRQshift_H); // SHFT_H
 
-    if (current_ch.tone_enabled==CTCSS_ON) EEPROM.write(ChannelLocation+4,ctcss_tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
-    // Serialprint("STR Channel Parameters CH NO :%d ChannelLOC:%d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d \n\r",ChannelNumber,ChannelLocation,FRQ_L,FRQ_H,FRQshift_L,FRQshift_H,ctcss_tone_pos);
+    if (current_ch.tone_enabled==CTCSS_ON) EEPROM.write(ChannelLocation+4,current_ch.tone_pos+128); else EEPROM.write(ChannelLocation+4,0); // first bit is TONE STATE
+    
 }
 
 
@@ -1116,11 +1115,9 @@ if (radio_type==0)
  frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
 
- ctcss_tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
+ current_ch.tone_pos  = EEPROM.read(ChannelLocation+4) ; // TONE
  current_ch.tone_enabled=CTCSS_OFF;
- if (ctcss_tone_pos>127) {current_ch.tone_enabled=CTCSS_ON;ctcss_tone_pos-=128;} //TONEbit is on.. 
-  // Serialprint("RTR Channel Parameters CH NO :%d ChannelLOC:%d %d %d FRQ_L:%d FRQ_H:%d FRQShift_L:%d FRQShift_H:%d CTCSS:%d SHIFT:%d \n\r",ChannelNumber,ChannelLocation,byte1,byte2,FRQshift_L,FRQshift_H,ctcss_tone_pos,shiftMODE);
-}
+ 
 
 void PrintMenu()
 {  
@@ -1294,7 +1291,7 @@ void getEEPROMData()
 {
   int addr = commandString.substring(2,4).toInt();
   uint8_t eeprom_val;
-  Serialprint("currentch %d %d %d %d %d\r\n", current_ch.frequency,current_ch.shift, current_ch.shift_dir, current_ch.tone, current_ch.tone_enabled);
+  Serialprint("currentch %d %d %d %d %d\r\n", current_ch.frequency,current_ch.shift, current_ch.shift_dir, current_ch.tone_pos, current_ch.tone_enabled);
   for (int tt=0;tt<10;tt++)
     {
     eeprom_val = EEPROM.read(addr+tt);
@@ -1460,10 +1457,8 @@ eeprom_readAPRS();
   //frqSHIFT = FRQshift_L * 256 + FRQshift_H;
 
   //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  ctcss_tone_pos = current_ch.tone;
 
   SetTone(current_ch.tone_enabled);
-  //ctcss_tone_pos  = EEPROM.read(54) ; // TONE
   //Serialprint("Startup with shift : %d ShiftMode: %d \n\r",frqSHIFT,shiftMODE);
 
   //setRadioPower();  //Check power switch mode and turn adio on immediately
@@ -1565,7 +1560,7 @@ void loop() {
      if (scrTimer==0) { //key released and timeout occured
 //       writeToLcd("SELECT   ");
 //       delay(500); //TODO do not use DELAY, change to a timer
-       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(ctcss_tone_pos); old_ctcss_tone_pos = ctcss_tone_pos;}
+       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(current_ch.tone_pos); old_ctcss_tone_pos = current_ch.tone_pos;}
        if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
        if (pressedKEY=='O') { writeToLcd("SCAN     "); subMENU = menuSCAN; }
        if (pressedKEY=='R') { writeToLcd("SHIFT    "); subMENU = menuRPT;  delay(1000);write_SHIFTtoLCD(frqSHIFT); old_frqSHIFT=frqSHIFT;}
@@ -1601,16 +1596,16 @@ void loop() {
         switch (pressedKEY) {
           case 'U':
             if ( subMENU == menuRPT)  { frqSHIFT += 25; write_SHIFTtoLCD(frqSHIFT); }  //TODO: check overflows... + or -
-            if ( subMENU == menuTONE) { ctcss_tone_pos += 1; if (ctcss_tone_pos>=19) ctcss_tone_pos = 19 ; write_TONEtoLCD(ctcss_tone_pos); current_ch.tone = ctcss_tone_pos; EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos>=19) current_ch.tone_pos = 19 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             break;
           case 'D':
             if ( subMENU == menuRPT)  {frqSHIFT -= 25; write_SHIFTtoLCD(frqSHIFT); }
-            if ( subMENU == menuTONE) { ctcss_tone_pos -= 1;  if (ctcss_tone_pos<=0) ctcss_tone_pos = 0 ; write_TONEtoLCD(ctcss_tone_pos);current_ch.tone = ctcss_tone_pos; EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuTONE) { current_ch.tone_pos -= 1;  if (current_ch.tone_pos<=0) current_ch.tone_pos = 0 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
             
             break;
           case '#': //means CANCEL
             if (subMENU == menuRPT)  frqSHIFT = old_frqSHIFT;
-            if (subMENU == menuTONE) ctcss_tone_pos = old_ctcss_tone_pos;
+            if (subMENU == menuTONE) current_ch.tone_pos = old_ctcss_tone_pos;
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
             numChar = 0;
             // Serialprint("set to X pressedKey:%d \n\r  ", pressedKEY);
@@ -1621,7 +1616,6 @@ void loop() {
           case '*': //means OK
             current_ch.shift = frqSHIFT;
             current_ch.shift_dir = shiftMODE;
-            current_ch.tone = ctcss_tone_pos;
             EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
             //if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
             //if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
@@ -1861,7 +1855,7 @@ EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
 Serialprint("F1 %d - ",current_ch.frequency/100);
 Serialprint("S1 %d - ",current_ch.shift);
 Serialprint("D1 %d - ",current_ch.shift_dir);
-Serialprint("T1 %d - ",current_ch.tone);
+Serialprint("T1 %d - ",current_ch.tone_pos);
 Serialprint("E1 %d\r\n",current_ch.tone_enabled);
 
   }
