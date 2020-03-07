@@ -244,7 +244,6 @@ const char  numbers[] = "0123456789ABCDEF";
 byte numChar = 0;
 char FRQ[9];// = "145.675 ";
 char FRQ_old[9];// = FRQ;
-uint32_t calc_frequency;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 /* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
@@ -592,9 +591,9 @@ char numberToArray (int Number) //max 4 digits
 */
 boolean Calculate_Frequency (char mFRQ[9]) {
 
-  calc_frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
-  if (radio_type==0 && (calc_frequency >= 134000L) & (calc_frequency <= 174000L)) return true; //valid frequency for VHF
-  else if (radio_type==1 && (calc_frequency >= 400000L) & (calc_frequency < 468400L)) return true; //valid frequency for UHF
+  current_ch.frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
+  if (radio_type==0 && (current_ch.frequency >= 134000L) & (current_ch.frequency <= 174000L)) return true; //valid frequency for VHF
+  else if (radio_type==1 && (current_ch.frequency >= 400000L) & (current_ch.frequency < 468400L)) return true; //valid frequency for UHF
   else 
     {
       Alert_Tone(ERR_tone);
@@ -681,37 +680,20 @@ void write_FRQ(uint32_t Frequency) {
   if (validFRQ) {
     if(radio_type==0)
     {
-    if ((Frequency < 174000L) & (Frequency >= (164000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
-    if ((Frequency < 164000L) & (Frequency >= (154000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
-    if ((Frequency < 154000L) & (Frequency >= (144000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
-    if ((Frequency < 146000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
-    // Update EEPROM for last used Frequncy
-    //UpdatedFrq = Frequency - 130000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
-
+      if ((Frequency < 174000L) & (Frequency >= (164000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
+      if ((Frequency < 164000L) & (Frequency >= (154000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
+      if ((Frequency < 154000L) & (Frequency >= (144000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
+      if ((Frequency < 146000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
     }
     else if(radio_type==1)
     {
-       if ((Frequency < 470000L) & (Frequency >= (452000L)))  
-          {
-            //Serialprint("UHF 4: [468.400-452.000]"); 
-            digitalWrite(BAND_SELECT_0, LOW); 
-            digitalWrite(BAND_SELECT_1, LOW); 
-          }
-       if ((Frequency < 452000L) & (Frequency >= (430000L)))  
-          {
-            //Serialprint("UHF 3: [430.000-451.99]"); 
-            digitalWrite(BAND_SELECT_0, HIGH); 
-            digitalWrite(BAND_SELECT_1, HIGH); 
-          }
+       if ((Frequency < 470000L) & (Frequency >= (452000L))) {digitalWrite(BAND_SELECT_0, LOW); digitalWrite(BAND_SELECT_1, LOW); }
+       if ((Frequency < 452000L) & (Frequency >= (430000L))) {digitalWrite(BAND_SELECT_0, HIGH);digitalWrite(BAND_SELECT_1, HIGH);}
     // Update EEPROM for last used Frequncy
-    //UpdatedFrq = Frequency - 400000; // Subtrack 130000 to fit the frequency into double size (2 bytes) 
     }
     current_ch.frequency = Frequency; //UpdatedFrq;
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     SetPLLLock(Frequency);
-    
-  
-    
   } //validFRQ 
 }
 
@@ -774,17 +756,17 @@ void readRfPower()
    if (swr < minSWR)
    {
       minSWR=swr;
-      lowestFRQ=calc_frequency;
-      highestFRQ=calc_frequency;
+      lowestFRQ=current_ch.frequency;
+      highestFRQ=current_ch.frequency;
    } else if (swr == minSWR)
    {
-      highestFRQ=calc_frequency;
+      highestFRQ=current_ch.frequency;
    }
 
 }
 
 
-void numberToFrequency(long Freq, char *rFRQ) {
+void numberToFrequency(uint32_t Freq, char *rFRQ) {
   
   word f1,f2,f3,f4,f5,f6; //sgould be byte, but arduino math fails here.. so changed to double
 
@@ -1016,22 +998,8 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
     byte ChannelLocation = 100 + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
-    double FrqToStore;
     
-    if (radio_type==0)
-      {
-        FrqToStore = calc_frequency - 130000;
-      } 
-      else
-      {
-        FrqToStore = calc_frequency - 400000;
-      }
-    FrqToStore = FrqToStore / 12.5;
-    
-    byte FRQ_L = FrqToStore / 256;
-    byte FRQ_H = FrqToStore - ( FRQ_L * 256);
-    EEPROM.write(ChannelLocation  ,FRQ_L); 
-    EEPROM.write(ChannelLocation+1,FRQ_H);  
+    EEPROM.write(ChannelLocation  ,current_ch.frequency); //WARNING :  4 byte 
     byte FRQshift_L; 
     byte FRQshift_H;
     if (current_ch.shift_dir==noSHIFT)    
@@ -1482,7 +1450,7 @@ void loop() {
   {
     if (TRX_MODE == TX) 
     {
-      numberToFrequency(calc_frequency+current_ch.shift_dir*current_ch.shift,FRQ_old);
+      numberToFrequency(current_ch.frequency+current_ch.shift_dir*current_ch.shift,FRQ_old);
       writeFRQToLcd(FRQ_old);
     } else
     {
@@ -1516,7 +1484,7 @@ void loop() {
 //  if (pttToggler && TRX_MODE == RX) TRX_MODE = TX; //if pttToggler set from serial, then mode is transmission
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
-    write_FRQ(calc_frequency); //Update frequenct on every state change
+    write_FRQ(current_ch.frequency); //Update frequenct on every state change
   }
   if (TRX_MODE == TX ) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
     else digitalWrite(PTT_OUTPUT_PIN, LOW);
@@ -1663,28 +1631,27 @@ void loop() {
              SetRFPower();           
           break; //'O'
           case 'U':
-            //numberToFrequency(calc_frequency+1000,FRQ);
-            numberToFrequency(calc_frequency+25,FRQ);
+            numberToFrequency(current_ch.frequency+25,FRQ);
             //delay(1000);
             Calculate_Frequency(FRQ);  
           //  delay(1000);
-            write_FRQ(calc_frequency); 
+            write_FRQ(current_ch.frequency); 
            // delay(2000);
           break; // 'U' 
           case 'D':
-            numberToFrequency(calc_frequency-25,FRQ);
+            numberToFrequency(current_ch.frequency-25,FRQ);
             Calculate_Frequency(FRQ);  
-            write_FRQ(calc_frequency);           
+            write_FRQ(current_ch.frequency);           
           break; // 'D'
           case 'M': //Reverse
-            numberToFrequency(calc_frequency+current_ch.shift_dir*current_ch.shift,FRQ);
+            numberToFrequency(current_ch.frequency+current_ch.shift_dir*current_ch.shift,FRQ);
             if (current_ch.shift_dir == plusSHIFT) { 
               current_ch.shift_dir = minusSHIFT;
             } else if (current_ch.shift_dir == minusSHIFT) {
               current_ch.shift_dir = plusSHIFT;
             } 
             Calculate_Frequency(FRQ);  
-            write_FRQ(calc_frequency);           
+            write_FRQ(current_ch.frequency);           
 
            //Serialprint(pressedKEY);
           break; // 'M'
@@ -1722,7 +1689,7 @@ void loop() {
               {
                 numberToFrequency(vna_freq*10,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
-                write_FRQ(calc_frequency);
+                write_FRQ(current_ch.frequency);
                 writeFRQToLcd(FRQ);
                 Serialprint(">%d\t",vna_freq);
                 delay(100);
@@ -1742,7 +1709,7 @@ void loop() {
               //strcpy(FRQ,FRQ_old);
               numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
               validFRQ = Calculate_Frequency(FRQ);
-              write_FRQ(calc_frequency);            
+              write_FRQ(current_ch.frequency);            
               writeFRQToLcd(FRQ);
               PrintMenu(); //print menu for user selection  
           break; // 'C'
@@ -1751,14 +1718,14 @@ void loop() {
               strcpy(FRQ,FRQ_old);
               validFRQ = Calculate_Frequency(FRQ);
               numChar = 0;
-              write_FRQ(calc_frequency);
+              write_FRQ(current_ch.frequency);
           break; // '#'
           case '*':
             if (numChar == 2) GetMemoryChannel(FRQ); // User wanted to retrieve the memory channel from EEPRM
             else strcpy(FRQ,FRQ_old); // Otherwise user wanted to cancel the ongoing operation.. return to previous (old) frequency
             validFRQ = Calculate_Frequency(FRQ);
             numChar = 0;
-            write_FRQ(calc_frequency);
+            write_FRQ(current_ch.frequency);
           break; // '*'
          
           default:  
@@ -1787,14 +1754,14 @@ void loop() {
               if (numChar == 7) { //input finished 
                 validFRQ = Calculate_Frequency(FRQ);
                 numChar = 0;
-                write_FRQ(calc_frequency);
+                write_FRQ(current_ch.frequency);
                 if (validFRQ) {
                   strcpy(FRQ_old,FRQ);
                 } else {
                   strcpy(FRQ,FRQ_old); //"   .   ";
                   numChar = 0;
                   validFRQ = Calculate_Frequency(FRQ);
-                  write_FRQ(calc_frequency);
+                  write_FRQ(current_ch.frequency);
                   //sound audible error here
                 }
               } // numChar==7
@@ -2267,7 +2234,7 @@ void send_packet(char packet_type, uint32_t frequency)
    TRX_MODE = TX;
    numberToFrequency(frequency,FRQ);         //TODO: change for ISS
    validFRQ = Calculate_Frequency(FRQ);
-   write_FRQ(calc_frequency);
+   write_FRQ(current_ch.frequency);
    writeFRQToLcd(FRQ);
    digitalWrite(PTT_OUTPUT_PIN,HIGH);
    //Serialprint("Sending packet..."); 
@@ -2289,7 +2256,7 @@ void send_packet(char packet_type, uint32_t frequency)
   strcpy(FRQ,FRQ_old);
   //numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
   validFRQ = Calculate_Frequency(FRQ);
-  write_FRQ(calc_frequency);              
+  write_FRQ(current_ch.frequency);              
 }
 
 /*
