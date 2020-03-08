@@ -1037,6 +1037,7 @@ void GetMemoryChannel(char mFRQ[9]) {
     byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
     byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     memorych_t l_memorych;
+    if (ChannelNumber > 90) { Alert_Tone(ERR_tone); return;};
     EEPROM.get(ChannelLocation, l_memorych);
     current_ch.frequency = l_memorych.frequency125 * 12.5;
     current_ch.shift     = l_memorych.shift25 * 25;
