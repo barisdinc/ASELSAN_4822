@@ -1003,6 +1003,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
     byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
+    if (ChannelNumber > 90 ) { Alert_Tone(ERR_tone); return;}
     
     memorych_t memch;
     memch.frequency125 = (uint16_t)(current_ch.frequency / 12.5);
