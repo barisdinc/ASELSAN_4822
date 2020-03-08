@@ -122,54 +122,6 @@ byte LST_MODE = TX; //this will hold the last receive transmit state. Start with
 byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 
-//defining structures here
-struct channel_t {	
-  uint32_t frequency;	
-  uint8_t  bozuk; //this memory location is corrupted in my development environment
-  int16_t  shift;	
-  int8_t   shift_dir;	
-  uint8_t  tone_pos;
-  uint8_t  tone_enabled;	
-};	
-channel_t current_ch;
-
-struct memorych_t {
-  uint16_t frequency125; //frequency divided by 12.5
-  uint8_t  shift25;      //shift divided bye 25
-  uint8_t  tone_position;
-  uint8_t  SSTP;         //ShiftShiftTonePower 
-  char     ChannelName[4];
-  uint8_t  reserved = 0;
-};
-
-
-//EEPROM ADDRESS DEFINITIONS
-#define EEPROM_CONFDATA_BLCKSTART 0
-#define EEPROM_CHECKIT_ADDR 0
-#define EEPROM_VERSMAJ_ADDR 1
-#define EEPROM_VERSMIN_ADDR 2
-#define EEPROM_CLLSIGN_ADDR 3
-#define EEPROM_MESSAGE_ADDR 9
-#define EEPROM_RADIOTP_ADDR 17
-
-#define EEPROM_APRSMSG_ADDR 20
-
-#define EEPROM_CURRCHNL_BLCKSTART 50
-#define EEPROM_CURRFRQ_ADDR 50
-#define EEPROM_CURRSHF_ADDR 52
-#define EEPROM_CURRTON_ADDR 54
-
-#define EEPROM_APRSDATA_BLCKSTART 60
-#define EEPROM_APRSCLL_ADDR 60
-#define EEPROM_APRSTIM_ADDR 66
-#define EEPROM_APRSLAT_ADDR 67
-#define EEPROM_APRSLON_ADDR 75
-
-#define EEPROM_MEMDATA_BLCKSTART 100
-#define EEPROM_CHNNL01_ADDR 100
-#define EEPROM_CHNNL_SIZE   10   Size of memorych_t
-
-
 
 //Key sounds and alerts
 #define ALERT_PIN 13
@@ -178,9 +130,10 @@ struct memorych_t {
 byte ALERT_MODE = ALERT_ON;
 
 //Tone Types
-#define NO_tone  0
-#define OK_tone  1
-#define ERR_tone 2
+#define NO_tone   0
+#define OK_tone   1
+#define ERR_tone  2
+#define SUCC_tone 3
 
 
 
@@ -246,13 +199,85 @@ unsigned char chr2wr[3];
 const char* keymap[4] = {  "123DSX",  "456RB", "789OC", "*0#UM"  };
 const char  numbers[] = "0123456789ABCDEF";
 
+/* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
+const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
+
+
 byte numChar = 0;
 char FRQ[9];// = "145.675 ";
 char FRQ_old[9];// = FRQ;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
-/* Text to LCD segment mapping. You can add your own symbols, but make sure the index and font arrays match up */
-const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
+//Special Frequency Definition
+#define DEFAULT_VHF_MINIMUM_FREQ  134000/12.5
+#define DEFAULT_UHF_MINIMUM_FREQ  400000/12.5
+#define DEFAULT_VHF_MAXIMUM_FREQ  174000/12.5
+#define DEFAULT_UHF_MAXIMUM_FREQ  470000/12.5
+#define DEFAULT_APRS_VHF_FREQ     144800/12.5
+#define DEFAULT_ISS_APRS_FREQ     144825/12.5
+#define DEFAULT_VHF_SCAN_LOWER    144000/12.5
+#define DEFAULT_UHF_SCAN_LOWER    430000/12.5
+#define DEFAULT_VHF_SCAN_UPPER    146000/12.5
+#define DEFAULT_UHF_SCAN_UPPER    440000/12.5
+
+//defining structures here
+struct channel_t {	
+  uint32_t frequency;	
+  uint8_t  bozuk; //this memory location is corrupted in my development environment
+  int16_t  shift;	
+  int8_t   shift_dir    = -1;	  // Minus Shift
+  uint8_t  tone_pos     = 0x08; //88.5 by default
+  uint8_t  tone_enabled = 0;	  //Tone Off
+};	
+channel_t current_ch;
+
+struct memorych_t {
+  uint16_t frequency125; //frequency divided by 12.5
+  uint8_t  shift25;      //shift divided bye 25
+  uint8_t  tone_position;
+  uint8_t  SSTP;         //ShiftShiftTonePower 
+  char     ChannelName[4];
+  uint8_t  reserved = 0;
+};
+
+struct freqLimits_t {
+  uint16_t trx_min_125 = DEFAULT_VHF_MINIMUM_FREQ; //Lower limit of working frequency for VHF
+  uint16_t trx_max_125 = DEFAULT_VHF_MAXIMUM_FREQ; //Lower limit of working frequency for VHF
+  uint16_t scn_min_125 = DEFAULT_VHF_SCAN_LOWER; //Lower scan limit for VHF
+  uint16_t scn_max_125 = DEFAULT_VHF_SCAN_UPPER; //Higher scan limit for VHF
+  uint16_t aprs_125    = DEFAULT_APRS_VHF_FREQ; //Default APRS Frequency
+  uint16_t iss_125     = DEFAULT_ISS_APRS_FREQ; //Default ISS frequency for APRS transmission
+};
+freqLimits_t freqLimits;
+
+//EEPROM ADDRESS DEFINITIONS
+#define EEPROM_CONFDATA_BLCKSTART 0
+#define EEPROM_CHECKIT_ADDR 0
+#define EEPROM_VERSMAJ_ADDR 1
+#define EEPROM_VERSMIN_ADDR 2
+#define EEPROM_CLLSIGN_ADDR 3
+#define EEPROM_MESSAGE_ADDR 9
+#define EEPROM_RADIOTP_ADDR 17
+
+#define EEPROM_APRSMSG_ADDR 20
+
+#define EEPROM_CURRCHNL_BLCKSTART 50
+#define EEPROM_CURRFRQ_ADDR 50
+#define EEPROM_CURRSHF_ADDR 52
+#define EEPROM_CURRTON_ADDR 54
+
+#define EEPROM_APRSDATA_BLCKSTART 60
+#define EEPROM_APRSCLL_ADDR 60
+#define EEPROM_APRSTIM_ADDR 66
+#define EEPROM_APRSLAT_ADDR 67
+#define EEPROM_APRSLON_ADDR 75
+
+#define EEPROM_SPECIALFRQ_BLCKSTART 84
+
+#define EEPROM_MEMDATA_BLCKSTART 100
+#define EEPROM_CHNNL01_ADDR 100
+#define EEPROM_CHNNL_SIZE   10   Size of memorych_t
+
 
 
 //VNA variables
@@ -564,9 +589,10 @@ void Alert_Tone(int ToneType)
 {
   if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
   noTone(MIC_PIN); //First silence the TONE output first
-  if (ToneType == OK_tone)  tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
-  if (ToneType == ERR_tone) tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
-  delay(ALERT_MODE); //TODO: find a better way to plat two tones simultaneously
+  if (ToneType == OK_tone)   tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == ERR_tone)  tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
+  if (ToneType == SUCC_tone) {tone(ALERT_PIN,600 ,ALERT_MODE);delay(200);tone(ALERT_PIN,1000 ,ALERT_MODE);} //2 500msec success tones
+  delay(ALERT_MODE); //TODO: find a better way to play two tones simultaneously
   SetTone(current_ch.tone_enabled); //resume Tone Generation 
 }
 
@@ -584,10 +610,10 @@ char numberToArray (int Number) //max 4 digits
   
 }
 */
-boolean Calculate_Frequency (char mFRQ[9]) {
+boolean Calculate_Frequency (char mFRQ[9], boolean setFreq = false) {
 
   current_ch.frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
-  if (radio_type==0 && (current_ch.frequency >= 134000L) & (current_ch.frequency <= 174000L)) return true; //valid frequency for VHF
+  if (radio_type==0 && (current_ch.frequency >= freqLimits.trx_min_125*12.5) & (current_ch.frequency <= freqLimits.trx_max_125*12.5)) return true; //valid frequency for VHF
   else if (radio_type==1 && (current_ch.frequency >= 400000L) & (current_ch.frequency < 468400L)) return true; //valid frequency for UHF
   else 
     {
@@ -824,11 +850,11 @@ void eeprom_readAPRS()
   APRS_Message[27] = EEPROM.read(47); //APRS Message
 
   mycall[0] = EEPROM.read(60); // APRS MYCALL
-  mycall[0] =  EEPROM.read(61); // APRS MYCALL
-  mycall[0] =  EEPROM.read(62); // APRS MYCALL
-  mycall[0] =  EEPROM.read(63); // APRS MYCALL
-  mycall[0] =  EEPROM.read(64); // APRS MYCALL
-  mycall[0] =  EEPROM.read(65); // APRS MYCALL
+  mycall[0] = EEPROM.read(61); // APRS MYCALL
+  mycall[0] = EEPROM.read(62); // APRS MYCALL
+  mycall[0] = EEPROM.read(63); // APRS MYCALL
+  mycall[0] = EEPROM.read(64); // APRS MYCALL
+  mycall[0] = EEPROM.read(65); // APRS MYCALL
   //Read last APRS Timeout value from EEPROM
   APRS_Timeout = EEPROM.read(66);
   lat[0] =  EEPROM.read(67); // APRS Latitude   
@@ -935,20 +961,23 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
     eeprom_writeAPRS();
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
+    channel_t default_channel;
     if (radio_type == 0)
     { 
-      current_ch.frequency = 145600; //1248;
-      current_ch.shift = 600;
+      default_channel.frequency = 145600; //1248;
+      default_channel.shift = 600;
     }
     else
     {
-      current_ch.shift = 7600;
-      current_ch.frequency = 433500; //2784;
+      default_channel.shift = 7600;
+      default_channel.frequency = 433500; //2784;
     }
-    current_ch.shift_dir = -1; //Default Shift -
-    current_ch.tone_pos = 0x08;//Default tone 88.5
-    current_ch.tone_enabled = CTCSS_OFF; //Tone is disabled by default
-    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+    //current_ch.shift_dir = -1; //Default Shift -
+    //current_ch.tone_pos = 0x08;//Default tone 88.5
+    //current_ch.tone_enabled = CTCSS_OFF; //Tone is disabled by default
+    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, default_channel);// current_ch);
+    freqLimits_t default_limits;
+    EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
 
     memorych_t memch;
     memch.frequency125 = 11640; //145500 / 12.5
@@ -1252,27 +1281,50 @@ int readRow()
     return satir;
 }
 
+void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
+{
+    uint16_t ChannelNumber = (((mCHNL[0] - 48) * 100) + ((mCHNL[1] - 48) * 10) + (mCHNL[2] - 48));
+    if (Calculate_Frequency(mFRQ))
+    {
+      if (ChannelNumber == 101) { freqLimits.trx_min_125 = current_ch.frequency/12.5; } //TRX Lower Limit
+      if (ChannelNumber == 151) { freqLimits.trx_min_125 = DEFAULT_VHF_MINIMUM_FREQ; }
+      if (ChannelNumber == 102) { freqLimits.trx_max_125 = current_ch.frequency/12.5; } //TRX Upper Limit
+      if (ChannelNumber == 152) { freqLimits.trx_max_125 = DEFAULT_VHF_MAXIMUM_FREQ; }
+      if (ChannelNumber == 201) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan lower Limit
+      if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
+      if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
+      if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
+      EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
+      Alert_Tone(SUCC_tone);
+    }  
+
+}
+
+
 void startScan()
 {
-  boolean breaked_inside = false;
+
+
+  unsigned long scan_frequency = 144000;
+  int8_t frq_step = 25;
   while (1)
   {
-    for (long scan_freq=144000; scan_freq < 146000; scan_freq += 25)
-      {
-        numberToFrequency(scan_freq,FRQ);
+        scan_frequency += frq_step;
+        if (scan_frequency >= freqLimits.scn_max_125*12.5) scan_frequency = freqLimits.scn_min_125*12.5;
+        else if (scan_frequency <= freqLimits.scn_min_125*12.5) scan_frequency = freqLimits.scn_max_125*12.5;
+
+        numberToFrequency(scan_frequency,FRQ);
         validFRQ = Calculate_Frequency(FRQ);
         write_FRQ(current_ch.frequency);
         writeFRQToLcd(FRQ);
         //Serialprint(">%d\t",scan_freq);
         delay(100);
         CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
-        if ((CHANNEL_BUSY == 0) || (readColumn() != 0))
-        {
-          breaked_inside = true;
-          break;
-        } 
-      }
-      if (breaked_inside) break;
+        //int sutun = readColumn();
+        //int satir = readRow();
+        //Serialprint("keypres= %d %d \r\n",sutun,satir);
+        if (CHANNEL_BUSY == 0) break;
+        if (readColumn() != 0) break;
   }
 
 }
@@ -1348,6 +1400,8 @@ void setup() {
  
   SetTone(current_ch.tone_enabled);
 
+  EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
+
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
   //pinMode(POWER_ON_PIN, OUTPUT);
@@ -1398,7 +1452,7 @@ void loop() {
   if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
   if (CHANNEL_BUSY==0) APRS_Counter = 0; //If channel is busy, dont transmit APRS, wait the musy to finish and restart counter
   if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
-  if (pttToggler) send_packet(_STATUS,144800);
+  if (pttToggler) send_packet(_STATUS,freqLimits.aprs_125*12.5); //TODO: what if UHF
 
   //Led_Status = Led_Status - yellow_led;
   //Led_Status = Led_Status - red_led;
@@ -1430,8 +1484,8 @@ void loop() {
   //if (APRS_Counter % 1000) Serialprint("%d\r\n",APRS_Counter);
   //uint32_t APR_tmt = APRS_Timeout * 60 * 150;
   if (((APRS_Counter/150) >= (APRS_Timeout * 60)) && (APRS_Timeout > 0)) {
-     send_packet(_FIXPOS_STATUS,144800); //For APRS terrestrial
-     send_packet(_FIXPOS_STATUS,145825); //For ISS
+     send_packet(_FIXPOS_STATUS,freqLimits.aprs_125*12.5); //For APRS terrestrial  //TODO: UHF ?
+     send_packet(_FIXPOS_STATUS,freqLimits.iss_125*12.5);  //For ISS               //TODO: UHF ?
      APRS_Counter = 0;
   }
 
@@ -1644,10 +1698,11 @@ void loop() {
           break; // 'C'
           case '#':
             if (numChar == 2) StoreFrequency(FRQ,FRQ_old); // User is trying to store the actual frequency : FRQ[0..1] ccontains memory channel and FRQ_old contains the frequency to be stored
-              strcpy(FRQ,FRQ_old);
-              validFRQ = Calculate_Frequency(FRQ);
-              numChar = 0;
-              write_FRQ(current_ch.frequency);
+            if (numChar == 4) StoreSpecialFrequency(FRQ,FRQ_old);
+            strcpy(FRQ,FRQ_old);
+            validFRQ = Calculate_Frequency(FRQ);
+            numChar = 0;
+            write_FRQ(current_ch.frequency);
           break; // '#'
           case '*':
             if (numChar == 2) GetMemoryChannel(FRQ); // User wanted to retrieve the memory channel from EEPRM
