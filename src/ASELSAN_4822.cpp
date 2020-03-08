@@ -1485,8 +1485,8 @@ void loop() {
   //if (APRS_Counter % 1000) Serialprint("%d\r\n",APRS_Counter);
   //uint32_t APR_tmt = APRS_Timeout * 60 * 150;
   if (((APRS_Counter/150) >= (APRS_Timeout * 60)) && (APRS_Timeout > 0)) {
-     send_packet(_FIXPOS_STATUS,freqLimits.aprs_125*12.5); //For APRS terrestrial  //TODO: UHF ?
-     send_packet(_FIXPOS_STATUS,freqLimits.iss_125*12.5);  //For ISS               //TODO: UHF ?
+     send_packet(_FIXPOS_STATUS,(freqLimits.aprs_125*12.5)); //For APRS terrestrial  //TODO: UHF ?
+     send_packet(_FIXPOS_STATUS,(freqLimits.iss_125*12.5));  //For ISS               //TODO: UHF ?
      APRS_Counter = 0;
   }
 
