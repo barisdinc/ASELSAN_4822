@@ -820,7 +820,7 @@ void numberToFrequency(uint32_t Freq, char *rFRQ) {
 
 void eeprom_readAPRS()
 {
-  //APRS Settings
+  //APRS Settings/*
   APRS_Message[0] = EEPROM.read(20); //APRS Message
   APRS_Message[1] = EEPROM.read(21); //APRS Message
   APRS_Message[2] = EEPROM.read(22); //APRS Message
@@ -880,6 +880,8 @@ void eeprom_readAPRS()
 void eeprom_writeAPRS()
 {
 //APRS Settings
+EEPROM.put(20,APRS_Message);
+/*
     EEPROM.write(20,APRS_Message[0]); //APRS Message
     EEPROM.write(21,APRS_Message[1]); //APRS Message
     EEPROM.write(22,APRS_Message[2]); //APRS Message
@@ -908,18 +910,20 @@ void eeprom_writeAPRS()
     EEPROM.write(45,APRS_Message[25]); //APRS Message
     EEPROM.write(46,APRS_Message[26]); //APRS Message
     EEPROM.write(47,APRS_Message[27]); //APRS Message
-
-    //EEPROM.put(60, mycall);
+*/
+    EEPROM.put(60,mycall);
+    /*
     EEPROM.write(60,mycall[0]); // APRS MYCALL
     EEPROM.write(61,mycall[1]); // APRS MYCALL
     EEPROM.write(62,mycall[2]); // APRS MYCALL
     EEPROM.write(63,mycall[3]); // APRS MYCALL
     EEPROM.write(64,mycall[4]); // APRS MYCALL
     EEPROM.write(65,mycall[5]); // APRS MYCALL
-
+*/
     EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
 
-    //EEPROM.put(67,lat);
+    EEPROM.put(67,lat);
+    /*
     EEPROM.write(67,lat[0]); // APRS Latitude - Anitkabir
     EEPROM.write(68,lat[1]); // APRS Latitude - Anitkabir
     EEPROM.write(69,lat[2]); // APRS Latitude - Anitkabir
@@ -928,8 +932,9 @@ void eeprom_writeAPRS()
     EEPROM.write(72,lat[5]); // APRS Latitude - Anitkabir
     EEPROM.write(73,lat[6]); // APRS Latitude - Anitkabir
     EEPROM.write(74,lat[7]); // APRS Latitude - Anitkabir
-
-    //EEPROM.put(75,lon);
+*/
+    EEPROM.put(75,lon);
+    /*
     EEPROM.write(75,lon[0]); // APRS Longitude - Anitkabir
     EEPROM.write(76,lon[1]); // APRS Longitude - Anitkabir
     EEPROM.write(77,lon[2]); // APRS Longitude - Anitkabir
@@ -938,6 +943,7 @@ void eeprom_writeAPRS()
     EEPROM.write(80,lon[5]); // APRS Longitude - Anitkabir
     EEPROM.write(81,lon[6]); // APRS Longitude - Anitkabir
     EEPROM.write(82,lon[7]); // APRS Longitude - Anitkabir
+    */
 }
 
 void initialize_eeprom() {  //Check gthub documents for eeprom structure...
@@ -995,7 +1001,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     // initialize the whole memory channels
     for (int ch=0;ch<50;ch++)
         EEPROM.put(EEPROM_MEMDATA_BLCKSTART+ch*10, memch);
-
+    
 }
 
 // Stores frequency data to the desired EEPROM location
@@ -1036,8 +1042,8 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void GetMemoryChannel(char mFRQ[9]) {
     byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
     byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
-    memorych_t l_memorych;
     if (ChannelNumber > 90) { Alert_Tone(ERR_tone); return;};
+    memorych_t l_memorych;
     EEPROM.get(ChannelLocation, l_memorych);
     current_ch.frequency = l_memorych.frequency125 * 12.5;
     current_ch.shift     = l_memorych.shift25 * 25;
