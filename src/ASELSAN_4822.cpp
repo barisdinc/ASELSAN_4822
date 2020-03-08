@@ -1295,6 +1295,7 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
       if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
+      if (ChannelNumber == 999) { initialize_eeprom(); } //Initiralize device
       EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
       Alert_Tone(SUCC_tone);
     }  
