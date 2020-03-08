@@ -209,16 +209,16 @@ char FRQ_old[9];// = FRQ;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
 
 //Special Frequency Definition
-#define DEFAULT_VHF_MINIMUM_FREQ  134000/12.5
-#define DEFAULT_UHF_MINIMUM_FREQ  400000/12.5
-#define DEFAULT_VHF_MAXIMUM_FREQ  174000/12.5
-#define DEFAULT_UHF_MAXIMUM_FREQ  470000/12.5
-#define DEFAULT_APRS_VHF_FREQ     144800/12.5
-#define DEFAULT_ISS_APRS_FREQ     144825/12.5
-#define DEFAULT_VHF_SCAN_LOWER    144000/12.5
-#define DEFAULT_UHF_SCAN_LOWER    430000/12.5
-#define DEFAULT_VHF_SCAN_UPPER    146000/12.5
-#define DEFAULT_UHF_SCAN_UPPER    440000/12.5
+#define DEFAULT_VHF_MINIMUM_FREQ  10720 //134000/12.5
+#define DEFAULT_UHF_MINIMUM_FREQ  32000 //400000/12.5
+#define DEFAULT_VHF_MAXIMUM_FREQ  13920 //174000/12.5
+#define DEFAULT_UHF_MAXIMUM_FREQ  37600 //470000/12.5
+#define DEFAULT_APRS_VHF_FREQ     11584 //144800/12.5
+#define DEFAULT_ISS_APRS_FREQ     11666 //145825/12.5
+#define DEFAULT_VHF_SCAN_LOWER    11520 //144000/12.5
+#define DEFAULT_UHF_SCAN_LOWER    34400 //430000/12.5
+#define DEFAULT_VHF_SCAN_UPPER    11680 //146000/12.5
+#define DEFAULT_UHF_SCAN_UPPER    35200 //440000/12.5
 
 //defining structures here
 struct channel_t {	
@@ -610,10 +610,11 @@ char numberToArray (int Number) //max 4 digits
   
 }
 */
-boolean Calculate_Frequency (char mFRQ[9], boolean setFreq = false) {
+boolean Calculate_Frequency (char mFRQ[9]) {
 
   current_ch.frequency = ((mFRQ[0]-48) * 100000L) + ((mFRQ[1]-48) * 10000L)  + ((mFRQ[2]-48) * 1000) + ((mFRQ[4]-48) * 100) + ((mFRQ[5]-48) * 10) + (mFRQ[6]-48);
-  if (radio_type==0 && (current_ch.frequency >= freqLimits.trx_min_125*12.5) & (current_ch.frequency <= freqLimits.trx_max_125*12.5)) return true; //valid frequency for VHF
+  if (radio_type==0 && (current_ch.frequency >= (freqLimits.trx_min_125*12.5)) & (current_ch.frequency <= (freqLimits.trx_max_125*12.5))) return true; //valid frequency for VHF
+//  if (radio_type==0 && (current_ch.frequency >= 134000) & (current_ch.frequency <= 174000)) return true; //valid frequency for VHF
   else if (radio_type==1 && (current_ch.frequency >= 400000L) & (current_ch.frequency < 468400L)) return true; //valid frequency for UHF
   else 
     {
@@ -1310,8 +1311,8 @@ void startScan()
   while (1)
   {
         scan_frequency += frq_step;
-        if (scan_frequency >= freqLimits.scn_max_125*12.5) scan_frequency = freqLimits.scn_min_125*12.5;
-        else if (scan_frequency <= freqLimits.scn_min_125*12.5) scan_frequency = freqLimits.scn_max_125*12.5;
+        if (scan_frequency >= (freqLimits.scn_max_125*12.5)) scan_frequency = (freqLimits.scn_min_125*12.5);
+        else if (scan_frequency <= (freqLimits.scn_min_125*12.5)) scan_frequency = (freqLimits.scn_max_125*12.5);
 
         numberToFrequency(scan_frequency,FRQ);
         validFRQ = Calculate_Frequency(FRQ);
@@ -1452,7 +1453,7 @@ void loop() {
   if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
   if (CHANNEL_BUSY==0) APRS_Counter = 0; //If channel is busy, dont transmit APRS, wait the musy to finish and restart counter
   if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
-  if (pttToggler) send_packet(_STATUS,freqLimits.aprs_125*12.5); //TODO: what if UHF
+  if (pttToggler) send_packet(_STATUS,(freqLimits.aprs_125*12.5)); //TODO: what if UHF
 
   //Led_Status = Led_Status - yellow_led;
   //Led_Status = Led_Status - red_led;
