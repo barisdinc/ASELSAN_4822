@@ -993,7 +993,7 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
 
     //TODO: Move to a common function for PC program integration
     // initialize the whole memory channels
-    for (int ch=0;ch<100;ch++)
+    for (int ch=0;ch<50;ch++)
         EEPROM.put(EEPROM_MEMDATA_BLCKSTART+ch*10, memch);
 
 }
