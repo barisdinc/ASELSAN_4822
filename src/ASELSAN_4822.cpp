@@ -17,7 +17,7 @@
 #define NEXTCMD 128     // Issue when there will be more commands after this one
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
-#define SW_MAJOR 2
+#define SW_MAJOR 3
 #define SW_MINOR 0
 
 /* Constants and default settings for the PCF */
@@ -1295,7 +1295,9 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
       if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
-      if (ChannelNumber == 999) { initialize_eeprom(); } //Initiralize device
+      if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; } //APRS Timeout
+      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
+      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
       EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
       Alert_Tone(SUCC_tone);
     }  
