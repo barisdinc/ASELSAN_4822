@@ -1049,7 +1049,7 @@ void GetMemoryChannel(char mFRQ[9]) {
     current_ch.shift     = l_memorych.shift25 * 25;
     current_ch.tone_pos  = l_memorych.tone_position;
     current_ch.shift_dir = ((l_memorych.SSTP) & 0x03) - 1; //First 2 bits -1
-    current_ch.tone_enabled= ((l_memorych.SSTP) & 0x04) ; 
+    current_ch.tone_enabled= ((l_memorych.SSTP) & 0x04) >> 2;  //3rd bit is tone_enabled
                                                           //TODO read power as well
     numberToFrequency(current_ch.frequency, FRQ);
  }
