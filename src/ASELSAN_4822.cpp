@@ -1167,6 +1167,7 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
       if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
       if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
+      if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
       if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
       if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
       EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
