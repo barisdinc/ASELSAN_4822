@@ -1093,36 +1093,42 @@ void commandAPRSMessage()
 void commandFrequencyLowerLimit()
 {
   freqLimits.trx_min_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
 void commandFrequencyUpperLimit()
 {
   freqLimits.trx_max_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
 void commandScanLowerLimit()
 {
   freqLimits.scn_min_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
 void commandScanUpperLimit()
 {
   freqLimits.scn_max_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
 void commandAprsFrequency()
 {
   freqLimits.aprs_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
 void commandISSFrequency()
 {
   freqLimits.iss_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
   Alert_Tone(OK_tone);
 }
 
