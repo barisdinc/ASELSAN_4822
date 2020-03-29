@@ -835,6 +835,7 @@ void eeprom_writeAPRS()
     EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
     eewrite_nbytes(lat,8,67);
     eewrite_nbytes(lon,8,75);
+    Alert_Tone(OK_tone);
 }
 
 void initialize_eeprom() {  
@@ -998,7 +999,7 @@ void commandYardim(char komut)
  * Change device type between VHF/UHF
  */
 
-void commandCevrim(char komut)
+void commandRadioType(char komut)
 {
   komut == 'V' ? radio_type = 0 : radio_type = 1;
   initialize_eeprom();
@@ -1046,13 +1047,14 @@ void commandDumpConfig()
   Serialprint("\"ful\":%d,\"fll\":%d,\"sul\":%d,\"sll\":%d,",freqLimits.trx_max_125,freqLimits.trx_min_125,freqLimits.scn_max_125,freqLimits.scn_min_125);
   Serialprint("\"AT\":%d,\"AM\":\"HEBELE\",\"AF\":%d,\"IF\":%d",APRS_Timeout,            freqLimits.aprs_125,freqLimits.iss_125);
   Serialprint("}}\n\r");
+  Alert_Tone(SUCC_tone);
 }
 
 
 /*
  * Print the memory channels in form of JSON array to Serial Port
  */
-void commandHafizaDok()
+void commandMemoryDump()
 {
   Serialprint("\r\nMD[");    //Memory Dump
   for (int ch=0;ch<100;ch++)
@@ -1064,7 +1066,7 @@ void commandHafizaDok()
     Serialprint("{}]\r\n");
 }
 
-void commandHafizaKoy()
+void commandMemoryChannel()
 {
   
     //H [Kanal_No #2] [isim #6] [Frekans #6] [Shift #5] [Ton #4]
@@ -1072,20 +1074,56 @@ void commandHafizaKoy()
 
 }
 
-void commandAPRSSure()
+void commandAPRSTimeout()
 {
   Serialprint("OK\r\n");
   APRS_Timeout = commandString.substring(2,4).toInt();
   eeprom_writeAPRS();
 }
 
-void commandAPRSMesaj()
+void commandAPRSMessage()
 {
   //Serial.print(commandString.substring(2,30));
   for (uint8_t cn=0;cn<28;cn++) APRS_Message[cn] = ((commandString[cn+2] >= 32) and (commandString[cn+2] <= 126)) ?  commandString[cn+2] : ' ';
   //Serial.print(APRS_Message);
   Serialprint("OK\r\n");
   eeprom_writeAPRS();
+}
+
+void commandFrequencyLowerLimit()
+{
+  freqLimits.trx_min_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
+}
+
+void commandFrequencyUpperLimit()
+{
+  freqLimits.trx_max_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
+}
+
+void commandScanLowerLimit()
+{
+  freqLimits.scn_min_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
+}
+
+void commandScanUpperLimit()
+{
+  freqLimits.scn_max_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
+}
+
+void commandAprsFrequency()
+{
+  freqLimits.aprs_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
+}
+
+void commandISSFrequency()
+{
+  freqLimits.iss_125 = commandString.substring(2,5).toInt();
+  Alert_Tone(OK_tone);
 }
 
 void getEEPROMData()
@@ -1161,15 +1199,15 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 151) { freqLimits.trx_min_125 = DEFAULT_VHF_MINIMUM_FREQ; }
       if (ChannelNumber == 102) { freqLimits.trx_max_125 = current_ch.frequency/12.5; } //TRX Upper Limit
       if (ChannelNumber == 152) { freqLimits.trx_max_125 = DEFAULT_VHF_MAXIMUM_FREQ; }
-      if (ChannelNumber == 201) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan lower Limit
+      if (ChannelNumber == 201) { freqLimits.scn_min_125 = current_ch.frequency/12.5; } //Scan lower Limit
       if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
       if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
       if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
       if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
       if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
-      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
-      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
+      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); softResetDevice();} //Initiralize device
+      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); softResetDevice();} //Initiralize device
       EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
       Alert_Tone(SUCC_tone);
     }  
@@ -1299,7 +1337,7 @@ void setup() {
     Alert_Tone(ERR_tone);
 
   PrintMenu();
-  wdt_enable(WDTO_8S);
+  wdt_enable(WDTO_4S);
 }
 
 void loop() {
@@ -1635,21 +1673,28 @@ void loop() {
    } //KeyVal!=old_keyval
 
 if (commandComplete) {
+    //TODO: convert to case/switch
     if (commandString.charAt(0) == '\n') PrintMenu();
     //if (commandString.charAt(0) == 'Y') commandYardim(commandString.charAt(2));
-    if (commandString.charAt(0) == 'C') commandCevrim(commandString.charAt(2));
+    if (commandString.charAt(0) == 'C') commandRadioType(commandString.charAt(2));
     if (commandString.charAt(0) == 'A') commandStartupMSG();
-    if (commandString.charAt(0) == 'T') commandAPRSSure();
-    if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
+    if (commandString.charAt(0) == 'T') commandAPRSTimeout();
+    if (commandString.charAt(0) == 'M') commandAPRSMessage();    
     if (commandString.charAt(0) == 'S') commandAPRSmycall();    
-    if (commandString.charAt(0) == 'H') commandHafizaDok();
+    if (commandString.charAt(0) == 'H') commandMemoryDump();
     if (commandString.charAt(0) == 'K') commandDumpConfig();
-    if (commandString.charAt(0) == 'C') commandHafizaKoy();
+    if (commandString.charAt(0) == 'C') commandMemoryChannel();
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
     if (commandString.charAt(0) == 'R') getEEPROMData();
     if (commandString.charAt(0) == 'N') startScan();
     if (commandString.charAt(0) == 'X') softResetDevice();
+    if (commandString.charAt(0) == 'f') commandFrequencyLowerLimit();
+    if (commandString.charAt(0) == 'F') commandFrequencyUpperLimit();
+    if (commandString.charAt(0) == 'q') commandScanLowerLimit();
+    if (commandString.charAt(0) == 'Q') commandScanUpperLimit();
+    if (commandString.charAt(0) == 'B') commandAprsFrequency();
+    if (commandString.charAt(0) == 'I') commandISSFrequency();
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
