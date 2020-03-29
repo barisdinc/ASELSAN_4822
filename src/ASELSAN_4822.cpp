@@ -1,3 +1,4 @@
+#include "ASELSAN_4822.h"
 #include <Arduino.h> //For platformio compability
 #include <Wire.h>
 #include <EEPROM.h>
@@ -33,7 +34,7 @@
 #define DRIVE_2 2
 #define DRIVE_3 3
 #define DRIVE_4 0
-byte set_modeset = MODESET | MODE_POWERSAVING | DISPLAY_ENABLED | BIAS_THIRD | DRIVE_4; // default init mode
+uint8_t set_modeset = MODESET | MODE_POWERSAVING | DISPLAY_ENABLED | BIAS_THIRD | DRIVE_4; // default init mode
 //BLINK
 #define BLINK  112
 #define BLINKING_NORMAL 0
@@ -42,20 +43,20 @@ byte set_modeset = MODESET | MODE_POWERSAVING | DISPLAY_ENABLED | BIAS_THIRD | D
 #define BLINK_FREQUENCY2 1
 #define BLINK_FREQUENCY1 2
 #define BLINK_FREQUENCY05 3
-byte set_blink = BLINK | BLINKING_ALTERNATION | BLINK_FREQUENCY_OFF; // Whatever you do, do not blink. 
+uint8_t set_blink = BLINK | BLINKING_ALTERNATION | BLINK_FREQUENCY_OFF; // Whatever you do, do not blink. 
 //LOADDATAPOINTER
 #define LOADDATAPOINTER  0
-byte set_datapointer = LOADDATAPOINTER | 0;
+uint8_t set_datapointer = LOADDATAPOINTER | 0;
 //BANK SELECT
 #define BANKSELECT 120
 #define BANKSELECT_O1_RAM0 0
 #define BANKSELECT_O1_RAM2 2
 #define BANKSELECT_O2_RAM0 0
 #define BANKSELECT_O2_RAM2 1
-byte set_bankselect = BANKSELECT | BANKSELECT_O1_RAM0 | BANKSELECT_O2_RAM0; 
+uint8_t set_bankselect = BANKSELECT | BANKSELECT_O1_RAM0 | BANKSELECT_O2_RAM0; 
 //#define DEVICE_SELECT 96
 #define DEVICE_SELECT B01100100
-byte set_deviceselect = DEVICE_SELECT;      
+uint8_t set_deviceselect = DEVICE_SELECT;      
 
 #define PCF8576_LCD         0x38 //B111000   // This is the address of the PCF on the i2c bus
 #define PCF8574_KEYB        0x20 //PCF854 connected to LED and KEYBOARD
@@ -66,11 +67,11 @@ byte set_deviceselect = DEVICE_SELECT;
 #define red_led    32
 #define backlight  16
 
-byte Led_Status= 240;
+uint8_t Led_Status= 240;
 
-byte KeypadIntPin = 4;  //Interrupt Input PIN for MCU, D4 pin (PCINT20)
-byte KeyVal = 0;     // variable to store the read value
-byte old_KeyVal= 0;
+uint8_t KeypadIntPin = 4;  //Interrupt Input PIN for MCU, D4 pin (PCINT20)
+uint8_t KeyVal = 0;     // variable to store the read value
+uint8_t old_KeyVal= 0;
 
 #define FWD_POWER_PIN A6
 #define REF_POWER_PIN A7
@@ -96,7 +97,7 @@ bool pttToggler = false;
 #define BAND_SELECT_0  8
 
 //RADIO Type
-byte radio_type = 0; //0 VHF 1 UHF
+uint8_t radio_type = 0; //0 VHF 1 UHF
 
 //DUPLEX mode Shift Settinngs
 
@@ -112,14 +113,14 @@ int old_frqSHIFT;       //to store old shift value before entering submenu
 //Transceiver modes
 #define RX 0
 #define TX 1
-byte TRX_MODE = RX; //default transceiver mode is receiving
-byte LST_MODE = TX; //this will hold the last receive transmit state. Start with TX because we want to write to PLL on startup 
+uint8_t TRX_MODE = RX; //default transceiver mode is receiving
+uint8_t LST_MODE = TX; //this will hold the last receive transmit state. Start with TX because we want to write to PLL on startup 
 
 //RF power control definitions
 #define RF_POWER_PIN A0
 #define HIGH_POWER 0
 #define LOW_POWER  1
-byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
+uint8_t RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 
 
 
@@ -127,7 +128,7 @@ byte RF_POWER_STATE = HIGH_POWER; //Initial Power Level is Hight Power
 #define ALERT_PIN 13
 #define ALERT_OFF 0
 #define ALERT_ON  100
-byte ALERT_MODE = ALERT_ON;
+uint8_t ALERT_MODE = ALERT_ON;
 
 //Tone Types
 #define NO_tone   0
@@ -148,13 +149,13 @@ byte ALERT_MODE = ALERT_ON;
 //float ctcss_tone_list[18] = { 87.70, 87.75,87.80,87.85 ,87.9 ,87.95,88.0,88.05,88.1,88.15,88.2,88.25,88.3,88.35,88.4,88.45,88.5};
 float ctcss_tone_list[TOTAL_TONES] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3};
 //float ctcss_tone_list[50] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3,131.8,136.5,141.3,146.3,151.4,156.7,159.8,162.2,165.5,167.9,171.3,173.8,177.3,179.9,183.5,186.2,189.9,192.8,196.6,199.5,203.5,206.5,210.7,218.1,225.7,229.1,233.6,241.8,250.3,254.1};
-byte old_ctcss_tone_pos; //to store old tone selection before getting into submenu
+uint8_t old_ctcss_tone_pos; //to store old tone selection before getting into submenu
 
 
 #define SQL_ACTIVE 2 //CHANNEL ACTIVE (SQUELCH) PIN
 #define MUTE_PIN_1 6 //PIN for Audio Muting
 //#define MUTE_PIN_2 5
-byte CHANNEL_BUSY = 1;
+uint8_t CHANNEL_BUSY = 1;
 
 //MC145158 Programming
 #define pll_clk_pin  9
@@ -171,7 +172,7 @@ char pressedKEY = ' ';
 
 #define scrNORMAL 0
 #define scrMENU   1
-byte scrMODE = scrNORMAL;
+uint8_t scrMODE = scrNORMAL;
 
 #define menuNONE   0
 #define menuSQL    1
@@ -179,7 +180,7 @@ byte scrMODE = scrNORMAL;
 #define menuSCAN   3
 #define menuRPT    4
 #define menuMENU   5
-byte subMENU = menuNONE;
+uint8_t subMENU = menuNONE;
 
 boolean hasASEL = false; //ASELSAN sign
 boolean hasLOCK = false; //KEY LOCK sign
@@ -190,7 +191,7 @@ boolean hasMENU = false; //MENU sign
 boolean hasLOOP = false; //LOOP sign
 boolean hasNOTE = false; //NOTE sign
 
-byte Position_Signs[8][3] = { 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0 } ; //The signs that appear while printing at position 0 to 7 
+uint8_t Position_Signs[8][3] = { 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0, 0,0,0 } ; //The signs that appear while printing at position 0 to 7 
 
 // Matrix which hold the LCD data (8 segments * 3 bytes per segment)
 unsigned char matrix[24];
@@ -203,7 +204,7 @@ const char  numbers[] = "0123456789ABCDEF";
 const char index[] = "_ /-.*!?<>[]ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789%";
 
 
-byte numChar = 0;
+uint8_t numChar = 0;
 char FRQ[9];// = "145.675 ";
 char FRQ_old[9];// = FRQ;
 boolean validFRQ; //Is the calculated frequenct valid for our ranges
@@ -337,25 +338,6 @@ const char sym_tab = '/';
 char bit_stuff = 0;
 unsigned short crc=0xffff;
 
-void set_nada_1200(void);
-void set_nada_2400(void);
-void set_nada(bool nada);
-
-void send_char_NRZI(unsigned char in_byte, bool enBitStuff);
-void send_string_len(String in_string, int len);
-
-void calc_crc(bool in_bit);
-void send_crc(void);
-
-void send_packet(char packet_type, uint32_t frequency);
-void send_flag(unsigned char flag_len);
-void send_header(void);
-void send_payload(char type);
-
-//void set_io(void);
-
-void getGPSData();
-
 //Function definitions
 //TODO: move these to a header file
 void StreamPrint_progmem(Print &out,PGM_P format,...);
@@ -398,9 +380,8 @@ void InitLCD() {
   delay(100);
 }
 
-
 /* Physically send out the given data */
-void sendToLcd(byte *data, byte position) {
+void sendToLcd(uint8_t *data, uint8_t position) {
   Wire.beginTransmission(PCF8576_LCD);
   Wire.write(NEXTCMD | set_deviceselect);     // I think this is needed, as internally the data can overflow and the PCF will automatically select the next device.
   Wire.write(LASTCMD | position * 5 | 0);  // This will always set everything at once, starting from the beginning
@@ -413,7 +394,7 @@ void writeToLcd(const char text[]) {
   for (uint8_t idx=0; idx!=strlen(text); idx++) {
     if (idx > 7) break;   
     char *c = strchr(index, (int)toupper(text[idx]));
-    byte pos;
+    uint8_t pos;
     if (c == NULL) { 
       pos = 0;      // Char not found, use underscore space instead
     } else {
@@ -561,9 +542,9 @@ void Greetings() {
 //N_counter=100
 //A_counter=0
 
-void send_SPIBit(int Counter, byte length) {
+void send_SPIBit(int Counter, uint8_t length) {
   for (int i=length-1;i>=0;i--) {
-    byte data=bitRead(Counter,i);
+    uint8_t data=bitRead(Counter,i);
     if (data==1) {
      digitalWrite(pll_data_pin, HIGH);    // Load 1 on DATA
     } else {
@@ -906,8 +887,8 @@ void initialize_eeprom() {
 
 // Stores frequency data to the desired EEPROM location
 void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
-    byte ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
-    byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
+    uint8_t ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
+    uint8_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
     if (ChannelNumber > 90 ) { Alert_Tone(ERR_tone); return;}
     
@@ -926,7 +907,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
 //memorych_t GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
       memorych_t l_memorych;
-      byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + channel_number * 10;
+      uint8_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + channel_number * 10;
       EEPROM.get(ChannelLocation, l_memorych);
       //numberToFrequency(freq, FRQ);
       if (dbg) 
@@ -941,8 +922,8 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
  * TODO: combine this with the previuous function
  */
 void GetMemoryChannel(char mFRQ[9]) {
-    byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
-    byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
+    uint8_t ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
+    uint8_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     if (ChannelNumber > 90) { Alert_Tone(ERR_tone); return;};
     memorych_t l_memorych;
     EEPROM.get(ChannelLocation, l_memorych);
@@ -1036,9 +1017,9 @@ void commandStartupMSG()
  */
 void commandDumpConfig()
 {
-  byte Check = EEPROM.read(0);
-  byte SW_major = EEPROM.read(1);
-  byte SW_minor = EEPROM.read(2);
+  uint8_t Check = EEPROM.read(0);
+  uint8_t SW_major = EEPROM.read(1);
+  uint8_t SW_minor = EEPROM.read(2);
   char CallSign[6];
   CallSign[0] = EEPROM.read(3);
   CallSign[1] = EEPROM.read(4);
@@ -1057,7 +1038,7 @@ void commandDumpConfig()
   Message[6] = EEPROM.read(15);
   Message[7] = EEPROM.read(16);
   Message[8] = 0;
-  byte RadioType = EEPROM.read(17);
+  uint8_t RadioType = EEPROM.read(17);
   Serialprint("\n\r{\"CD\":{");    //CD Configuration Dump
   Serialprint("\"cs\":%d,\"smj\":%d,\"smn\":%d,\"c\":\"%s\",\"m\":\"%s\",\"r\":%d,",Check,SW_major,SW_minor,CallSign,Message,RadioType);
   Serialprint("\"ful\":%d,\"fll\":%d,\"sul\":%d,\"sll\":%d,",freqLimits.trx_max_125,freqLimits.trx_min_125,freqLimits.scn_max_125,freqLimits.scn_min_125);
@@ -1270,7 +1251,7 @@ void setup() {
   commandString.reserve(200);
 
   // Check EEPROM for stored values
-  byte eeprom_state=0;
+  uint8_t eeprom_state=0;
  // EEPROM.write(0,127);
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
   //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
@@ -1719,7 +1700,7 @@ void serialEvent() {
  */
 /*
 void readParam(char *szParam, int iMaxLen) {
-  byte c;
+  uint8_t c;
   int iSize;
   unsigned long iMilliTimeout = millis() + 2000; 
 
