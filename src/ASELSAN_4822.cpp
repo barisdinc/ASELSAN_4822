@@ -1027,23 +1027,10 @@ void commandYardim(char komut)
 
 void commandCevrim(char komut)
 {
-  //Serialprint("\r\nCevrim Yapiliyor\r\n=====================\r\n");
-  if (komut == 'V')
-    {
-      //Serial.print("TAMSAT Karti VHF olarak ayarlanmistir. 4822 veya 4922 cihaz ile kullanabilirsiniz\r\n");
-      Serialprint("VHF OK\r\n");
-      radio_type = 0;
-      initialize_eeprom();
-    }
-  if (komut == 'U')
-    {
-      //Serial.print("TAMSAT Karti UHF olarak ayarlanmistir. 4826 veya 4926 cihaz ile kullanabilirsiniz\r\n");
-      Serialprint("UHF OK\r\n");
-      radio_type = 1;
-      initialize_eeprom();
-    }
+  komut == 'V' ? radio_type = 0 : radio_type = 1;
+  initialize_eeprom();
+  Serialprint("OK\r\n");
 }
-
 
 void commandStartupMSG()
 {
@@ -1051,7 +1038,6 @@ void commandStartupMSG()
   for (uint8_t cn=0;cn<6;cn++) StartupMSG[cn] = ((commandString[cn+2] >= 32) and (commandString[cn+2] <= 126)) ?  commandString[cn+2] : ' ';
   eewrite_nbytes(StartupMSG,6,9);
 }
-
 
 /*
  * Print the configurations in form of JSON array to Serial Port
@@ -1691,7 +1677,7 @@ if (commandComplete) {
     commandString = "";
     commandComplete = false;
     PrintMenu();
-    Serialprint("\r\nSeciminiz>");
+    //Serialprint("\r\nSeciminiz>");
     //EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
   }
 
