@@ -1,5 +1,6 @@
 #include "ASELSAN_4822.h"
 #include <Arduino.h> //For platformio compability
+#include <avr/wdt.h>
 #include <Wire.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
@@ -14,6 +15,7 @@
 #define Serialprint(format, ...) StreamPrint_progmem(Serial,PSTR(format),##__VA_ARGS__)
 #define Streamprint(stream,format, ...) StreamPrint_progmem(stream,PSTR(format),##__VA_ARGS__)
 #define SERIALMENU 1
+#define RESETWATCHDOG
 //8576 LCD Driver settings
 #define NEXTCMD 128     // Issue when there will be more commands after this one
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
@@ -1296,6 +1298,7 @@ void setup() {
     Alert_Tone(ERR_tone);
 
   PrintMenu();
+  wdt_enable(WDTO_8S);
 }
 
 void loop() {
@@ -1645,6 +1648,7 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'G') getGPSData();
     if (commandString.charAt(0) == 'R') getEEPROMData();
     if (commandString.charAt(0) == 'N') startScan();
+    if (commandString.charAt(0) == 'X') softResetDevice();
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
     commandString = "";
@@ -1659,7 +1663,9 @@ if (commandComplete) {
 //  delay(tx_delay);
 //  randomize(tx_delay, 10, 5000);
 //  randomize(str_len, 10, 420);
-  
+  #ifdef RESETWATCHDOG
+	wdt_reset();
+  #endif
 } //loop
 
 void StreamPrint_progmem(Print &out,PGM_P format,...)
@@ -2146,4 +2152,12 @@ void getGPSData()
   Serialprint("\r\n");
 */
       
+}
+
+void(* resetFunc) (void) = 0;
+void softResetDevice()
+{
+
+  resetFunc();
+
 }
