@@ -288,7 +288,6 @@ long highestFRQ;
 //Serial port variables
 String commandString = "";         // a String to hold incoming commands
 bool commandComplete = false;  // whether the command is complete
-String CALLSIGN = "TAMSAT";    //INitial greetings callsign
 
 //APRS Defines
 // Defines the Square Wave Output Pin
@@ -860,12 +859,13 @@ void initialize_eeprom() {  //Check gthub documents for eeprom structure...
     EEPROM.write(0, 127); // make eeprom initialized
     EEPROM.write(1, SW_MAJOR);   //SW Version
     EEPROM.write(2, SW_MINOR);   //
-    EEPROM.write(3, CALLSIGN[0]); // Callsign
-    EEPROM.write(4, CALLSIGN[1]); // Callsign
-    EEPROM.write(5, CALLSIGN[2]); // Callsign
-    EEPROM.write(6, CALLSIGN[3]); // Callsign
-    EEPROM.write(7, CALLSIGN[4]); // Callsign
-    EEPROM.write(8, CALLSIGN[5]); // Callsign
+    EEPROM.write(3, APRS_DEFAULT_MYCALL[0]); // Callsign
+    EEPROM.write(4, APRS_DEFAULT_MYCALL[1]); // Callsign
+    EEPROM.write(5, APRS_DEFAULT_MYCALL[2]); // Callsign
+    EEPROM.write(6, APRS_DEFAULT_MYCALL[3]); // Callsign
+    EEPROM.write(7, APRS_DEFAULT_MYCALL[4]); // Callsign
+    EEPROM.write(8, APRS_DEFAULT_MYCALL[5]); // Callsign
+
     EEPROM.write(9, 'T'); // Message
     EEPROM.write(10,'A'); // Message
     EEPROM.write(11,'M'); // Message
@@ -1045,20 +1045,18 @@ void commandCevrim(char komut)
 }
 
 
-void commandAcilis()
+void commandStartupMSG()
 {
-  //Serial.print("ACILIS MESAJI = ");
-  Serial.print(commandString.substring(2,8));
-  //Serial.println(" olarak duzenlendi...");
-  CALLSIGN=commandString.substring(2,8);
-  initialize_eeprom();
+  String StartupMSG = "      ";
+  for (uint8_t cn=0;cn<6;cn++) StartupMSG[cn] = ((commandString[cn+2] >= 32) and (commandString[cn+2] <= 126)) ?  commandString[cn+2] : ' ';
+  eewrite_nbytes(StartupMSG,6,9);
 }
 
 
 /*
  * Print the configurations in form of JSON array to Serial Port
  */
-void commandAyarDok()
+void commandDumpConfig()
 {
   byte Check = EEPROM.read(0);
   byte SW_major = EEPROM.read(1);
@@ -1133,7 +1131,7 @@ void getEEPROMData()
 {
   int addr = commandString.substring(2,4).toInt();
   uint8_t eeprom_val;
-  Serialprint("currentch %d %d %d %d %d\r\n", current_ch.frequency,current_ch.shift, current_ch.shift_dir, current_ch.tone_pos, current_ch.tone_enabled);
+  //Serialprint("currentch %d %d %d %d %d\r\n", current_ch.frequency,current_ch.shift, current_ch.shift_dir, current_ch.tone_pos, current_ch.tone_enabled);
   for (int tt=0;tt<10;tt++)
     {
     eeprom_val = EEPROM.read(addr+tt);
@@ -1677,12 +1675,12 @@ if (commandComplete) {
     if (commandString.charAt(0) == '\n') PrintMenu();
     //if (commandString.charAt(0) == 'Y') commandYardim(commandString.charAt(2));
     if (commandString.charAt(0) == 'C') commandCevrim(commandString.charAt(2));
-    if (commandString.charAt(0) == 'A') commandAcilis();
+    if (commandString.charAt(0) == 'A') commandStartupMSG();
     if (commandString.charAt(0) == 'T') commandAPRSSure();
     if (commandString.charAt(0) == 'M') commandAPRSMesaj();    
     if (commandString.charAt(0) == 'S') commandAPRSmycall();    
     if (commandString.charAt(0) == 'H') commandHafizaDok();
-    if (commandString.charAt(0) == 'K') commandAyarDok();
+    if (commandString.charAt(0) == 'K') commandDumpConfig();
     if (commandString.charAt(0) == 'C') commandHafizaKoy();
     if (commandString.charAt(0) == 'P') commandTogglePTT();
     if (commandString.charAt(0) == 'G') getGPSData();
