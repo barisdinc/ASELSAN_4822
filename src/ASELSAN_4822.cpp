@@ -854,26 +854,12 @@ void eeprom_writeAPRS()
     eewrite_nbytes(lon,8,75);
 }
 
-void initialize_eeprom() {  //Check gthub documents for eeprom structure...
-    //Serialprint("initializing EEPROM...");
+void initialize_eeprom() {  
     EEPROM.write(0, 127); // make eeprom initialized
     EEPROM.write(1, SW_MAJOR);   //SW Version
     EEPROM.write(2, SW_MINOR);   //
-    EEPROM.write(3, APRS_DEFAULT_MYCALL[0]); // Callsign
-    EEPROM.write(4, APRS_DEFAULT_MYCALL[1]); // Callsign
-    EEPROM.write(5, APRS_DEFAULT_MYCALL[2]); // Callsign
-    EEPROM.write(6, APRS_DEFAULT_MYCALL[3]); // Callsign
-    EEPROM.write(7, APRS_DEFAULT_MYCALL[4]); // Callsign
-    EEPROM.write(8, APRS_DEFAULT_MYCALL[5]); // Callsign
-
-    EEPROM.write(9, 'T'); // Message
-    EEPROM.write(10,'A'); // Message
-    EEPROM.write(11,'M'); // Message
-    EEPROM.write(12,'S'); // Message
-    EEPROM.write(13,'A'); // Message
-    EEPROM.write(14,'T'); // Message
-    EEPROM.write(15,' '); // Message
-    EEPROM.write(16,' '); // Message
+    eewrite_nbytes(APRS_DEFAULT_MYCALL,6,3);
+    eewrite_nbytes(APRS_DEFAULT_MYCALL,8,9);//TODO: length is 6 but asking for 8
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
     APRS_Message = APRS_DEFAULT_MESSAGE;
     mycall = APRS_DEFAULT_MYCALL;  
@@ -950,9 +936,10 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 
 }
 
-
-//Retrieves the requested Memory Channel Information from EEPROM
-//TODO: combine this with the previuous function
+/*
+ * Retrieves the requested Memory Channel Information from EEPROM
+ * TODO: combine this with the previuous function
+ */
 void GetMemoryChannel(char mFRQ[9]) {
     byte ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
     byte ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
@@ -1024,6 +1011,9 @@ void commandYardim(char komut)
 */  
 }
 
+/*
+ * Change device type between VHF/UHF
+ */
 
 void commandCevrim(char komut)
 {
@@ -1031,7 +1021,9 @@ void commandCevrim(char komut)
   initialize_eeprom();
   Serialprint("OK\r\n");
 }
-
+/*
+ * Change startup screen msg
+ */
 void commandStartupMSG()
 {
   String StartupMSG = "      ";
