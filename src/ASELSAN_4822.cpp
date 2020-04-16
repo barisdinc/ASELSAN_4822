@@ -1220,7 +1220,7 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
       if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); softResetDevice();} //Initiralize device
       if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); softResetDevice();} //Initiralize device
-      EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
+      if (ChannelNumber <= 302) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
       Alert_Tone(SUCC_tone);
     }  
 
