@@ -869,6 +869,7 @@ void initialize_eeprom() {
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, default_channel);// current_ch);
     freqLimits_t default_limits;
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
+    freqLimits = default_limits;
 
     memorych_t memch;
     memch.frequency125 = 11640; //145500 / 12.5
@@ -1215,12 +1216,13 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
       if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
+      if (ChannelNumber <= 302) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
       if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
       if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
       if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
-      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); softResetDevice();} //Initiralize device
-      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); softResetDevice();} //Initiralize device
-      if (ChannelNumber <= 302) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
+      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
+      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
+      if (ChannelNumber >= 998) { softResetDevice(); }
       Alert_Tone(SUCC_tone);
     }  
 
