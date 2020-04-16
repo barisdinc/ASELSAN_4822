@@ -577,7 +577,7 @@ void Alert_Tone(int ToneType)
 {
   if (TRX_MODE == TX)  return; //If we are transmitting, do not play tones, because tone pin might be busy with CTCSS generation
   noTone(MIC_PIN); //First silence the TONE output first
-  if (ToneType == OK_tone)   tone(ALERT_PIN,1000,ALERT_MODE);   //short 1Khz is OK  tone
+  if (ToneType == OK_tone)  { tone(ALERT_PIN,1000,ALERT_MODE); Serialprint(" OK\r\n");}   //short 1Khz is OK  tone
   if (ToneType == ERR_tone)  tone(ALERT_PIN,400 ,ALERT_MODE*2); //long 440hz is ERR tone
   if (ToneType == SUCC_tone) {tone(ALERT_PIN,600 ,ALERT_MODE);delay(200);tone(ALERT_PIN,1000 ,ALERT_MODE);} //2 500msec success tones
   delay(ALERT_MODE); //TODO: find a better way to play two tones simultaneously
@@ -1003,7 +1003,8 @@ void commandRadioType(char komut)
 {
   komut == 'V' ? radio_type = 0 : radio_type = 1;
   initialize_eeprom();
-  Serialprint("OK\r\n");
+  //Serialprint("OK\r\n");
+  Alert_Tone(OK_tone);
 }
 /*
  * Change startup screen msg
@@ -1013,6 +1014,7 @@ void commandStartupMSG()
   String StartupMSG = "      ";
   for (uint8_t cn=0;cn<6;cn++) StartupMSG[cn] = ((commandString[cn+2] >= 32) and (commandString[cn+2] <= 126)) ?  commandString[cn+2] : ' ';
   eewrite_nbytes(StartupMSG,6,9);
+  Alert_Tone(OK_tone);
 }
 
 /*
@@ -1076,9 +1078,11 @@ void commandMemoryChannel()
 
 void commandAPRSTimeout()
 {
-  Serialprint("OK\r\n");
+  //Serialprint("OK\r\n");
   APRS_Timeout = commandString.substring(2,4).toInt();
   eeprom_writeAPRS();
+  Alert_Tone(OK_tone);
+
 }
 
 void commandAPRSMessage()
@@ -1086,8 +1090,9 @@ void commandAPRSMessage()
   //Serial.print(commandString.substring(2,30));
   for (uint8_t cn=0;cn<28;cn++) APRS_Message[cn] = ((commandString[cn+2] >= 32) and (commandString[cn+2] <= 126)) ?  commandString[cn+2] : ' ';
   //Serial.print(APRS_Message);
-  Serialprint("OK\r\n");
+  //Serialprint("OK\r\n");
   eeprom_writeAPRS();
+  Alert_Tone(OK_tone);
 }
 
 void commandFrequencyLowerLimit()
@@ -1149,7 +1154,8 @@ void commandAPRSmycall()
   //Serial.print(commandString.substring(2,8));
   mycall = commandString.substring(2,8);  
   eeprom_writeAPRS();
-  Serialprint(" OK\r\n");
+  //Serialprint(" OK\r\n");
+  Alert_Tone(OK_tone);
 }
 
 void commandTogglePTT()
@@ -1251,6 +1257,7 @@ void startScan()
 
 
 void setup() {
+  wdt_enable(WDTO_4S);
 //pin modes and initial states
   pinMode(SQL_ACTIVE, INPUT);
   digitalWrite(SQL_ACTIVE, SQL_ON); //Disable squelch for startup
@@ -1343,7 +1350,6 @@ void setup() {
     Alert_Tone(ERR_tone);
 
   PrintMenu();
-  wdt_enable(WDTO_4S);
 }
 
 void loop() {
@@ -2209,7 +2215,7 @@ void getGPSData()
 void(* resetFunc) (void) = 0;
 void softResetDevice()
 {
-
-  resetFunc();
+  asm volatile ("  jmp 0");
+  //resetFunc();
 
 }
