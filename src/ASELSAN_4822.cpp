@@ -222,6 +222,8 @@ boolean validFRQ; //Is the calculated frequenct valid for our ranges
 #define DEFAULT_UHF_SCAN_LOWER    34400 //430000/12.5
 #define DEFAULT_VHF_SCAN_UPPER    11680 //146000/12.5
 #define DEFAULT_UHF_SCAN_UPPER    35200 //440000/12.5
+#define DEFAULT_VHF_VNA_MINIMUM_FREQ  11200 //140000/125.
+#define DEFAULT_VHF_VNA_MAXIMUM_FREQ  12000 //150000/12.5
 
 //defining structures here
 struct channel_t {	
@@ -250,6 +252,9 @@ struct freqLimits_t {
   uint16_t scn_max_125 = DEFAULT_VHF_SCAN_UPPER; //Higher scan limit for VHF
   uint16_t aprs_125    = DEFAULT_APRS_VHF_FREQ; //Default APRS Frequency
   uint16_t iss_125     = DEFAULT_ISS_APRS_FREQ; //Default ISS frequency for APRS transmission
+  uint16_t vna_min_125 = DEFAULT_VHF_VNA_MINIMUM_FREQ; //Lower limit of VNA frequency for VHF
+  uint16_t vna_max_125 = DEFAULT_VHF_VNA_MAXIMUM_FREQ; //Lower limit of VNA frequency for VHF
+
 };
 freqLimits_t freqLimits;
 
@@ -1138,6 +1143,20 @@ void commandISSFrequency()
   Alert_Tone(OK_tone);
 }
 
+void commandVNALowerLimit()
+{
+  freqLimits.vna_min_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
+  Alert_Tone(OK_tone);
+}
+
+void commandVNAUpperLimit()
+{
+  freqLimits.vna_max_125 = commandString.substring(2,5).toInt();
+  EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
+  Alert_Tone(OK_tone);
+}
+
 void getEEPROMData()
 {
   int addr = commandString.substring(2,4).toInt();
@@ -1216,7 +1235,9 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 202) { freqLimits.scn_max_125 = current_ch.frequency/12.5; } //Scan Upper Limit
       if (ChannelNumber == 301) { freqLimits.aprs_125    = current_ch.frequency/12.5; } //APRS Frequency
       if (ChannelNumber == 302) { freqLimits.iss_125     = current_ch.frequency/12.5; } //ISS APRS Frequency
-      if (ChannelNumber <= 302) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
+      if (ChannelNumber == 401) { freqLimits.vna_min_125 = current_ch.frequency/12.5; } //VNA minimum frequency
+      if (ChannelNumber == 402) { freqLimits.vna_max_125 = current_ch.frequency/12.5; } //VNA maximum frequency
+      if (ChannelNumber <= 402) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
       if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
       if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
       if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
@@ -1579,11 +1600,11 @@ void loop() {
             int  stp_vna_freq;
             if (radio_type==0)
             {
-              min_vna_freq = 14000;
-              max_vna_freq = 15000;
+              min_vna_freq = freqLimits.vna_min_125 * 12.5;
+              max_vna_freq = freqLimits.vna_max_125 * 12.5;
               stp_vna_freq = 10;
             }
-            else
+            else //TODO: different defaults for VHF and UHF
             {
               min_vna_freq = 43000;
               max_vna_freq = 45000;              
@@ -1593,7 +1614,7 @@ void loop() {
             Serialprint("\r\n#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
             for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
-                numberToFrequency(vna_freq*10,FRQ);
+                numberToFrequency(vna_freq,FRQ);
                 validFRQ = Calculate_Frequency(FRQ);
                 write_FRQ(current_ch.frequency);
                 writeFRQToLcd(FRQ);
