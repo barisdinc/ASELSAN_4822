@@ -1,3 +1,6 @@
+# ONEMLI HATIRLATMA !!!
+Bu projenin amaclarindan biri de TAMSAT Amator Uydu Teknolojileri Dernegi'ne cuzi bir miktar bagis toplamaktir. Burada yayinlanan kodlari sadece TAMSAT'tan temin ettiginiz arduino'lar uzerinde kullaniniz. Simdilik bir kisitlama olmayip herhangibir arduino uzerinde calisacaktir, ancak daha sonra yayinlanacak guncellemeleri TAMSAT@tan temin etmediginiz arduino'lara yukleyemeyeceginiz gibi (yuklemeniz durumunda cihazinizin gorecegi zararlar olabilecegini ve bunun bizlerin sorumlulugunda olmadigini hatirlatarak) , yayinlanacak olan PC kontrol yazilimini da kullanamiyor olacaksiniz.
+
 # ASELSAN 4822 , ASELSAN 4826 , ASELSAN 4926
 Aselsan 48XX serisi cihazlara yeni özellikler kazandıran dönüşüm kiti yazılımı.
 
