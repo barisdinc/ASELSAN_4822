@@ -20,7 +20,7 @@ TODO List:
 - Add SWR alarm
 - Power control using DAC 
 - Add UHF Shift Function
-
+- TOT (TimeOutTimer) Function
 
 ONEMLI GUNCELLEME :
 ------------------
