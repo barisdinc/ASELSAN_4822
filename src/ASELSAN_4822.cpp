@@ -1380,7 +1380,36 @@ void setup() {
   PrintMenu();
 }
 
+/***
+ **
+ *  TOT FUNCTION
+ *
+*/
+
+unsigned long prevMillis = 0;
+long TotTime = 60000;
+void TXTimeOutTimer() {
+  unsigned long currentMillis = millis();
+  if (TRX_MODE == TX ){
+    if (currentMillis - prevMillis >= TotTime) {
+      prevMillis = currentMillis;
+      digitalWrite(PTT_OUTPUT_PIN, LOW);
+      TRX_MODE = RX;
+      writeToLcd("TOTWARN ");
+      Alert_Tone(ERR_tone);
+      Wire.beginTransmission(PCF8574_KEYB_LED);
+      Wire.write(224);
+      Wire.endTransmission();
+      delay(3000);
+    }
+  }
+}
+
+
 void loop() {
+
+  TXTimeOutTimer();
+  
   //setRadioPower(); //Check power switch and set radio power mode on or off
   
   //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
