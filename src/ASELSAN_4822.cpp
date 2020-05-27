@@ -561,6 +561,11 @@ void send_SPIBit(int Counter, uint8_t length) {
     digitalWrite(pll_clk_pin,HIGH);    // Bring pin CLOCK high
     delay(1);
     digitalWrite(pll_clk_pin,LOW);    // Then back low
+    
+    /* For backlight Flickering Issue #44 */
+    Wire.beginTransmission(0x21);
+    Wire.write(224);
+    Wire.endTransmission();
   }
 }
 
@@ -1203,10 +1208,7 @@ int readColumn()
     if (c == 2) sutun = 2;
     if (c == 1) sutun = 3;
 
-    /* For backlight Flickering Issue #44 */
-    Wire.beginTransmission(0x21);
-    Wire.write(224);
-    Wire.endTransmission();
+    
 
     return sutun;
 }
