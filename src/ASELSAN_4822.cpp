@@ -287,6 +287,7 @@ freqLimits_t freqLimits;
 #define EEPROM_CHNNL_SIZE   10   Size of memorych_t
 
 
+#define EEPROM_TOT 59
 
 //VNA variables
 float minSWR;
@@ -848,6 +849,65 @@ void eeprom_writeAPRS()
     Alert_Tone(OK_tone);
 }
 
+
+
+
+/*
+  TOT Function
+
+  BAKIM ONARIM KITABI - SF. 205 - 6/25
+  
+  Göndermede kalma süresi isteğe göre 0-225 saniye aralığında 15 saniyelik adımlarla seçilebilir;
+  standart programda 1 dakikadır. Zaman sınırlama süresi bitiminde tekrar bas/konuş mandalina basıldığında
+  telsizin göndermeye geçmesi için gereken süre de isteğe göre 0 ile 75 saniye aralığında 5 saniyelik
+  adımlarla programlanabilir; standart alarak 0 saniyedir.
+*/
+
+unsigned long prevTotMillis = 0;
+uint8_t TOT_TX_TIME[16] = {0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225};
+uint8_t TOT_TX_LOCK_TIME[16] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 65, 70, 75};
+
+struct tot_t {
+  uint8_t  time_out_time = TOT_TX_TIME[4]; 
+  uint8_t  lock_time = TOT_TX_LOCK_TIME[1];
+};
+tot_t tot_values;
+
+int TOT_FLAG = 0;
+int TOT_WARN_STATE = 1;
+
+void changeTotSettings(uint8_t timeout, uint8_t lock){
+  tot_t  tot_values_new;
+  tot_values_new.time_out_time = timeout;
+  tot_values_new.lock_time = lock;
+  EEPROM.put(EEPROM_TOT, tot_values_new);
+  tot_values = tot_values_new;
+}
+
+uint8_t TXTimeOutTimer(uint8_t PTT_PIN_STATE) {
+  unsigned long currentMillis = millis();
+  if (PTT_PIN_STATE == HIGH) {
+    if (currentMillis - prevTotMillis >= tot_values.time_out_time* 1000) {
+      if (currentMillis - prevTotMillis >= tot_values.time_out_time* 1000 + tot_values.lock_time* 1000) {
+        prevTotMillis = currentMillis;
+      }
+      //digitalWrite(POW_INH, HIGH);
+      //Serial.println("transmit interrupted by tot...");
+      TOT_FLAG = 1;
+      return LOW;
+    }
+    TOT_FLAG = 0;
+    TOT_WARN_STATE = 1;
+    return HIGH;
+  } else {
+    TOT_FLAG = 0;
+    TOT_WARN_STATE = 1;
+    return LOW;
+  }
+}
+
+
+
 void initialize_eeprom() {  
     EEPROM.write(0, 127); // make eeprom initialized
     EEPROM.write(1, SW_MAJOR);   //SW Version
@@ -880,6 +940,11 @@ void initialize_eeprom() {
     freqLimits_t default_limits;
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
     freqLimits = default_limits;
+
+
+    // TOT EEPROM INIT
+     EEPROM.put(EEPROM_TOT, tot_values);
+
 
     memorych_t memch;
     memch.frequency125 = 11640; //145500 / 12.5
@@ -1356,6 +1421,8 @@ void setup() {
 
   EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
 
+  EEPROM.get(EEPROM_TOT, tot_values);
+
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
   //pinMode(POWER_ON_PIN, OUTPUT);
@@ -1382,7 +1449,9 @@ void setup() {
   PrintMenu();
 }
 
+
 void loop() {
+
   //setRadioPower(); //Check power switch and set radio power mode on or off
   
   //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
@@ -1419,7 +1488,21 @@ void loop() {
     else if (SQL_MODE == SQL_ON) digitalWrite(MUTE_PIN_1, HIGH); 
       else digitalWrite(MUTE_PIN_1, LOW);
 
-  TRX_MODE = digitalRead(PTT_INPUT_PIN); //read PTT state
+
+  /*
+  TOT Function
+  Call Method.
+  */
+  TRX_MODE =  TXTimeOutTimer(digitalRead(PTT_INPUT_PIN)); //read PTT state
+  if (TOT_FLAG == 1) {
+    writeToLcd("TOTWARN ");
+    delay(10);
+    if (TOT_WARN_STATE == 1) Alert_Tone(ERR_tone);
+    TOT_WARN_STATE = 0;
+  }
+
+
+//TRX_MODE = digitalRead(PTT_INPUT_PIN); //read PTT state
 //  if (pttToggler && TRX_MODE == RX) TRX_MODE = TX; //if pttToggler set from serial, then mode is transmission
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
