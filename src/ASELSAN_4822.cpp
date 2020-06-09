@@ -287,7 +287,7 @@ freqLimits_t freqLimits;
 #define EEPROM_CHNNL_SIZE   10   Size of memorych_t
 
 
-#define EEPROM_TOT 102
+#define EEPROM_TOT 59
 
 //VNA variables
 float minSWR;
