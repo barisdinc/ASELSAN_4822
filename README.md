@@ -1,11 +1,9 @@
-# ASELSAN 4822/49XX ESP32 Modernizasyon Kiti
+# ASELSAN 48XX/49XX ESP32 Modernizasyon Kiti
 
 Bu proje, Barış Dinç (OH2UDS/TA7W) tarafından başlatılan ve Aselsan'ın 48XX/49XX serisi klasik amatör telsizlerini modern bir mikrodenetleyici ile yeniden canlandırmayı amaçlayan [orijinal projenin](https://github.com/barisdinc/ASELSAN_4822) üzerine inşa edilmiş, yeni nesil bir versiyonudur.
 
 Bu branch, projeyi çok daha güçlü ve yetenekli bir platform olan **ESP32**'ye taşır. ESP32'nin getirdiği WiFi ve Bluetooth yetenekleri sayesinde telsize, herhangi bir modern web tarayıcısı üzerinden erişilebilen, kapsamlı bir **web arayüzü** eklenmiştir. Artık telsizinizin tüm ayarlarını, kanal hafızasını ve anlık kontrollerini bilgisayarınızdan veya telefonunuzdan kolayca yönetebilirsiniz.
 
-![Web Arayüzü Önizlemesi](https://github.com/barisdinc/ASELSAN_4822/blob/master/docs/web_ui_preview.png?raw=true)
-*(Not: Bu görsel, arayüzün genel görünümünü temsil etmesi için eklenmiştir. Gerçek arayüz farklılık gösterebilir.)*
 
 ## 🚀 Temel Özellikler
 
