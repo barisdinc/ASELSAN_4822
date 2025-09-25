@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASELSAN 48XX/49XX Web Arayüzü</title>
+    <style>
+        /* --- CSS DEĞİŞKENLERİ VE TEMEL STİLLER --- */
+        :root {
+            --bg-color: #1a1a1a;
+            --surface-color: #2c2c2c;
+            --primary-color: #00bcd4;
+            --text-color: #e0e0e0;
+            --text-muted-color: #888;
+            --border-color: #444;
+            --success-color: #4caf50;
+            --danger-color: #f44336;
+            --warning-color: #ff9800;
+            --radio-display-bg: #2d3a3a; /* YENİ: Telsiz ekranı arkaplan rengi */
+        }
+
+        body.light-mode {
+            --bg-color: #f0f2f5;
+            --surface-color: #ffffff;
+            --primary-color: #007bff;
+            --text-color: #212529;
+            --text-muted-color: #6c757d;
+            --border-color: #dee2e6;
+            --radio-display-bg: #dcedc8; /* YENİ: Telsiz ekranı arkaplan rengi (Açık Mod) */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #app {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 1rem 1rem 6rem 1rem; /* Alttaki navigasyon için boşluk */
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 0.5rem;
+            background-color: var(--surface-color);
+            border-radius: 8px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* --- NAVİGASYON --- */
+        nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--surface-color);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem 0;
+            z-index: 1000;
+        }
+        
+        @media (min-width: 800px) {
+            nav {
+                left: 50%;
+                transform: translateX(-50%);
+                max-width: 800px;
+                border-radius: 10px 10px 0 0;
+            }
+        }
+
+        .nav-button {
+            background: none;
+            border: none;
+            color: var(--text-muted-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: color 0.2s, background-color 0.2s;
+            flex-grow: 1;
+        }
+
+        .nav-button svg {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+
+        .nav-button.active {
+            color: var(--primary-color);
+        }
+        
+        .nav-button:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* --- GENEL KART STİLİ --- */
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .card-header h2 {
+            margin: 0;
+            padding: 0;
+            border: none;
+            flex-grow: 1;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        /* --- FORM ELEMENTLERİ --- */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        input[type="text"], input[type="number"], input[type="password"], select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+            font-size: 1rem;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield; /* Firefox */
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        button {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button:disabled {
+            background-color: var(--text-muted-color);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: #fff; }
+        /* GÜNCELLENDİ: .btn-secondary için yeni stil */
+        .btn-secondary { 
+            background-color: #3e3e3e; 
+            color: var(--text-color); 
+            border: 1px solid #555;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .btn-secondary:hover {
+             background-color: #4a4a4a;
+        }
+        .btn-success { background-color: var(--success-color); color: #fff; }
+        .btn-danger { background-color: var(--danger-color); color: #fff; }
+        .btn-full { width: 100%; }
+        .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+        
+        .button-group { display: flex; gap: 0.5rem; flex-wrap: wrap;}
+
+
+        .toggle-switch { display: flex; align-items: center; justify-content: space-between; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        
+        /* YENİ: Şık Güç Anahtarı Stili */
+        .stylish-toggle span {
+            font-size: 0.9rem; /* Yazıyı biraz küçült */
+        }
+        .stylish-toggle .switch {
+            width: 44px;
+            height: 24px;
+        }
+        .stylish-toggle .slider {
+             box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .stylish-toggle .slider:before {
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .stylish-toggle input:checked + .slider {
+            background-image: linear-gradient(to right, #43e97b 0%, #38f9d7 100%);
+        }
+        .stylish-toggle input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* GÜNCELLENDİ: Daha Zarif ve Kompakt Segmented Control */
+        .segmented-control-v2 {
+            position: relative;
+            display: flex;
+            border-radius: 5px; /* Daha kompakt köşe */
+            background-color: var(--bg-color);
+            padding: 2px; /* İç dolgu azaltıldı */
+            border: 1px solid var(--border-color);
+        }
+        .segmented-control-v2::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            bottom: 2px;
+            /* Genişlik, toplam iç dolgunun yarısı kadar küçültüldü */
+            width: calc(50% - 2px); 
+            background-color: var(--primary-color);
+            border-radius: 3px; /* Daha küçük köşe */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Animasyon 'left' ile yapılıyor */
+            left: var(--_active-segment-left, 2px); /* JS bu değişkeni güncelleyecek */
+        }
+        .segmented-control-v2 button {
+            flex: 1;
+            padding: 0.25rem 0.5rem; /* Butonların iç dolgusu azaltıldı */
+            font-size: 0.8rem; /* Yazı boyutu küçültüldü */
+            position: relative;
+            background-color: transparent;
+            border: none;
+            color: var(--text-muted-color);
+            transition: color 0.3s;
+        }
+        .segmented-control-v2 button.active {
+            color: white;
+            font-weight: 600;
+        }
+
+
+        /* --- TELSIZ KONTROL SEKMESİ --- */
+        .telsiz-grid { display: grid; gap: 1rem; }
+        @media (min-width: 600px) { .telsiz-grid { grid-template-columns: 1fr 1fr; } }
+        
+        /* GÜNCELLENDİ: S-Meter stilleri */
+        .s-meter { width: 100%; height: 20px; background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 4px; position: relative; overflow: hidden; padding: 2px; }
+        .s-meter-bar { height: 100%; width: 0%; background: linear-gradient(to right, #4caf50, #ffeb3b, #f44336); border-radius: 2px; transition: width 0.2s ease-out; }
+
+        /* YENİ: Telsiz Ekranı Stilleri */
+        .radio-display {
+            background-color: var(--radio-display-bg);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            text-align: right;
+            margin-bottom: 1rem;
+        }
+        .radio-display-freq {
+            font-size: 2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        .radio-display-mode {
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+            color: var(--text-muted-color);
+        }
+        .radio-display-status {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        .dtmf-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 1rem; }
+        .dtmf-grid button { padding: 1rem 0; font-size: 1.2rem; background-color: var(--surface-color); color: var(--text-color); border: 1px solid var(--border-color); }
+        .dtmf-grid button:active { background-color: var(--primary-color); color: white; transform: scale(0.95); }
+        .ptt-button { padding: 1rem; font-size: 1.2rem; background-color: var(--success-color); color: white; }
+        .ptt-button.active { background-color: var(--danger-color); }
+        
+        /* GÜNCELLENDİ: reverse-button için yeni stil */
+        .reverse-button {
+            background-color: #3e3e3e; 
+            color: var(--text-color); 
+            border: 1px solid #555;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .reverse-button:hover {
+             background-color: #4a4a4a;
+        }
+        
+        /* YENİ: Ters Çevir, Tarama ve VNA butonlarının aktif (basılı) durum stili */
+        .reverse-button.active,
+        .button-grid .btn-secondary.active {
+            background-color: var(--warning-color);
+            color: white;
+            border-color: var(--warning-color);
+        }
+        
+        /* YENİ: Tarama ve VNA butonları için grid */
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+
+        /* --- KAYITLI KANALLAR SEKMESİ --- */
+        /* GÜNCELLENDİ: Tablo CSS'i */
+        .table-container { 
+            overflow-x: auto; /* Yatay taşmayı sadece gerektiğinde göster */
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 1rem; 
+            table-layout: fixed; /* Sütun genişliklerinin daha tutarlı olmasını sağlar */
+        }
+        th, td { 
+            padding: 0.75rem 0.5rem; /* Dolguyu biraz azalt */
+            text-align: left; 
+            border-bottom: 1px solid var(--border-color); 
+            white-space: nowrap; /* Satırların alta kaymasını önle */
+            overflow: hidden;
+            text-overflow: ellipsis; /* Taşarsa ... ile göster */
+        }
+        /* Sütun genişliklerini ayarla */
+        th:nth-child(1), td:nth-child(1) { width: 40px; text-align: center; } /* Checkbox */
+        th:nth-child(2), td:nth-child(2) { width: 60px; text-align: center; } /* # */
+        th:nth-child(3), td:nth-child(3) { width: 20%; min-width: 80px; } /* Ad */
+        th:nth-child(4), td:nth-child(4) { width: 25%; min-width: 100px; } /* Frekans */
+        th:nth-child(5), td:nth-child(5) { width: 15%; min-width: 80px; } /* Ton */
+        th:nth-child(6), td:nth-child(6) { width: 15%; min-width: 80px; } /* Shift */
+        th:nth-child(7), td:nth-child(7) { width: 10%; min-width: 60px; } /* Yön */
+        th:nth-child(8), td:nth-child(8) { width: 15%; min-width: 80px; } /* Güç */
+        th:nth-child(9), td:nth-child(9) { width: 100px; text-align: center; } /* İşlemler */
+
+
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+        
+        .action-buttons { display: flex; gap: 0.25rem; justify-content: center; }
+        .action-buttons button { background: none; border: none; color: var(--text-muted-color); padding: 0.5rem; }
+        .action-buttons button:hover { color: var(--primary-color); }
+        .action-buttons .delete-btn:hover { color: var(--danger-color); } /* Silme butonu için özel renk */
+        .action-buttons svg { width: 20px; height: 20px; pointer-events: none; /* SVG'nin tıklamayı engellemesini önle */}
+        
+        input.inline-edit, select.inline-edit {
+            width: 100%;
+            padding: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .channel-actions-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+
+        /* --- AYARLAR & APRS & WIFI SEKMELERİ --- */
+        .collapsible { background-color: var(--bg-color); padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem; border: 1px solid var(--border-color); }
+        .collapsible-header { font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .collapsible-content { padding-top: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color); display: none; }
+        .file-ops { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+        @media (min-width: 600px) { .file-ops { flex-direction: row; } }
+        
+        .hidden-content { display: none; }
+        .status-message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            display: none;
+            color: white;
+            text-align: center;
+        }
+        .status-message.success { background-color: var(--success-color); }
+        .status-message.error { background-color: var(--danger-color); }
+        .status-message.info { background-color: var(--primary-color); }
+
+        /* --- WIFI SEKMESİ ÖZEL --- */
+        .wifi-list li { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-bottom: 1px solid var(--border-color); }
+        .wifi-list li:last-child { border-bottom: none; }
+        .wifi-list button { padding: 0.25rem 0.5rem; font-size: 0.9rem; }
+
+        .priority-controls { display: flex; flex-direction: column; }
+        .priority-controls button { background: none; border: none; color: var(--text-muted-color); padding: 0; line-height: 1; cursor: pointer; }
+        .priority-controls button svg { width: 18px; height: 18px; }
+        .priority-controls button:hover { color: var(--primary-color); }
+        .priority-controls button:disabled { color: var(--border-color); cursor: not-allowed; }
+
+        .network-details { flex-grow: 1; display: flex; gap: 0.5rem; align-items: center; }
+        .network-details input { padding: 0.5rem; }
+
+        .hidden-network-label { display: flex; align-items: center; gap: 0.3rem; white-space: nowrap; cursor: pointer; }
+        .hidden-network-label input { width: auto; }
+        
+        /* --- OTA SEKMESİ ÖZEL --- */
+        .ota-status { margin-top: 1rem; padding: 1rem; border-radius: 4px; display: none; }
+        .ota-status.success { background-color: var(--success-color); color: white; }
+        .ota-status.error { background-color: var(--danger-color); color: white; }
+        .ota-progress-bar { width: 100%; background-color: var(--border-color); border-radius: 4px; overflow: hidden; height: 20px; margin-top: 0.5rem;}
+        .ota-progress { width: 0%; height: 100%; background-color: var(--primary-color); transition: width 0.2s; }
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: block;
+            width: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* --- MODAL PENCERE --- */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); animation: fadeIn 0.3s; }
+        .modal-content { background-color: var(--surface-color); margin: 15% auto; padding: 20px; border: 1px solid var(--border-color); width: 90%; max-width: 400px; border-radius: 8px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+        
+        /* GİZLİ DOSYA INPUT */
+        #csv-file-input { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <header>
+            <h1>ASELSAN 48XX/49XX ESP32</h1>
+        </header>
+
+        <main>
+            <!-- Telsiz Kontrol Sekmesi -->
+            <div id="tab-telsiz" class="tab-content active">
+                <div class="telsiz-grid">
+                    <div class="card">
+                        <h2>Anlık Durum</h2>
+                        <!-- YENİ: Telsiz Ekranı -->
+                        <div class="radio-display">
+                            <div class="radio-display-freq">...</div>
+                            <div class="radio-display-mode">...</div>
+                            <div class="radio-display-status">...</div>
+                        </div>
+                        <div class="s-meter" title="Sinyal / Güç Seviyesi">
+                            <div id="s-meter-bar" class="s-meter-bar"></div>
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label for="freq-input">Frekans (MHz)</label>
+                            <input type="text" id="freq-input" inputmode="decimal" pattern="[0-9.]*">
+                        </div>
+                        <div class="input-group">
+                            <div class="form-group" style="flex-grow: 1;">
+                                <label for="shift-input">Shift (kHz)</label>
+                                <input type="number" id="shift-input" inputmode="numeric" pattern="[0-9]*">
+                            </div>
+                            <div class="form-group">
+                                <label for="shift-dir-select">Yön</label>
+                                <select id="shift-dir-select">
+                                    <option value="-">-</option>
+                                    <option value="+">+</option>
+                                    <option value="S">S</option>
+                                </select>
+                            </div>
+                        </div>
+                         <div class="form-group">
+                            <label for="tone-select">Ton (Hz)</label>
+                            <select id="tone-select">
+                                <option value="0">Kapalı</option>
+                                <!-- JS ile doldurulacak -->
+                            </select>
+                        </div>
+                        <button id="save-channel-btn" class="btn-primary btn-full">Mevcut Kanalı Kaydet</button>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Kontroller</h2>
+                        <div class="form-group toggle-switch">
+                            <span>Susturma (Squelch)</span>
+                            <label class="switch"><input type="checkbox" id="squelch-switch"><span class="slider"></span></label>
+                        </div>
+                         <!-- GÜNCELLENDİ: Güç Seçim Butonları (Zarif versiyon) -->
+                        <div class="form-group">
+                            <label style="font-size: 0.9rem; margin-bottom: 0.4rem;">Güç</label>
+                            <div class="segmented-control-v2" id="power-selector">
+                                <button data-power="high">Yüksek</button>
+                                <button data-power="low">Düşük</button>
+                            </div>
+                        </div>
+
+                        <!-- Butonlar yeniden düzenlendi -->
+                        <button id="reverse-btn" class="reverse-button btn-full" style="margin-top: 0.5rem;">Ters Çevir</button>
+                        <div class="button-grid">
+                            <button id="scan-btn" class="btn-secondary btn-full">Tarama</button>
+                            <button id="vna-btn" class="btn-secondary btn-full">VNA</button>
+                        </div>
+                        <button id="ptt-btn" class="ptt-button btn-full" style="margin-top: 1rem;">PTT</button>
+                        
+                        <div class="dtmf-grid" id="dtmf-grid">
+                            <button>1</button><button>2</button><button>3</button><button>A</button>
+                            <button>4</button><button>5</button><button>6</button><button>B</button>
+                            <button>7</button><button>8</button><button>9</button><button>C</button>
+                            <button>*</button><button>0</button><button>#</button><button>D</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kayıtlı Kanallar Sekmesi -->
+            <div id="tab-kanallar" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Kayıtlı Kanallar</h2>
+                        <div class="button-group">
+                            <button id="export-csv-btn" class="btn-secondary btn-sm">Dışa Aktar (CSV)</button>
+                            <button id="import-csv-btn" class="btn-secondary btn-sm">İçe Aktar (CSV)</button>
+                            <input type="file" id="csv-file-input" accept=".csv">
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div id="channels-status-msg" class="status-message"></div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <!-- YENİ: Checkbox sütunu -->
+                                    <th><input type="checkbox" id="select-all-channels" title="Tümünü Seç"></th>
+                                    <th>#</th>
+                                    <th>Ad</th>
+                                    <th>Frekans</th>
+                                    <th>Ton</th>
+                                    <th>Shift (kHz)</th>
+                                    <th>Yön</th>
+                                    <th>Güç</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody id="channels-table-body">
+                                <!-- JS ile doldurulacak -->
+                            </tbody>
+                        </table>
+                    </div>
+                     <!-- YENİ: Ekleme ve Toplu Silme Butonları -->
+                    <div class="channel-actions-footer">
+                        <button id="add-channel-btn" class="btn-primary">+ Yeni Kanal Ekle</button>
+                        <button id="delete-selected-btn" class="btn-danger">Seçilenleri Sil</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ayarlar Sekmesi -->
+            <div id="tab-ayarlar" class="tab-content">
+                <div class="card">
+                    <h2>Genel Ayarlar</h2>
+                    <div class="form-group toggle-switch">
+                        <span>Arayüz Teması (Açık/Koyu)</span>
+                        <label class="switch"><input type="checkbox" id="theme-switcher"><span class="slider"></span></label>
+                    </div>
+                    <div class="form-group">
+                        <label for="band-select">Çalışma Bandı</label>
+                        <select id="band-select">
+                            <option value="0">VHF (144 MHz)</option>
+                            <option value="1">UHF (430 MHz)</option>
+                        </select>
+                    </div>
+                     <div class="form-group">
+                        <label for="tot-select">Gönderme Zaman Aşımı (TOT)</label>
+                        <select id="tot-select">
+                            <option value="0">Kapalı</option>
+                            <option value="30">30 Saniye</option>
+                            <option value="60">60 Saniye</option>
+                            <option value="90">90 Saniye</option>
+                            <option value="120">120 Saniye</option>
+                            <option value="180">180 Saniye</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="greeting-input">Açılış Mesajı</label>
+                        <input type="text" id="greeting-input" maxlength="8">
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Limit Ayarları</h2>
+                     <div class="collapsible">
+                        <div class="collapsible-header">Frekans Sınırları (MHz) <span>&raquo;</span></div>
+                        <div class="collapsible-content">
+                            <div class="input-group">
+                                <input type="text" id="trx-min-input" placeholder="Min Frekans" inputmode="decimal">
+                                <input type="text" id="trx-max-input" placeholder="Max Frekans" inputmode="decimal">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="collapsible">
+                        <div class="collapsible-header">Tarama Sınırları (MHz) <span>&raquo;</span></div>
+                        <div class="collapsible-content">
+                             <div class="input-group">
+                                <input type="text" id="scn-min-input" placeholder="Min Frekans" inputmode="decimal">
+                                <input type="text" id="scn-max-input" placeholder="Max Frekans" inputmode="decimal">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="card">
+                    <button id="save-settings-btn" class="btn-success btn-full">Tüm Ayarları Kaydet</button>
+                    <div id="settings-status-msg" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- APRS Sekmesi -->
+            <div id="tab-aprs" class="tab-content">
+                <div class="card">
+                    <h2>APRS Ayarları</h2>
+                    <div class="form-group toggle-switch">
+                        <span>APRS (Otomatik Beacon)</span>
+                        <label class="switch"><input type="checkbox" id="aprs-enabled-switch" checked><span class="slider"></span></label>
+                    </div>
+
+                    <div id="aprs-settings-container">
+                        <div class="input-group">
+                            <div class="form-group" style="flex-grow: 1;">
+                               <label for="aprs-mycall-input">APRS Çağrı İşareti</label>
+                               <input type="text" id="aprs-mycall-input" value="N0CALL">
+                            </div>
+                            <div class="form-group">
+                               <label for="aprs-myssid-input">SSID</label>
+                               <input type="number" id="aprs-myssid-input" value="9" min="0" max="15" style="width: 80px;">
+                            </div>
+                        </div>
+                        <p style="font-size: 0.8rem; color: var(--text-muted-color); margin-top: -0.75rem; margin-bottom: 1rem;">
+                            <b>Tavsiye edilen SSID'ler:</b> <b>-0</b> Ev istasyonu, <b>-5</b> Diğer ağlar (D-Star vb.), <b>-7</b> El cihazı, <b>-9</b> Mobil, <b>-12</b> İzci/takipçi.
+                        </p>
+
+                        <div class="form-group">
+                            <label for="aprs-timeout-input">Sessizlik Süresi (dakika)</label>
+                            <input type="number" id="aprs-timeout-input" inputmode="numeric" value="3">
+                        </div>
+                         <div class="form-group">
+                            <label for="aprs-freq-input">APRS Frekansı (MHz)</label>
+                            <input type="text" id="aprs-freq-input" inputmode="decimal" placeholder="144.800">
+                        </div>
+                        <div class="form-group">
+                            <label for="iss-freq-input">ISS APRS Frekansı (MHz)</label>
+                            <input type="text" id="iss-freq-input" inputmode="decimal" placeholder="145.825">
+                        </div>
+                        <div class="form-group">
+                            <label for="aprs-message-input">APRS Mesajı</label>
+                            <textarea id="aprs-message-input">ASELSAN 48XX/49XX - ESP32 Test</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Konum Bilgisi</h2>
+                    <div class="form-group">
+                        <label for="location-source-select">Konum Kaynağı</label>
+                        <select id="location-source-select">
+                            <option value="gps">Dahili GPS</option>
+                            <option value="fixed">Sabit Konum</option>
+                        </select>
+                    </div>
+                    <div id="fixed-location-inputs">
+                        <div class="input-group" style="margin-bottom: 0.5rem;">
+                            <input type="text" id="lat-input" placeholder="Enlem (Örn: 4102.74N)">
+                            <input type="text" id="lon-input" placeholder="Boylam (Örn: 02902.06E)">
+                        </div>
+                    </div>
+                    <div class="button-group" style="flex-direction: column; gap: 0.5rem;">
+                        <button id="get-gps-now-btn" class="btn-secondary btn-full">Anlık GPS Konumunu Al</button>
+                        <button id="send-beacon-now-btn" class="btn-primary btn-full">Manuel Beacon Gönder</button>
+                    </div>
+                </div>
+                 <div class="card">
+                    <button id="save-aprs-btn" class="btn-success btn-full">APRS Ayarlarını Kaydet</button>
+                    <div id="aprs-status-msg" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- WiFi Sekmesi -->
+            <div id="tab-wifi" class="tab-content">
+                <div class="card">
+                    <h2>WiFi Yönetimi</h2>
+                    <div class="form-group toggle-switch">
+                        <span>WiFi Modülü</span>
+                        <label class="switch"><input type="checkbox" id="wifi-module-enabled"><span class="slider"></span></label>
+                    </div>
+                    <p>Mevcut Durum: <span id="wifi-status-text">Bilinmiyor...</span></p>
+                </div>
+
+                <div class="card">
+                    <h2>Ağ Ekle</h2>
+                    <button id="scan-wifi-btn" class="btn-primary btn-full">Çevredeki Ağları Tara</button>
+                    <ul id="scanned-networks-list" class="wifi-list" style="margin-top:1rem;">
+                        <!-- JS ile doldurulacak tarama sonuçları -->
+                    </ul>
+                     <div class="collapsible" style="margin-top:1rem;">
+                        <div class="collapsible-header">Manuel Ağ Ekle <span>&raquo;</span></div>
+                        <div class="collapsible-content">
+                             <div class="form-group">
+                                <label for="manual-ssid">Ağ Adı (SSID)</label>
+                                <input type="text" id="manual-ssid">
+                             </div>
+                             <div class="form-group">
+                                <label for="manual-pass">Şifre</label>
+                                <input type="password" id="manual-pass">
+                             </div>
+                             <div class="form-group toggle-switch">
+                                <span>Gizli Ağ</span>
+                                <label class="switch"><input type="checkbox" id="manual-hidden"><span class="slider"></span></label>
+                             </div>
+                             <button id="manual-add-btn" class="btn-primary btn-full">Manuel Ekle</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Kayıtlı Ağlar</h2>
+                    <ul id="saved-networks-list" class="wifi-list wifi-saved-list">
+                        <!-- JS ile doldurulacak -->
+                    </ul>
+                </div>
+                
+                 <div class="card">
+                    <h2>Access Point Ayarları</h2>
+                    <div class="form-group"><label>AP SSID</label><input type="text" id="ap-ssid"></div>
+                    <div class="form-group"><label>AP Şifre</label><input type="password" id="ap-pass"></div>
+                    <div class="form-group"><label>AP IP Adresi</label><input type="text" id="ap-ip"></div>
+                </div>
+                 <div class="card">
+                    <h2>Web Arayüzü Güvenliği</h2>
+                    <div class="form-group"><label>Kullanıcı Adı</label><input type="text" id="web-user"></div>
+                    <div class="form-group"><label>Yeni Şifre</label><input type="password" id="web-pass"></div>
+                </div>
+                <div class="card">
+                    <button id="save-wifi-btn" class="btn-success btn-full">WiFi Ayarlarını Kaydet</button>
+                </div>
+            </div>
+            
+            <!-- OTA Sekmesi -->
+            <div id="tab-ota" class="tab-content">
+                 <div class="card">
+                    <h2>Firmware Güncelleme (OTA)</h2>
+                    <div class="form-group">
+                         <label for="firmware-file">Firmware Dosyası (.bin) seçin:</label>
+                         <input type="file" id="firmware-file" accept=".bin">
+                    </div>
+                    <button id="update-firmware-btn" class="btn-primary btn-full">Güncellemeyi Başlat</button>
+                    <div id="ota-status" class="ota-status">
+                        <span id="ota-status-message"></span>
+                        <div class="ota-progress-bar">
+                            <div id="ota-progress" class="ota-progress"></div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <!-- YENİ BÖLÜM BAŞLANGICI -->
+                 <div class="card">
+                    <h2>Web Arayüzünü Güncelle (LittleFS)</h2>
+                    <p style="font-size: 0.9rem; color: var(--text-muted-color); margin-bottom: 1rem;">
+                        Bu bölüm, cihazın dosya sistemini (web arayüzü dosyalarını içerir) günceller.
+                        <strong style="color: var(--warning-color);">Bu işlem mevcut arayüzün üzerine yazar ve cihazı yeniden başlatır.</strong>
+                    </p>
+                    <div class="form-group">
+                         <label for="fs-file">Dosya Sistemi İmajı (.bin) seçin:</label>
+                         <input type="file" id="fs-file" accept=".bin">
+                    </div>
+                    <button id="update-fs-btn" class="btn-primary btn-full">Arayüzü Güncellemeyi Başlat</button>
+                    <div id="fs-status" class="ota-status">
+                        <span id="fs-status-message"></span>
+                        <div class="ota-progress-bar">
+                            <div id="fs-progress" class="ota-progress"></div>
+                        </div>
+                    </div>
+                 </div>
+                 <!-- YENİ BÖLÜM SONU -->
+
+                 <div class="card">
+                    <h2>Cihaz Yapılandırma Yedekleme</h2>
+                    <p style="font-size: 0.9rem; color: var(--text-muted-color); margin-bottom: 1rem;">
+                        Tüm ayarları (WiFi, kanallar, APRS vb.) tek bir dosyada yedekleyin veya daha önce aldığınız yedeği geri yükleyin.
+                        <strong style="color: var(--warning-color);">Geri yükleme işlemi mevcut tüm ayarların üzerine yazar ve cihazı yeniden başlatır.</strong>
+                    </p>
+                    <div class="form-group">
+                         <label for="backup-file">Yedek Dosyası (.json) seçin:</label>
+                         <input type="file" id="backup-file" accept=".json">
+                    </div>
+                    <div class="file-ops">
+                         <button id="export-backup-btn" class="btn-secondary btn-full">Yapılandırmayı Dışa Aktar (Yedekle)</button>
+                         <button id="import-backup-btn" class="btn-danger btn-full">Yapılandırmayı İçe Aktar (Geri Yükle)</button>
+                    </div>
+                    <div id="backup-status" class="status-message"></div>
+                 </div>
+
+            </div>
+        </main>
+    </div>
+    
+    <!-- Kanal Kaydetme Modalı -->
+    <div id="save-modal" class="modal">
+      <div class="modal-content">
+        <h2>Kanalı Kaydet</h2>
+        <div class="form-group">
+            <label for="channel-name-input">Kanal Adı (En fazla 4 karakter)</label>
+            <input type="text" id="channel-name-input" placeholder="Örn: Ev, Role-1..." maxlength="4">
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-save-btn" class="btn-secondary">İptal</button>
+            <button id="confirm-save-btn" class="btn-primary">Kaydet</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Navigasyon Menüsü -->
+    <nav>
+        <button class="nav-button active" data-tab="telsiz" title="Telsiz Kontrol">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a2 2 0 0 0-2 2v2.34a7.5 7.5 0 0 0-3.5 2.955L3.24 15.5H2a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h20a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1.24l-3.26-7.205A7.5 7.5 0 0 0 14 5.34V3a2 2 0 0 0-2-2zM7.5 10a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0z"/></svg>
+            <span>Telsiz</span>
+        </button>
+        <button class="nav-button" data-tab="kanallar" title="Kayıtlı Kanallar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+            <span>Kanallar</span>
+        </button>
+        <button class="nav-button" data-tab="ayarlar" title="Ayarlar">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.58-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.49.49 0 0 0-.48-.44H9.17a.49.49 0 0 0-.48.44l-.36 2.54c-.59.24-1.13-.56-1.62-.94l-2.39-.96a.49.49 0 0 0-.58.22l-1.92 3.32a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32a.49.49 0 0 0 .58.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54a.49.49 0 0 0 .48.44h3.66a.49.49 0 0 0 .48.44l.36-2.54c.59-.24 1.13-.56-1.62-.94l2.39.96a.49.49 0 0 0 .58-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+            <span>Ayarlar</span>
+        </button>
+        <button class="nav-button" data-tab="aprs" title="APRS">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+            <span>APRS</span>
+        </button>
+        <button class="nav-button" data-tab="wifi" title="WiFi">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C19.73 5.73 8.27 5.73 1 9zm8 8l3 3 3-3c-1.65-1.65-4.35-1.65-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.86 9.14 5 13z"/></svg>
+            <span>WiFi</span>
+        </button>
+        <button class="nav-button" data-tab="ota" title="OTA Güncelleme">
+             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            <span>OTA</span>
+        </button>
+    </nav>
+    
+    <script>
+        // === MEVCUT KOD BAŞLANGICI (DEĞİŞTİRİLMEMİŞ BÖLÜMLER) ===
+        // Global state object
+        let wifiConfig = {}; 
+        let lastAprsTimeout = 3;
+        
+        const ctcssTones = [67, 69.3, 71.9, 74.4, 77, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100, 103.5, 107.2, 110.9, 114.8, 118.8, 123, 127.3];
+        
+        // --- UYGULAMA MANTIĞI ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- ELEMENTLER ---
+            const channelsTableBody = document.getElementById('channels-table-body');
+            const savedNetworksList = document.getElementById('saved-networks-list');
+            const scannedNetworksList = document.getElementById('scanned-networks-list');
+            const wifiStatusText = document.getElementById('wifi-status-text');
+            const backupStatus = document.getElementById('backup-status');
+            const channelsStatusMsg = document.getElementById('channels-status-msg');
+            
+            // --- SEKME YÖNETİMİ ---
+            const navButtons = document.querySelectorAll('.nav-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    navButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    button.classList.add('active');
+                    const activeTab = document.getElementById(`tab-${button.dataset.tab}`);
+                    activeTab.classList.add('active');
+                    
+                    if (button.dataset.tab === 'kanallar') {
+                        loadChannels();
+                    } else if (button.dataset.tab === 'aprs') {
+                        loadAprsConfig();
+                    } else if (button.dataset.tab === 'wifi') {
+                        fetchWifiConfig();
+                        fetchWifiStatus();
+                    } else if (button.dataset.tab === 'ayarlar') {
+                        loadGeneralSettings();
+                    }
+                });
+            });
+
+            // --- GENEL FONKSİYONLAR ---
+            function populateToneSelect(selectElement, selectedValue = 0) {
+                selectElement.innerHTML = '<option value="0">Kapalı</option>';
+                ctcssTones.forEach(tone => {
+                    const option = document.createElement('option');
+                    option.value = tone;
+                    option.textContent = tone.toFixed(1);
+                    if (Math.abs(parseFloat(selectedValue) - tone) < 0.01) {
+                         option.selected = true;
+                    }
+                    selectElement.appendChild(option);
+                });
+            }
+            
+            function showStatusMessage(element, message, type = 'success', duration = 3000) {
+                element.textContent = message;
+                element.className = `status-message ${type}`;
+                element.style.display = 'block';
+                if (duration > 0) {
+                    setTimeout(() => { element.style.display = 'none'; }, duration);
+                }
+            }
+            
+            // ======================================================================================
+            // === DEĞİŞİKLİK BAŞLANGICI: TELSİZ KONTROL SEKMESİNİN TÜM JAVASCRIPT KODU =============
+            // ======================================================================================
+
+            // --- TELSİZ SEKMESİ ELEMENTLERİ ---
+            const radioDisplayFreq = document.querySelector('.radio-display-freq');
+            const radioDisplayMode = document.querySelector('.radio-display-mode');
+            const radioDisplayStatus = document.querySelector('.radio-display-status');
+            const sMeterBar = document.getElementById('s-meter-bar');
+            const freqInput = document.getElementById('freq-input');
+            const shiftInput = document.getElementById('shift-input');
+            const shiftDirSelect = document.getElementById('shift-dir-select');
+            const toneSelect = document.getElementById('tone-select');
+            const squelchSwitch = document.getElementById('squelch-switch');
+            const powerSelector = document.getElementById('power-selector');
+            const pttBtn = document.getElementById('ptt-btn');
+            const reverseBtn = document.getElementById('reverse-btn');
+            const scanBtn = document.getElementById('scan-btn');
+            const vnaBtn = document.getElementById('vna-btn');
+            const dtmfGrid = document.getElementById('dtmf-grid');
+
+            // --- TELSİZ KONTROL FONKSİYONLARI ---
+
+            let isUpdatingUI = false; // Arayüz güncellenirken komut göndermeyi engellemek için bayrak
+
+            // Merkezi ayar komutu gönderme fonksiyonu (frekans, ton vb. için)
+            async function sendRadioCommand(command, value) {
+                if (isUpdatingUI) return; 
+                try {
+                    const response = await fetch('/api/radio/control', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command, value })
+                    });
+                    if (!response.ok) {
+                        console.error(`Komut gönderilemedi: ${command}`, await response.text());
+                    }
+                } catch (error) {
+                    console.error(`Komut gönderirken ağ hatası: ${command}`, error);
+                }
+            }
+
+            // Telsizin anlık durumunu alıp arayüzü güncelleyen fonksiyon
+            async function updateRadioStatus() {
+                try {
+                    const response = await fetch('/api/radio/status');
+                    if (!response.ok) return;
+                    const status = await response.json();
+
+                    isUpdatingUI = true; 
+
+                    // DEĞİŞİKLİK 1: Nostaljik Ekran Güncellemesi (Shift'li frekans)
+                    if (status.mode === 'TX' && status.tx_frequency) {
+                        radioDisplayFreq.textContent = status.tx_frequency;
+                    } else {
+                        radioDisplayFreq.textContent = status.frequency || '...';
+                    }
+                    
+                    let modeText = 'VFO Modu'; 
+                    radioDisplayMode.textContent = modeText;
+                    
+                    let statusText = `${status.mode} | `;
+                    statusText += `Susturma ${status.squelch_on ? 'Açık' : 'Kapalı'} | `;
+                    statusText += `${status.power_high ? 'Yüksek' : 'Düşük'} Güç`;
+                    radioDisplayStatus.textContent = statusText;
+
+                    // S-Metre Güncellemesi
+                    const maxSignal = 4095;
+                    const signalPercentage = (status.signal_level / maxSignal) * 100;
+                    sMeterBar.style.width = `${Math.min(100, signalPercentage)}%`;
+
+                    // Form Alanlarını Güncelleme (sadece odaklanılmamışsa)
+                    if (document.activeElement !== freqInput) freqInput.value = status.frequency;
+                    if (document.activeElement !== shiftInput) shiftInput.value = status.shift_khz;
+                    if (document.activeElement !== shiftDirSelect) shiftDirSelect.value = status.shift_dir;
+                    if (document.activeElement !== toneSelect) toneSelect.value = status.tone_hz > 0 ? findClosestTone(status.tone_hz) : '0';
+                    
+                    squelchSwitch.checked = status.squelch_on;
+                    
+                    const powerButtons = powerSelector.querySelectorAll('button');
+                    powerButtons.forEach((btn, index) => {
+                        const isActive = (btn.dataset.power === 'high' && status.power_high) || (btn.dataset.power === 'low' && !status.power_high);
+                        btn.classList.toggle('active', isActive);
+                         if (isActive) {
+                             const newLeft = (index === 0) ? '2px' : '50%';
+                             powerSelector.style.setProperty('--_active-segment-left', newLeft);
+                         }
+                    });
+
+                    // DEĞİŞİKLİK 2: PTT Butonu durumu
+                    // Butonun 'active' class'ı artık web ptt'sinin açık olup olmadığına göre ayarlanıyor.
+                    pttBtn.classList.toggle('active', status.web_ptt_on);
+                    pttBtn.textContent = status.web_ptt_on ? 'GÖNDERİMDE' : 'PTT';
+                    
+                } catch (error) {
+                    console.error("Durum güncellenirken hata oluştu:", error);
+                } finally {
+                    isUpdatingUI = false; 
+                }
+            }
+            
+            function findClosestTone(value) {
+                return ctcssTones.reduce((prev, curr) => 
+                    (Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev)
+                );
+            }
+
+            // --- DEĞİŞİKLİK 3: YENİ TELSİZ SEKMESİ OLAY DİNLEYİCİLERİ ---
+            // (Eski basılı tutma mantığı tamamen kaldırıldı ve butonlar için ayrı click event'leri eklendi)
+            
+            freqInput.addEventListener('change', () => sendRadioCommand('set_frequency', freqInput.value));
+            // Frekans girişini anlık olarak formatlamak için yeni olay dinleyici
+            freqInput.addEventListener('input', (e) => {
+                let input = e.target;
+                let originalValue = input.value;
+                
+                // Girilen değerden rakam olmayan her şeyi temizle
+                let digits = originalValue.replace(/[^0-9]/g, '');
+
+                // Frekans en fazla 6 haneli olabilir (örn: 433500)
+                if (digits.length > 6) {
+                    digits = digits.substring(0, 6);
+                }
+                
+                let formattedValue = digits;
+                // Eğer 3'ten fazla rakam varsa, üçüncüden sonra noktayı ekle
+                if (digits.length > 3) {
+                    formattedValue = digits.substring(0, 3) + '.' + digits.substring(3);
+                }
+                
+                // Sadece formatlanmış değer orijinalden farklıysa güncelle
+                // Bu, imlecin gereksiz yere zıplamasını engeller
+                if (originalValue !== formattedValue) {
+                    input.value = formattedValue;
+                }
+            });
+            shiftInput.addEventListener('change', () => sendRadioCommand('set_shift_khz', parseInt(shiftInput.value, 10)));
+            shiftDirSelect.addEventListener('change', () => sendRadioCommand('set_shift_dir', shiftDirSelect.value));
+            toneSelect.addEventListener('change', () => sendRadioCommand('set_tone', parseFloat(toneSelect.value)));
+            squelchSwitch.addEventListener('change', () => sendRadioCommand('set_squelch', squelchSwitch.checked));
+            
+            powerSelector.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    sendRadioCommand('set_power', e.target.dataset.power);
+                }
+            });
+            
+            // PTT Butonu (Aç/Kapat Mantığı)
+            pttBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/radio/action/toggle_ptt', { method: 'POST' });
+                    if (!response.ok) console.error('PTT durumu değiştirilemedi.');
+                } catch (error) {
+                    console.error('PTT komutu gönderilirken ağ hatası:', error);
+                }
+            });
+
+            // Ters Çevir Butonu
+            reverseBtn.addEventListener('click', async () => {
+                try {
+                    reverseBtn.classList.add('active'); // Anında geri bildirim
+                    const response = await fetch('/api/radio/action/reverse', { method: 'POST' });
+                    if (!response.ok) console.error('Ters çevirme komutu gönderilemedi.');
+                    setTimeout(() => reverseBtn.classList.remove('active'), 250); 
+                } catch (error) {
+                    console.error('Ters çevirme komutu gönderilirken ağ hatası:', error);
+                    reverseBtn.classList.remove('active');
+                }
+            });
+
+            // Tarama Butonu
+            scanBtn.addEventListener('click', async () => {
+                if (!confirm("Tarama işlemi, bir sinyal bulana veya bir tuşa basılana kadar web arayüzünü geçici olarak donduracaktır. Devam edilsin mi?")) return;
+                try {
+                    scanBtn.textContent = 'TARANIYOR';
+                    scanBtn.disabled = true;
+                    const response = await fetch('/api/radio/action/scan', { method: 'POST' });
+                    if (!response.ok) console.error('Tarama komutu gönderilemedi.');
+                } catch (error) {
+                    console.error('Tarama komutu gönderilirken ağ hatası:', error);
+                } finally {
+                    scanBtn.textContent = 'Tarama';
+                    scanBtn.disabled = false;
+                }
+            });
+            
+            // VNA Butonu
+            vnaBtn.addEventListener('click', async () => {
+                 if (!confirm("VNA işlemi birkaç saniye sürebilir ve bu sırada arayüz donabilir. Devam edilsin mi?")) return;
+                try {
+                    vnaBtn.textContent = 'ANALİZ...';
+                    vnaBtn.disabled = true;
+                    const response = await fetch('/api/radio/action/vna', { method: 'POST' });
+                    if (!response.ok) console.error('VNA komutu gönderilemedi.');
+                } catch (error)
+                 {
+                    console.error('VNA komutu gönderilirken ağ hatası:', error);
+                } finally {
+                    vnaBtn.textContent = 'VNA';
+                    vnaBtn.disabled = false;
+                }
+            });
+
+            dtmfGrid.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    alert(`DTMF (${e.target.textContent}) özelliği yakında eklenecektir.`);
+                }
+            });
+            
+            // --- TELSİZ SEKMESİ İLK YÜKLEME ---
+            populateToneSelect(toneSelect);
+            setInterval(updateRadioStatus, 500); // Durumu periyodik olarak güncelle
+
+
+            // ======================================================================================
+            // === DEĞİŞİKLİK SONU ==================================================================
+            // ======================================================================================
+
+            
+            // === MEVCUT KOD DEVAMI (DEĞİŞTİRİLMEMİŞ BÖLÜMLER) ===
+            document.getElementById('theme-switcher').addEventListener('change', () => document.body.classList.toggle('light-mode'));
+
+            // --- KANALLAR SEKMESİ ---
+            async function loadChannels() {
+                showStatusMessage(channelsStatusMsg, 'Kanallar yükleniyor...', 'info', 0);
+                try {
+                    const response = await fetch('/api/channels/get_all');
+                    if (!response.ok) throw new Error(`Sunucu hatası: ${response.statusText}`);
+                    const channels = await response.json();
+                    renderChannels(channels);
+                    channelsStatusMsg.style.display = 'none';
+                } catch (error) {
+                    console.error("Kanallar yüklenemedi:", error);
+                    showStatusMessage(channelsStatusMsg, `Hata: Kanallar yüklenemedi. ${error.message}`, 'error');
+                }
+            }
+
+            function renderChannels(channels) {
+                channelsTableBody.innerHTML = '';
+                if (!channels || channels.length === 0) {
+                    channelsTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Kayıtlı kanal bulunamadı.</td></tr>';
+                    return;
+                }
+                channels.forEach(ch => {
+                    const row = document.createElement('tr');
+                    row.dataset.channelNo = ch.no;
+                    const isToneOn = parseFloat(ch.tone) > 0;
+                    
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="channel-select" data-channel-no="${ch.no}"></td>
+                        <td>${ch.no}</td>
+                        <td><input class="inline-edit channel-name" type="text" value="${ch.name}" maxlength="4"></td>
+                        <td><input class="inline-edit channel-freq" type="text" value="${ch.freq}" inputmode="decimal"></td>
+                        <td class="ton-cell"></td>
+                        <td><input class="inline-edit channel-shift" type="text" value="${ch.shift}" inputmode="numeric"></td>
+                        <td>
+                            <select class="inline-edit channel-shift-dir">
+                                <option value="-" ${ch.shift_dir === '-' ? 'selected' : ''}>-</option>
+                                <option value="+" ${ch.shift_dir === '+' ? 'selected' : ''}>+</option>
+                                <option value="S" ${ch.shift_dir === 'S' ? 'selected' : ''}>S</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select class="inline-edit channel-power">
+                                <option value="Yüksek" ${ch.power === 'Yüksek' ? 'selected' : ''}>Yüksek</option>
+                                <option value="Düşük" ${ch.power === 'Düşük' ? 'selected' : ''}>Düşük</option>
+                            </select>
+                        </td>
+                        <td class="action-buttons">
+                            <button class="activate-btn" title="Aktif Et"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+                            <button class="save-btn" title="Kaydet"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+                            <button class="delete-btn" title="Sil"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+                        </td>
+                    `;
+                    
+                    const tonCell = row.querySelector('.ton-cell');
+                    const tonSelect = document.createElement('select');
+                    tonSelect.className = 'inline-edit channel-tone';
+                    populateToneSelect(tonSelect, ch.tone);
+                    tonCell.appendChild(tonSelect);
+                    
+                    channelsTableBody.appendChild(row);
+                });
+                updateSelectAllCheckboxState();
+            }
+
+            // --- KANAL İŞLEMLERİ (SİLME, GÜNCELLEME, EKLEME) ---
+            channelsTableBody.addEventListener('click', async (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+
+                const row = button.closest('tr');
+                const channelNo = parseInt(row.dataset.channelNo, 10);
+
+                if (button.classList.contains('save-btn')) {
+                    const payload = {
+                        no: channelNo,
+                        name: row.querySelector('.channel-name').value,
+                        freq: row.querySelector('.channel-freq').value,
+                        shift: parseInt(row.querySelector('.channel-shift').value, 10),
+                        shift_dir: row.querySelector('.channel-shift-dir').value,
+                        power: row.querySelector('.channel-power').value,
+                        tone: parseFloat(row.querySelector('.channel-tone').value),
+                        tone_enabled: parseFloat(row.querySelector('.channel-tone').value) > 0 ? 1 : 0
+                    };
+                    
+                    showStatusMessage(channelsStatusMsg, `${channelNo}. kanal kaydediliyor...`, 'info', 0);
+                    try {
+                        const response = await fetch('/api/channels/update', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!response.ok) throw new Error('Kanal güncellenemedi.');
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(channelsStatusMsg, `${channelNo}. kanal başarıyla güncellendi.`, 'success');
+                        } else {
+                             throw new Error(result.error || 'Bilinmeyen hata.');
+                        }
+                    } catch (error) {
+                        console.error('Kanal Kaydetme Hatası:', error);
+                        showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                    }
+                } else if (button.classList.contains('activate-btn')) {
+                    showStatusMessage(channelsStatusMsg, `${channelNo}. kanal telsize yükleniyor...`, 'info', 0);
+                     try {
+                        const response = await fetch('/api/channels/activate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ no: channelNo })
+                        });
+                        if (!response.ok) throw new Error('Kanal aktif edilemedi.');
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(channelsStatusMsg, `${channelNo}. kanal başarıyla aktif edildi.`, 'success');
+                        } else {
+                             throw new Error(result.error || 'Bilinmeyen hata.');
+                        }
+                    } catch (error) {
+                        console.error('Kanal Aktif Etme Hatası:', error);
+                        showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                    }
+                } else if (button.classList.contains('delete-btn')) {
+                    if (!confirm(`${channelNo}. kanalı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) return;
+
+                    showStatusMessage(channelsStatusMsg, `${channelNo}. kanal siliniyor...`, 'info', 0);
+                    try {
+                        const response = await fetch('/api/channels/delete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ no: channelNo })
+                        });
+                        if (!response.ok) throw new Error('Kanal silinemedi.');
+                        const result = await response.json();
+                        if (result.success) {
+                            showStatusMessage(channelsStatusMsg, `Kanal başarıyla silindi.`, 'success');
+                            loadChannels();
+                        } else {
+                            throw new Error(result.error || 'Bilinmeyen hata.');
+                        }
+                    } catch(error) {
+                        console.error('Kanal Silme Hatası:', error);
+                        showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                    }
+                }
+            });
+
+            document.getElementById('add-channel-btn').addEventListener('click', async () => {
+                showStatusMessage(channelsStatusMsg, 'Yeni kanal ekleniyor...', 'info', 0);
+                try {
+                    const response = await fetch('/api/channels/add', { method: 'POST' });
+                    if (!response.ok) {
+                        if (response.status === 409) throw new Error('Hafıza dolu, yeni kanal eklenemiyor.');
+                        throw new Error('Yeni kanal eklenemedi.');
+                    }
+                    const result = await response.json();
+                    if (result.success) {
+                        showStatusMessage(channelsStatusMsg, `Yeni kanal #${result.new_channel_no} eklendi.`, 'success');
+                        await loadChannels();
+                        // Yeni eklenen satıra scroll yap
+                        const newRow = document.querySelector(`tr[data-channel-no="${result.new_channel_no}"]`);
+                        if (newRow) {
+                            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    } else {
+                        throw new Error(result.error || 'Bilinmeyen bir hata oluştu.');
+                    }
+                } catch(error) {
+                     console.error('Kanal Ekleme Hatası:', error);
+                     showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                }
+            });
+
+            // --- TOPLU SİLME MANTIĞI ---
+            const selectAllCheckbox = document.getElementById('select-all-channels');
+            selectAllCheckbox.addEventListener('change', () => {
+                document.querySelectorAll('.channel-select').forEach(cb => {
+                    cb.checked = selectAllCheckbox.checked;
+                });
+            });
+            
+            channelsTableBody.addEventListener('change', (e) => {
+                if(e.target.classList.contains('channel-select')) {
+                    updateSelectAllCheckboxState();
+                }
+            });
+
+            function updateSelectAllCheckboxState() {
+                 const allCheckboxes = document.querySelectorAll('.channel-select');
+                 const checkedCount = document.querySelectorAll('.channel-select:checked').length;
+                 if (allCheckboxes.length === 0) {
+                     selectAllCheckbox.checked = false;
+                     selectAllCheckbox.indeterminate = false;
+                     return;
+                 }
+                 if (checkedCount === allCheckboxes.length) {
+                     selectAllCheckbox.checked = true;
+                     selectAllCheckbox.indeterminate = false;
+                 } else if (checkedCount > 0) {
+                     selectAllCheckbox.checked = false;
+                     selectAllCheckbox.indeterminate = true;
+                 } else {
+                     selectAllCheckbox.checked = false;
+                     selectAllCheckbox.indeterminate = false;
+                 }
+            }
+
+            document.getElementById('delete-selected-btn').addEventListener('click', async () => {
+                const selectedCheckboxes = document.querySelectorAll('.channel-select:checked');
+                if (selectedCheckboxes.length === 0) {
+                    alert('Lütfen silmek için en az bir kanal seçin.');
+                    return;
+                }
+                
+                const channelsToDelete = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.channelNo));
+                
+                if (!confirm(`${channelsToDelete.length} adet kanalı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) return;
+
+                showStatusMessage(channelsStatusMsg, 'Seçili kanallar siliniyor...', 'info', 0);
+                 try {
+                    const response = await fetch('/api/channels/delete_multiple', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ channels: channelsToDelete })
+                    });
+                    if (!response.ok) throw new Error('Kanallar silinemedi.');
+                    const result = await response.json();
+                    if (result.success) {
+                        showStatusMessage(channelsStatusMsg, `${channelsToDelete.length} kanal başarıyla silindi.`, 'success');
+                        loadChannels();
+                    } else {
+                        throw new Error(result.error || 'Bilinmeyen hata.');
+                    }
+                } catch(error) {
+                     console.error('Toplu Silme Hatası:', error);
+                     showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                }
+            });
+
+
+            // --- CSV İŞLEMLERİ ---
+            document.getElementById('export-csv-btn').addEventListener('click', () => {
+                window.location.href = '/api/channels/export_csv';
+            });
+            
+            const csvFileInput = document.getElementById('csv-file-input');
+            document.getElementById('import-csv-btn').addEventListener('click', () => {
+                csvFileInput.click();
+            });
+
+            csvFileInput.addEventListener('change', async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                showStatusMessage(channelsStatusMsg, 'CSV dosyası yükleniyor ve işleniyor...', 'info', 0);
+                
+                try {
+                    const fileContent = await file.text();
+                    const response = await fetch('/api/channels/import_csv', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: fileContent
+                    });
+
+                    if (!response.ok) throw new Error('CSV dosyası sunucuya gönderilemedi.');
+                    
+                    const result = await response.json();
+                    if(result.success) {
+                        showStatusMessage(channelsStatusMsg, 'Kanallar başarıyla içe aktarıldı. Liste yenileniyor...', 'success');
+                        setTimeout(loadChannels, 1500); // Sunucunun dosyayı işlemesi için bekle
+                    } else {
+                        throw new Error(result.error || 'Bilinmeyen bir sunucu hatası.');
+                    }
+                } catch (error) {
+                    console.error('CSV İçe Aktarma Hatası:', error);
+                    showStatusMessage(channelsStatusMsg, `Hata: ${error.message}`, 'error');
+                } finally {
+                    csvFileInput.value = ''; // Input'u sıfırla
+                }
+            });
+
+
+            // --- AYARLAR SEKMESİ ---
+            const settingsStatusMsg = document.getElementById('settings-status-msg');
+
+            async function loadGeneralSettings() {
+                try {
+                    const response = await fetch('/api/settings/config');
+                    if (!response.ok) throw new Error('Genel ayarlar alınamadı.');
+                    const config = await response.json();
+
+                    document.getElementById('greeting-input').value = config.greeting || '';
+                    document.getElementById('band-select').value = config.radio_type;
+                    document.getElementById('tot-select').value = config.tot_timer;
+                    document.getElementById('trx-min-input').value = config.trx_min || '';
+                    document.getElementById('trx-max-input').value = config.trx_max || '';
+                    document.getElementById('scn-min-input').value = config.scn_min || '';
+                    document.getElementById('scn-max-input').value = config.scn_max || '';
+
+                } catch (error) {
+                    console.error('Ayarlar Yüklenemedi:', error);
+                    showStatusMessage(settingsStatusMsg, 'Genel ayarlar yüklenemedi.', 'error');
+                }
+            }
+
+            document.getElementById('save-settings-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true;
+                btn.textContent = 'Kaydediliyor...';
+                
+                const currentBand = document.getElementById('band-select').dataset.currentValue;
+                const newBand = document.getElementById('band-select').value;
+                
+                const payload = {
+                    greeting: document.getElementById('greeting-input').value,
+                    radio_type: parseInt(newBand, 10),
+                    tot_timer: parseInt(document.getElementById('tot-select').value, 10),
+                    trx_min: document.getElementById('trx-min-input').value,
+                    trx_max: document.getElementById('trx-max-input').value,
+                    scn_min: document.getElementById('scn-min-input').value,
+                    scn_max: document.getElementById('scn-max-input').value,
+                };
+
+                try {
+                    const response = await fetch('/api/settings/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error('Ayarlar kaydedilemedi.');
+                    const result = await response.json();
+                    if (result.success) {
+                        if (currentBand !== newBand) {
+                           showStatusMessage(settingsStatusMsg, 'Bant değiştirildi. Cihaz yeniden başlatılıyor...', 'info', 5000);
+                           setTimeout(() => location.reload(), 2000);
+                        } else {
+                            showStatusMessage(settingsStatusMsg, 'Ayarlar başarıyla kaydedildi.', 'success');
+                        }
+                    } else {
+                        throw new Error(result.error || 'Bilinmeyen bir hata oluştu.');
+                    }
+                } catch (error) {
+                    console.error('Ayarları Kaydetme Hatası:', error);
+                    showStatusMessage(settingsStatusMsg, `Hata: ${error.message}`, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Tüm Ayarları Kaydet';
+                }
+            });
+
+
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const isVisible = content.style.display === 'block';
+                    content.style.display = isVisible ? 'none' : 'block';
+                    header.querySelector('span').style.transform = isVisible ? 'rotate(0deg)' : 'rotate(90deg)';
+                });
+            });
+
+            // --- DEĞİŞİKLİK 4: KANAL KAYDETME MODALI ---
+            const modal = document.getElementById('save-modal');
+            const channelNameInput = document.getElementById('channel-name-input');
+            const confirmSaveBtn = document.getElementById('confirm-save-btn');
+
+            document.getElementById('save-channel-btn').addEventListener('click', () => {
+                channelNameInput.value = ''; // Her açılışta input'u temizle
+                modal.style.display = 'block';
+            });
+            document.getElementById('cancel-save-btn').addEventListener('click', () => modal.style.display = 'none');
+            window.addEventListener('click', (event) => { if (event.target == modal) modal.style.display = 'none'; });
+
+            // YENİ: Kaydet butonuna basıldığında API'yi çağıran mantık
+            confirmSaveBtn.addEventListener('click', async () => {
+                const name = channelNameInput.value.trim();
+                if (name.length < 1 || name.length > 4) {
+                    alert('Kanal adı 1 ile 4 karakter arasında olmalıdır.');
+                    return;
+                }
+
+                confirmSaveBtn.disabled = true;
+                confirmSaveBtn.textContent = 'Kaydediliyor...';
+
+                try {
+                    const response = await fetch('/api/channels/save_current', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: name })
+                    });
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                        alert(result.message || 'Kanal başarıyla kaydedildi.');
+                        modal.style.display = 'none';
+                        // Kanal listesi sekmesi aktifse listeyi yenile
+                        if (document.getElementById('tab-kanallar').classList.contains('active')) {
+                            loadChannels();
+                        }
+                    } else {
+                        throw new Error(result.error || 'Bilinmeyen bir hata oluştu.');
+                    }
+                } catch (error) {
+                    alert(`Hata: ${error.message}`);
+                } finally {
+                    confirmSaveBtn.disabled = false;
+                    confirmSaveBtn.textContent = 'Kaydet';
+                }
+            });
+
+            // --- APRS SEKMESİ ---
+            const aprsEnabledSwitch = document.getElementById('aprs-enabled-switch');
+            const aprsSettingsContainer = document.getElementById('aprs-settings-container');
+            const aprsTimeoutInput = document.getElementById('aprs-timeout-input');
+            const locSourceSelect = document.getElementById('location-source-select');
+            const fixedLocInputs = document.getElementById('fixed-location-inputs');
+            const aprsStatusMsg = document.getElementById('aprs-status-msg');
+
+            async function loadAprsConfig() {
+                try {
+                    const response = await fetch('/api/aprs/config');
+                    if (!response.ok) throw new Error('APRS ayarları alınamadı.');
+                    const config = await response.json();
+
+                    document.getElementById('aprs-mycall-input').value = config.mycall || '';
+                    document.getElementById('aprs-myssid-input').value = config.myssid || 9;
+                    document.getElementById('aprs-timeout-input').value = config.timeout || 0;
+                    document.getElementById('aprs-freq-input').value = config.aprs_freq || '';
+                    document.getElementById('iss-freq-input').value = config.iss_freq || '';
+                    document.getElementById('aprs-message-input').value = config.message || '';
+                    document.getElementById('lat-input').value = config.lat || '';
+                    document.getElementById('lon-input').value = config.lon || '';
+                    locSourceSelect.value = config.use_gps ? 'gps' : 'fixed';
+                    const isAprsOn = config.timeout > 0;
+                    aprsEnabledSwitch.checked = isAprsOn;
+                    if (isAprsOn) { lastAprsTimeout = config.timeout; }
+                    updateAprsUI();
+                } catch (error) {
+                    console.error('APRS Ayarları Yüklenemedi:', error);
+                    showStatusMessage(aprsStatusMsg, 'APRS ayarları yüklenemedi.', 'error');
+                }
+            }
+            function updateAprsUI() {
+                const isEnabled = aprsEnabledSwitch.checked;
+                aprsSettingsContainer.style.display = isEnabled ? 'block' : 'none';
+                const isFixed = locSourceSelect.value === 'fixed';
+                fixedLocInputs.style.display = isFixed ? 'block' : 'none';
+                document.getElementById('get-gps-now-btn').style.display = isFixed ? 'none' : 'block';
+            }
+            aprsEnabledSwitch.addEventListener('change', () => {
+                if (aprsEnabledSwitch.checked) {
+                    aprsTimeoutInput.value = lastAprsTimeout > 0 ? lastAprsTimeout : 3;
+                } else {
+                    const currentTimeout = parseInt(aprsTimeoutInput.value, 10);
+                    if (currentTimeout > 0) { lastAprsTimeout = currentTimeout; }
+                    aprsTimeoutInput.value = 0;
+                }
+                updateAprsUI();
+            });
+            locSourceSelect.addEventListener('change', updateAprsUI);
+            document.getElementById('save-aprs-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+                const payload = {
+                    mycall: document.getElementById('aprs-mycall-input').value,
+                    myssid: parseInt(document.getElementById('aprs-myssid-input').value, 10),
+                    timeout: parseInt(aprsTimeoutInput.value, 10),
+                    aprs_freq: document.getElementById('aprs-freq-input').value,
+                    iss_freq: document.getElementById('iss-freq-input').value,
+                    message: document.getElementById('aprs-message-input').value,
+                    lat: document.getElementById('lat-input').value,
+                    lon: document.getElementById('lon-input').value,
+                    use_gps: locSourceSelect.value === 'gps'
+                };
+                try {
+                    const response = await fetch('/api/aprs/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error('Ayarlar kaydedilemedi.');
+                    const result = await response.json();
+                    if (result.success) { showStatusMessage(aprsStatusMsg, 'APRS ayarları başarıyla kaydedildi.', 'success'); } 
+                    else { throw new Error(result.error || 'Bilinmeyen bir hata oluştu.'); }
+                } catch (error) {
+                    console.error('APRS Kaydetme Hatası:', error);
+                    showStatusMessage(aprsStatusMsg, `Hata: ${error.message}`, 'error');
+                } finally {
+                    btn.disabled = false; btn.textContent = 'APRS Ayarlarını Kaydet';
+                }
+            });
+            document.getElementById('get-gps-now-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Alınıyor...';
+                 try {
+                    const response = await fetch('/api/gps/now');
+                    if (!response.ok) throw new Error('Konum alınamadı.');
+                    const data = await response.json();
+                    document.getElementById('lat-input').value = data.lat || '';
+                    document.getElementById('lon-input').value = data.lon || '';
+                    showStatusMessage(aprsStatusMsg, 'GPS konumu başarıyla alındı.', 'success');
+                } catch (error) {
+                    console.error('GPS Konum Hatası:', error);
+                    showStatusMessage(aprsStatusMsg, `Hata: ${error.message}`, 'error');
+                } finally {
+                    btn.disabled = false; btn.textContent = 'Anlık GPS Konumunu Al';
+                }
+            });
+            document.getElementById('send-beacon-now-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Gönderiliyor...';
+                 try {
+                    const response = await fetch('/api/aprs/send_beacon', { method: 'POST' });
+                    if (!response.ok) throw new Error('Beacon gönderilemedi.');
+                    const result = await response.json();
+                    if(result.success) { showStatusMessage(aprsStatusMsg, 'Manuel beacon gönderildi.', 'success'); } 
+                    else { throw new Error(result.error || 'Bilinmeyen bir hata oluştu.'); }
+                } catch (error) {
+                    console.error('Beacon Gönderme Hatası:', error);
+                    showStatusMessage(aprsStatusMsg, `Hata: ${error.message}`, 'error');
+                } finally {
+                    btn.disabled = false; btn.textContent = 'Manuel Beacon Gönder';
+                }
+            });
+
+            // --- WIFI SEKMESİ ---
+            async function fetchWifiStatus() {
+                try {
+                    const response = await fetch('/api/wifi/status');
+                    const status = await response.json();
+                    if (status.mode === 'STA') {
+                        wifiStatusText.textContent = `Ağa Bağlı: ${status.ssid} (${status.ip})`;
+                        wifiStatusText.style.color = 'var(--success-color)';
+                    } else if (status.mode === 'AP') {
+                        wifiStatusText.textContent = `AP Modu Aktif: ${status.ip}`;
+                        wifiStatusText.style.color = 'var(--warning-color)';
+                    } else {
+                        wifiStatusText.textContent = 'Bağlı Değil';
+                        wifiStatusText.style.color = 'var(--text-muted-color)';
+                    }
+                } catch (e) {
+                    wifiStatusText.textContent = 'Durum alınamadı';
+                    wifiStatusText.style.color = 'var(--danger-color)';
+                }
+            }
+            async function fetchWifiConfig() {
+                try {
+                    const response = await fetch('/api/wifi/config');
+                    if (!response.ok) throw new Error('WiFi ayarları alınamadı.');
+                    wifiConfig = await response.json();
+                    populateWifiForms();
+                    renderSavedNetworks();
+                } catch (error) {
+                    console.error('Hata:', error);
+                    wifiStatusText.textContent = 'Ayarlar alınamadı!';
+                    wifiStatusText.style.color = 'var(--danger-color)';
+                }
+            }
+            function populateWifiForms() {
+                document.getElementById('wifi-module-enabled').checked = wifiConfig.wifi_enabled || false;
+                document.getElementById('ap-ssid').value = wifiConfig.ap_settings?.ssid || '';
+                document.getElementById('ap-pass').value = wifiConfig.ap_settings?.pass || '';
+                document.getElementById('ap-ip').value = wifiConfig.ap_settings?.ip || '';
+                document.getElementById('web-user').value = wifiConfig.web_auth?.user || '';
+                document.getElementById('web-pass').value = wifiConfig.web_auth?.pass || '';
+            }
+            function renderSavedNetworks() {
+                savedNetworksList.innerHTML = '';
+                const networks = wifiConfig.saved_networks || [];
+                networks.forEach((net, index) => {
+                    const li = document.createElement('li');
+                    li.dataset.index = index;
+                    li.innerHTML = `
+                        <div class="priority-controls">
+                             <button class="priority-up" title="Önceliği Artır" ${index === 0 ? 'disabled' : ''}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                            </button>
+                            <button class="priority-down" title="Önceliği Azalt" ${index === networks.length - 1 ? 'disabled' : ''}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                        </div>
+                        <div class="network-details">
+                            <input type="text" class="saved-ssid" value="${net.ssid}" placeholder="SSID">
+                            <input type="password" class="saved-pass" value="${net.pass}" placeholder="Şifre">
+                        </div>
+                        <label class="hidden-network-label">
+                            <input type="checkbox" class="saved-hidden" ${net.hidden ? 'checked' : ''}> Gizli
+                        </label>
+                        <div class="action-buttons">
+                             <button class="save-net-btn" title="Kaydet">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                             </button>
+                             <button class="delete-net-btn" title="Sil">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                             </button>
+                        </div>
+                    `;
+                    savedNetworksList.appendChild(li);
+                });
+            }
+            document.getElementById('scan-wifi-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Taranıyor...';
+                scannedNetworksList.innerHTML = '<li>Ağlar aranıyor, lütfen bekleyin...</li>';
+                try {
+                    const response = await fetch('/api/wifi/scan');
+                    if (!response.ok) throw new Error('Ağlar taranamadı.');
+                    const networks = await response.json();
+                    scannedNetworksList.innerHTML = '';
+                    if (networks.length === 0) {
+                        scannedNetworksList.innerHTML = '<li>Çevrede ağ bulunamadı.</li>';
+                    } else {
+                        networks.forEach(net => {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<span>${net.ssid} (${net.rssi}dBm, ${net.auth})</span> <button class="btn-secondary add-scanned-net-btn" data-ssid="${net.ssid}">Ekle</button>`;
+                            scannedNetworksList.appendChild(li);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Tarama Hatası:', error);
+                    scannedNetworksList.innerHTML = '<li>Tarama başarısız oldu.</li>';
+                } finally {
+                    btn.disabled = false; btn.textContent = 'Çevredeki Ağları Tara';
+                }
+            });
+            scannedNetworksList.addEventListener('click', e => {
+                 if (e.target.classList.contains('add-scanned-net-btn')) {
+                    const ssid = e.target.dataset.ssid;
+                    const pass = prompt(`'${ssid}' için şifre girin:`);
+                    if (pass !== null) {
+                         if (!wifiConfig.saved_networks) wifiConfig.saved_networks = [];
+                         wifiConfig.saved_networks.push({ssid: ssid, pass: pass, hidden: false, priority: wifiConfig.saved_networks.length });
+                         renderSavedNetworks();
+                         alert(`'${ssid}' eklendi. Ayarları kaydetmeyi unutmayın.`);
+                    }
+                 }
+            });
+            document.getElementById('manual-add-btn').addEventListener('click', () => {
+                const ssid = document.getElementById('manual-ssid').value;
+                const pass = document.getElementById('manual-pass').value;
+                const hidden = document.getElementById('manual-hidden').checked;
+                if (!ssid) { alert('SSID boş bırakılamaz.'); return; }
+                 if (!wifiConfig.saved_networks) wifiConfig.saved_networks = [];
+                wifiConfig.saved_networks.push({ssid, pass, hidden, priority: wifiConfig.saved_networks.length });
+                renderSavedNetworks();
+                alert(`'${ssid}' manuel olarak eklendi. Ayarları kaydetmeyi unutmayın.`);
+                document.getElementById('manual-ssid').value = '';
+                document.getElementById('manual-pass').value = '';
+                document.getElementById('manual-hidden').checked = false;
+            });
+            savedNetworksList.addEventListener('click', e => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                const li = button.closest('li');
+                const index = parseInt(li.dataset.index);
+                if (button.classList.contains('priority-up') && index > 0) {
+                    [wifiConfig.saved_networks[index], wifiConfig.saved_networks[index - 1]] = [wifiConfig.saved_networks[index - 1], wifiConfig.saved_networks[index]];
+                    renderSavedNetworks();
+                } else if (button.classList.contains('priority-down') && index < wifiConfig.saved_networks.length - 1) {
+                    [wifiConfig.saved_networks[index], wifiConfig.saved_networks[index + 1]] = [wifiConfig.saved_networks[index + 1], wifiConfig.saved_networks[index]];
+                    renderSavedNetworks();
+                } else if (button.classList.contains('delete-net-btn')) {
+                    if (confirm(`'${wifiConfig.saved_networks[index].ssid}' ağını silmek istediğinizden emin misiniz?`)) {
+                        wifiConfig.saved_networks.splice(index, 1);
+                        renderSavedNetworks();
+                    }
+                } else if (button.classList.contains('save-net-btn')) {
+                     const net = wifiConfig.saved_networks[index];
+                     net.ssid = li.querySelector('.saved-ssid').value;
+                     net.pass = li.querySelector('.saved-pass').value;
+                     net.hidden = li.querySelector('.saved-hidden').checked;
+                     alert(`'${net.ssid}' güncellendi. Değişiklikleri kalıcı hale getirmek için en alttaki butona basın.`);
+                }
+            });
+            document.getElementById('save-wifi-btn').addEventListener('click', async (e) => {
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Kaydediliyor...';
+                const payload = {
+                    wifi_enabled: document.getElementById('wifi-module-enabled').checked,
+                    ap_settings: {
+                        ssid: document.getElementById('ap-ssid').value,
+                        pass: document.getElementById('ap-pass').value,
+                        ip: document.getElementById('ap-ip').value
+                    },
+                    web_auth: {
+                        user: document.getElementById('web-user').value,
+                        pass: document.getElementById('web-pass').value
+                    },
+                    saved_networks: wifiConfig.saved_networks || []
+                };
+                payload.saved_networks.forEach((net, i) => net.priority = i);
+                try {
+                    const response = await fetch('/api/wifi/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error('Ayarlar kaydedilemedi.');
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Ayarlar kaydedildi. Cihaz yeniden başlatılıyor...');
+                        setTimeout(() => { location.reload(); }, 2000);
+                    } else {
+                        throw new Error('Sunucu ayarları kaydetmedi.');
+                    }
+                } catch (error) {
+                     console.error('Kaydetme Hatası:', error);
+                     alert('Ayarları kaydederken bir hata oluştu.');
+                } finally {
+                    btn.disabled = false; btn.textContent = 'WiFi Ayarlarını Kaydet';
+                }
+            });
+            
+            // --- OTA & YEDEKLEME SEKMESİ ---
+            const otaStatus = document.getElementById('ota-status');
+            const otaStatusMessage = document.getElementById('ota-status-message');
+            const otaProgress = document.getElementById('ota-progress');
+            document.getElementById('update-firmware-btn').addEventListener('click', async (e) => {
+                const fileInput = document.getElementById('firmware-file');
+                const file = fileInput.files[0];
+                if (!file) { alert('Lütfen bir .bin dosyası seçin.'); return; }
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Yükleniyor...';
+                otaStatus.style.display = 'block'; otaStatus.className = 'ota-status'; otaProgress.style.width = '0%';
+                const formData = new FormData();
+                formData.append('update', file, file.name);
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/update', true);
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percentComplete = (e.loaded / e.total) * 100;
+                            otaProgress.style.width = percentComplete + '%';
+                            otaStatusMessage.textContent = `Yükleniyor... ${Math.round(percentComplete)}%`;
+                        }
+                    });
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            otaStatus.classList.add('success');
+                            otaStatusMessage.textContent = 'Güncelleme başarılı! Cihaz yeniden başlatılıyor...';
+                             setTimeout(() => { location.reload(); }, 3000);
+                        } else { throw new Error(`Sunucu hatası: ${xhr.statusText}`); }
+                    };
+                    xhr.onerror = () => { throw new Error('Yükleme sırasında bir ağ hatası oluştu.'); };
+                    xhr.send(formData);
+                } catch (error) {
+                    console.error('OTA Hatası:', error);
+                    otaStatus.classList.add('error');
+                    otaStatusMessage.textContent = `Hata: ${error.message}`;
+                    btn.disabled = false; btn.textContent = 'Güncellemeyi Başlat';
+                }
+            });
+            const fsStatus = document.getElementById('fs-status');
+            const fsStatusMessage = document.getElementById('fs-status-message');
+            const fsProgress = document.getElementById('fs-progress');
+            document.getElementById('update-fs-btn').addEventListener('click', async (e) => {
+                const fileInput = document.getElementById('fs-file');
+                const file = fileInput.files[0];
+                if (!file) { alert('Lütfen bir .bin dosyası (littlefs.bin) seçin.'); return; }
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Yükleniyor...';
+                fsStatus.style.display = 'block'; fsStatus.className = 'ota-status'; fsProgress.style.width = '0%';
+                const formData = new FormData();
+                formData.append('filesystem', file, file.name);
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/update_fs', true);
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            const percentComplete = (e.loaded / e.total) * 100;
+                            fsProgress.style.width = percentComplete + '%';
+                            fsStatusMessage.textContent = `Yükleniyor... ${Math.round(percentComplete)}%`;
+                        }
+                    });
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            fsStatus.classList.add('success');
+                            fsStatusMessage.textContent = 'Arayüz güncellemesi başarılı! Cihaz yeniden başlatılıyor...';
+                             setTimeout(() => { location.reload(); }, 3000);
+                        } else { throw new Error(`Sunucu hatası: ${xhr.statusText}`); }
+                    };
+                    xhr.onerror = () => { throw new Error('Yükleme sırasında bir ağ hatası oluştu.'); };
+                    xhr.send(formData);
+                } catch (error) {
+                    console.error('Dosya Sistemi OTA Hatası:', error);
+                    fsStatus.classList.add('error');
+                    fsStatusMessage.textContent = `Hata: ${error.message}`;
+                    btn.disabled = false; btn.textContent = 'Arayüzü Güncellemeyi Başlat';
+                }
+            });
+            document.getElementById('export-backup-btn').addEventListener('click', () => { window.location.href = '/api/backup/export'; });
+            document.getElementById('import-backup-btn').addEventListener('click', async (e) => {
+                const fileInput = document.getElementById('backup-file');
+                const file = fileInput.files[0];
+                if (!file) { alert('Lütfen bir .json yedek dosyası seçin.'); return; }
+                const btn = e.target;
+                btn.disabled = true; btn.textContent = 'Geri Yükleniyor...';
+                backupStatus.style.display = 'block'; backupStatus.className = 'status-message info'; backupStatus.textContent = 'Yedek dosyası yükleniyor...';
+                const formData = new FormData();
+                formData.append('backup', file, file.name);
+                try {
+                    const response = await fetch('/api/backup/import', { method: 'POST', body: formData });
+                    if (!response.ok) { const errorText = await response.text(); throw new Error(`Sunucu hatası: ${errorText}`); }
+                    const result = await response.json();
+                    if (result.success) {
+                        backupStatus.className = 'status-message success';
+                        backupStatus.textContent = 'Yedek başarıyla geri yüklendi! Cihaz yeniden başlatılıyor...';
+                        setTimeout(() => { location.reload(); }, 3000);
+                    } else { throw new Error(result.error || 'Bilinmeyen bir hata oluştu.'); }
+                } catch (error) {
+                    console.error('Yedek Geri Yükleme Hatası:', error);
+                    backupStatus.className = 'status-message error';
+                    backupStatus.textContent = `Hata: ${error.message}`;
+                    btn.disabled = false; btn.textContent = 'Yapılandırmayı İçe Aktar (Geri Yükle)';
+                }
+            });
+            
+            // --- İLK YÜKLEME ---
+            loadGeneralSettings();
+        });
+    </script>
+</body>
+</html>
