@@ -1,3 +1,6 @@
+# ORJINAL PROJE
+Bu dizin arduino nano ile ytapilmis orjinal projenin bilgilerini saklamak amaciyla bu dizine tasinmistir. Lutfen ESP32 ve Raspberry Pi Pico ile yapilan yeni kitlerden birini yapmayi tercih ediniz. Boylece cok daha fazla ozellige sahip olacaksiniz.
+
 # ONEMLI HATIRLATMA !!!
 Bu projenin amaclarindan biri de TAMSAT Amator Uydu Teknolojileri Dernegi'ne cuzi bir miktar bagis toplamaktir. Burada yayinlanan kodlari sadece TAMSAT'tan temin ettiginiz arduino'lar uzerinde kullaniniz. Simdilik bir kisitlama olmayip herhangibir arduino uzerinde calisacaktir, ancak daha sonra yayinlanacak guncellemeleri TAMSAT@tan temin etmediginiz arduino'lara yukleyemeyeceginiz gibi (yuklemeniz durumunda cihazinizin gorecegi zararlar olabilecegini ve bunun bizlerin sorumlulugunda olmadigini hatirlatarak) , yayinlanacak olan PC kontrol yazilimini da kullanamiyor olacaksiniz.
 
