@@ -147,6 +147,7 @@ void setupWebServer() {
         json["greeting"] = greetingMessage;
         json["radio_type"] = radio_type;
         json["tot_timer"] = tot_timer;
+        json["ui_theme"] = ui_theme; // YENİ: Kayıtlı UI temasını ekle
 
         // Frekansları _125 formatından MHz formatına çevirerek ekle
         char freq_buffer[10];
@@ -178,7 +179,7 @@ void setupWebServer() {
         greetingMessage = obj["greeting"].as<String>();
         radio_type = new_radio_type;
         tot_timer = obj["tot_timer"];
-        
+        ui_theme = obj["ui_theme"].as<String>(); // YENİ: Gelen UI temasını al
         freqLimits.trx_min_125 = (uint16_t)((obj["trx_min"].as<float>() * 1000.0) / 12.5);
         freqLimits.trx_max_125 = (uint16_t)((obj["trx_max"].as<float>() * 1000.0) / 12.5);
         freqLimits.scn_min_125 = (uint16_t)((obj["scn_min"].as<float>() * 1000.0) / 12.5);

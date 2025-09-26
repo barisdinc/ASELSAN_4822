@@ -178,6 +178,7 @@ bool loadConfig() {
     greetingMessage = doc["greeting"].as<String>();
     radio_type = doc["radio_type"];
     tot_timer = doc["tot_timer"];
+    ui_theme = doc["ui_theme"] | "dark"; // YENİ: UI temasını oku, yoksa varsayılan 'dark' olsun.
 
     // Limitler de artık bu dosyadan okunuyor
     freqLimits.trx_min_125 = doc["trx_min_125"];
@@ -194,6 +195,7 @@ void saveConfig() {
     doc["greeting"] = greetingMessage;
     doc["radio_type"] = radio_type;
     doc["tot_timer"] = tot_timer;
+    doc["ui_theme"] = ui_theme; // YENİ: UI temasını kaydet.
 
     // Limitler de artık bu dosyaya kaydediliyor
     doc["trx_min_125"] = freqLimits.trx_min_125;
@@ -860,7 +862,7 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
 
     if (ChannelNumber == 996) {
         char ipBuffer[30]; // "IP 192.168.255.255" gibi bir metin için yeterli alan
-        snprintf(ipBuffer, sizeof(ipBuffer), "IP %s", currentIP.c_str());
+        snprintf(ipBuffer, sizeof(ipBuffer), "IP %s       ", currentIP.c_str());
         ipToDisplay = ipBuffer; // Ana döngünün IP'yi ekrana yazdırması için bayrağı ayarla
         Alert_Tone(SUCC_tone);  // Komutun alındığına dair sesli onay
         return; // Fonksiyondan hemen çık, frekansla ilgili işlemleri yapma

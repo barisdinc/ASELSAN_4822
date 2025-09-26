@@ -247,6 +247,7 @@ extern String commandString;
 extern bool commandComplete;
 extern String currentIP;
 extern String ipToDisplay;
+extern String ui_theme; // YENİ: Web arayüzü temasını tutar ("dark" veya "light")
 extern String greetingMessage; // DEĞİŞİKLİK: CALLSIGN -> greetingMessage
 extern uint16_t tot_timer;     // YENİ: Gönderme Zaman Aşımı (TOT)
 extern String mycall;
@@ -355,4 +356,3 @@ void startScan();
 void serialEvent();
 
 #endif // DECLARATIONS_H
-

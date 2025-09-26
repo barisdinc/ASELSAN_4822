@@ -160,6 +160,7 @@ String currentIP = "NO IP";
 String ipToDisplay = "";
 
 // LittleFS Ayarları
+String ui_theme = "dark"; // YENİ: Web arayüzü temasını tutar ("dark" veya "light")
 String greetingMessage = "";
 uint16_t tot_timer = 0;
 String mycall = "N0CALL";
@@ -634,7 +635,7 @@ void loop() {
                       numChar = 0;
                   }
                   // Eğer giriş bizim özel bayrağımızla (?) başladıysa, bu bir kaydetme onayıdır.
-                  else if (FRQ[0] == '?') {
+                  else if (FRQ[0] == '>') {
                       if (numChar > 1) { // ? ve en az 1 hane var mı?
                           char channelNumStr[4];
                           strncpy(channelNumStr, &FRQ[1], numChar - 1);
@@ -656,7 +657,7 @@ void loop() {
                   strcpy(FRQ_old, FRQ);
                   memset(FRQ, ' ', 8);
                   FRQ[8] = 0;
-                  FRQ[0] = '?'; // Ekranda görünmeyecek özel bayrağımız.
+                  FRQ[0] = '>'; // Ekranda görünmeyecek özel bayrağımız.
                   numChar = 1;
                   writeToLcd(&FRQ[1]); // Ekrana sadece boşlukları yazdır (ekranı temizle).
               }
@@ -699,7 +700,7 @@ void loop() {
           default:
             /* ------------------    FRQ/KOMUT GİRİŞİ ------------ */
             // Eğer bir komut modundaysak (# veya * ile başlamışsa), rakamları işle
-            if (FRQ[0] == '?' || FRQ[0] == '*') {
+            if (FRQ[0] == '>' || FRQ[0] == '*') {
                 if (numChar < 4) { // Maksimum 3 hane + başı = 4 karakter
                     FRQ[numChar] = pressedKEY;
                     numChar++;
