@@ -498,6 +498,15 @@
         #csv-file-input { display: none; }
 
     </style>
+    <!-- YENİ: Sayfa yüklenirken temanın anlık titremesini (yanlış temada görünmesini) engellemek için -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme');
+            if (theme === 'light') {
+                document.body.classList.add('light-mode');
+            }
+        })();
+    </script>
 </head>
 <body>
 
@@ -929,6 +938,7 @@
             const wifiStatusText = document.getElementById('wifi-status-text');
             const backupStatus = document.getElementById('backup-status');
             const channelsStatusMsg = document.getElementById('channels-status-msg');
+            const themeSwitcher = document.getElementById('theme-switcher');
             
             // --- SEKME YÖNETİMİ ---
             const navButtons = document.querySelectorAll('.nav-button');
@@ -976,9 +986,61 @@
                     setTimeout(() => { element.style.display = 'none'; }, duration);
                 }
             }
-            
+
             // ======================================================================================
-            // === DEĞİŞİKLİK BAŞLANGICI: TELSİZ KONTROL SEKMESİNİN TÜM JAVASCRIPT KODU =============
+            // === YENİ VE GÜNCELLENMİŞ BÖLÜM: Frekans Formatlama ve Tema Yönetimi ===================
+            // ======================================================================================
+
+            // --- YENİ: Frekans Girişini Anlık Olarak Formatlayan Fonksiyon ---
+            function formatFrequencyInput(event) {
+                const input = event.target;
+                let originalValue = input.value;
+                
+                // Girilen değerden rakam olmayan her şeyi temizle
+                let digits = originalValue.replace(/[^0-9]/g, '');
+
+                // Frekans en fazla 6 haneli olabilir (örn: 433500)
+                if (digits.length > 6) {
+                    digits = digits.substring(0, 6);
+                }
+                
+                let formattedValue = digits;
+                // Eğer 3'ten fazla rakam varsa, üçüncüden sonra noktayı ekle
+                if (digits.length > 3) {
+                    formattedValue = digits.substring(0, 3) + '.' + digits.substring(3);
+                }
+                
+                // Sadece formatlanmış değer orijinalden farklıysa güncelle
+                // Bu, imlecin gereksiz yere zıplamasını engeller
+                if (originalValue !== formattedValue) {
+                    input.value = formattedValue;
+                }
+            }
+            
+            // --- YENİ: İlgili tüm frekans girişlerine formatlama fonksiyonunu bağla ---
+            const freqInputIDs = ['freq-input', 'trx-min-input', 'trx-max-input', 'scn-min-input', 'scn-max-input', 'aprs-freq-input', 'iss-freq-input'];
+            freqInputIDs.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.addEventListener('input', formatFrequencyInput);
+            });
+
+            // --- YENİ: Dinamik olarak oluşturulan kanal frekans girişleri için olay delegasyonu ---
+            channelsTableBody.addEventListener('input', (event) => {
+                if (event.target.classList.contains('channel-freq')) {
+                    formatFrequencyInput(event);
+                }
+            });
+            
+            // --- GÜNCELLENDİ: Tema değiştirme anahtarı ---
+            themeSwitcher.addEventListener('change', () => {
+                // body'deki class'ı değiştir ve seçimi tarayıcı hafızasına (localStorage) kaydet
+                const isLight = document.body.classList.toggle('light-mode');
+                localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            });
+
+
+            // ======================================================================================
+            // === TELSİZ KONTROL SEKMESİ ============================================================
             // ======================================================================================
 
             // --- TELSİZ SEKMESİ ELEMENTLERİ ---
@@ -1028,7 +1090,6 @@
 
                     isUpdatingUI = true; 
 
-                    // DEĞİŞİKLİK 1: Nostaljik Ekran Güncellemesi (Shift'li frekans)
                     if (status.mode === 'TX' && status.tx_frequency) {
                         radioDisplayFreq.textContent = status.tx_frequency;
                     } else {
@@ -1066,8 +1127,6 @@
                          }
                     });
 
-                    // DEĞİŞİKLİK 2: PTT Butonu durumu
-                    // Butonun 'active' class'ı artık web ptt'sinin açık olup olmadığına göre ayarlanıyor.
                     pttBtn.classList.toggle('active', status.web_ptt_on);
                     pttBtn.textContent = status.web_ptt_on ? 'GÖNDERİMDE' : 'PTT';
                     
@@ -1084,35 +1143,7 @@
                 );
             }
 
-            // --- DEĞİŞİKLİK 3: YENİ TELSİZ SEKMESİ OLAY DİNLEYİCİLERİ ---
-            // (Eski basılı tutma mantığı tamamen kaldırıldı ve butonlar için ayrı click event'leri eklendi)
-            
             freqInput.addEventListener('change', () => sendRadioCommand('set_frequency', freqInput.value));
-            // Frekans girişini anlık olarak formatlamak için yeni olay dinleyici
-            freqInput.addEventListener('input', (e) => {
-                let input = e.target;
-                let originalValue = input.value;
-                
-                // Girilen değerden rakam olmayan her şeyi temizle
-                let digits = originalValue.replace(/[^0-9]/g, '');
-
-                // Frekans en fazla 6 haneli olabilir (örn: 433500)
-                if (digits.length > 6) {
-                    digits = digits.substring(0, 6);
-                }
-                
-                let formattedValue = digits;
-                // Eğer 3'ten fazla rakam varsa, üçüncüden sonra noktayı ekle
-                if (digits.length > 3) {
-                    formattedValue = digits.substring(0, 3) + '.' + digits.substring(3);
-                }
-                
-                // Sadece formatlanmış değer orijinalden farklıysa güncelle
-                // Bu, imlecin gereksiz yere zıplamasını engeller
-                if (originalValue !== formattedValue) {
-                    input.value = formattedValue;
-                }
-            });
             shiftInput.addEventListener('change', () => sendRadioCommand('set_shift_khz', parseInt(shiftInput.value, 10)));
             shiftDirSelect.addEventListener('change', () => sendRadioCommand('set_shift_dir', shiftDirSelect.value));
             toneSelect.addEventListener('change', () => sendRadioCommand('set_tone', parseFloat(toneSelect.value)));
@@ -1190,15 +1221,7 @@
             populateToneSelect(toneSelect);
             setInterval(updateRadioStatus, 500); // Durumu periyodik olarak güncelle
 
-
-            // ======================================================================================
-            // === DEĞİŞİKLİK SONU ==================================================================
-            // ======================================================================================
-
             
-            // === MEVCUT KOD DEVAMI (DEĞİŞTİRİLMEMİŞ BÖLÜMLER) ===
-            document.getElementById('theme-switcher').addEventListener('change', () => document.body.classList.toggle('light-mode'));
-
             // --- KANALLAR SEKMESİ ---
             async function loadChannels() {
                 showStatusMessage(channelsStatusMsg, 'Kanallar yükleniyor...', 'info', 0);
@@ -1488,6 +1511,12 @@
                     const response = await fetch('/api/settings/config');
                     if (!response.ok) throw new Error('Genel ayarlar alınamadı.');
                     const config = await response.json();
+                    
+                    // --- GÜNCELLENDİ: Tema ayarını cihazdan oku ve uygula ---
+                    const isLight = config.ui_theme === 'light';
+                    themeSwitcher.checked = isLight;
+                    document.body.classList.toggle('light-mode', isLight);
+                    localStorage.setItem('theme', config.ui_theme); // Tarayıcı hafızasını senkronize et
 
                     document.getElementById('greeting-input').value = config.greeting || '';
                     document.getElementById('band-select').value = config.radio_type;
@@ -1515,6 +1544,7 @@
                     greeting: document.getElementById('greeting-input').value,
                     radio_type: parseInt(newBand, 10),
                     tot_timer: parseInt(document.getElementById('tot-select').value, 10),
+                    ui_theme: document.body.classList.contains('light-mode') ? 'light' : 'dark', // YENİ: Aktif temayı gönder
                     trx_min: document.getElementById('trx-min-input').value,
                     trx_max: document.getElementById('trx-max-input').value,
                     scn_min: document.getElementById('scn-min-input').value,
@@ -1558,7 +1588,6 @@
                 });
             });
 
-            // --- DEĞİŞİKLİK 4: KANAL KAYDETME MODALI ---
             const modal = document.getElementById('save-modal');
             const channelNameInput = document.getElementById('channel-name-input');
             const confirmSaveBtn = document.getElementById('confirm-save-btn');
