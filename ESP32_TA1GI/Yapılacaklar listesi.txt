@@ -1,0 +1,44 @@
+TODO:
+
+1-Tarama ve vna daki sorun: web arayüzündeki Tarama ve VNA butonlarına tıklanınca telsizdeki fiziksel tuşlar işlevsiz hale geliyor. (usb ile esp32 beslenmeye devam ederken sadece telsiz kapatılıp açılınca fiziksel tuşlar aktif hale geliyor.)
+
+2-Web arayüzündeki Tuş takımı:
+
+	Ana Felsefe: Web arayüzü, telsizin bir "uzaktan kumanda ve ekranı" gibi davranacak. Web'de yapılan her tuş basımı önce telsize gidecek, telsizdeki durum değişikliği (ekrandaki yazı, mod değişikliği vb.) tekrar web arayüzüne yansıyacak. Bu, mükemmel bir senkronizasyon sağlar.
+	
+	İş Akışı Örneği (RX Modunda):
+	
+	Kullanıcı, web arayüzündeki '1' tuşuna tıklar.
+	
+	JavaScript:
+	
+	Anında: Arayüzdeki frekans metin kutusuna '1' yazar. (Bu, kullanıcıya anlık görsel geri bildirim verir).
+	
+	Aynı Anda: Arka planda, ESP32'ye /api/radio/keypress adresine {'key': '1'} isteğini gönderir.
+	
+	ESP32 (web_functions.cpp):
+	
+	İsteği alır ve main.cpp'nin okuyacağı ortak "posta kutusu" değişkenine '1' karakterini yazar.
+	
+	ESP32 (main.cpp):
+	
+	Posta kutusundaki '1'i okur ve sanki fiziksel tuşa basılmış gibi işler. Telsizin kendi frekans giriş mantığını (numChar değişkeni, FRQ dizisi vb.) günceller.
+	
+	Sonuç: Web'de tuşa basmak hem web ekranını hem de telsizin kendisini eş zamanlı olarak etkiler. Kullanıcı frekans girmeye web tuşlarıyla başlayıp fiziksel klavye ile veya web'deki metin kutusuna yazarak devam edebilir. Bütün giriş yöntemleri aynı "durum" üzerinde çalışır.
+
+3-Tx ton da şuan şöyle bir sorun var. Yüksek sesle konuşulursa ses karşıya kesik kesik gidiyor.
+
+4-Aprs özellikleri test edilmedi. Muhtemelen çalışmıyor. Üzerinde çalışma gerekebilir.
+
+5-Rx ton özelliği ekle
+
+6-RX de Dtmf çözme özelliği ekle
+
+7-Susturma seviyesi
+
+	Yukarıdaki 3 özellik için:
+	Telsiz modülünün alıcı ses çıkışından (genellikle "AF Out" veya "Discriminator Output" olarak adlandırılır) bir kablo çekilerek ESP32'nin Analog-Dijital Çevirici (ADC) pinlerinden birine bağlanması gerekir.
+	Bu, ESP32'nin gelen sesi "dinlemesini" sağlayacak olan fiziksel bağlantıdır.
+	Telsizin ses çıkışının (AF Out), ESP32'nin GPIO 36 pinine (ADC1_CH0) bağlandığını varsayarak ilerleyeceğim. Bu pin, ADC (Analog-Dijital Çevirici) için ideal bir pindir.
+
+8-Arayüze kullanım kılavuzu gibi bir şey eklenebilir.
