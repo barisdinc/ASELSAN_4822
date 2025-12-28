@@ -4,6 +4,7 @@
 #include "config.h"
 
 void radio_init();
+void set_FRQ(uint32_t Frequency);
 void set_pll(uint32_t frequency);
 void set_band_pins(uint32_t frequency, int radio_type); // 0: VHF, 1: UHF
 void start_tone(float frequency);

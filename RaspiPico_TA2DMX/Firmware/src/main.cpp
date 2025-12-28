@@ -97,7 +97,7 @@ void process_scan() {
         current_channel.frequency += 25; 
         if (current_channel.frequency > 440000 && current_channel.frequency < 400000) current_channel.frequency = 144000;
         if (current_channel.frequency > 470000) current_channel.frequency = 430000;
-        set_pll(current_channel.frequency);
+        set_FRQ(current_channel.frequency);
         display_write_text("SCANNING");
     }
 }
@@ -138,13 +138,13 @@ void handle_keypad_input() {
                 if (numChar == 7) {
                     uint32_t new_freq;
                     if (Calculate_Frequency(FRQ, &new_freq)) {
-                        current_channel.frequency = new_freq; set_pll(current_channel.frequency); save_channel(&current_channel); update_display();
+                        current_channel.frequency = new_freq; set_FRQ(current_channel.frequency); save_channel(&current_channel); update_display();
                     } else { alert_tone(2); strcpy(FRQ, FRQ_old); update_display(); }
                     numChar = 0;
                 }
             }
-            else if (pressedKEY == 'U') { current_channel.frequency += 25; set_pll(current_channel.frequency); update_display(); }
-            else if (pressedKEY == 'D') { current_channel.frequency -= 25; set_pll(current_channel.frequency); update_display(); }
+            else if (pressedKEY == 'U') { current_channel.frequency += 25; set_FRQ(current_channel.frequency); update_display(); }
+            else if (pressedKEY == 'D') { current_channel.frequency -= 25; set_FRQ(current_channel.frequency); update_display(); }
             else if (pressedKEY == 'M') { scr_mode = 1; menu_index = 0; update_display(); }
             
             else if (pressedKEY == 'S') { 
@@ -197,28 +197,28 @@ int main() {
     display_write_text("ASELSAN ");
     sleep_ms(1000);
     update_display(); 
-    set_pll(current_channel.frequency);
+    set_FRQ(current_channel.frequency);
     
     while (1) {
         uint32_t current_millis = to_ms_since_boot(get_absolute_time());
 
-        if (gpio_get(PTT_IN_PIN) == 0) { 
+        if (gpio_get(PTT_IN_PIN) == 1) { 
             if (is_scanning) is_scanning = false;
             if (trx_mode == 0) {
                 trx_mode = 1; ptt_start_time = current_millis;
                 uint32_t tx_freq = current_channel.frequency;
                 if(current_channel.shift_dir == 1) tx_freq += current_channel.shift;      
                 else if(current_channel.shift_dir == -1) tx_freq -= current_channel.shift;
-                set_pll(tx_freq);
+                set_FRQ(tx_freq);
                 if(current_channel.tone_enabled) start_tone(tone_list[current_channel.tone_pos]);
             }
             if ((current_millis - ptt_start_time) > 180000) { 
                  trx_mode = 0; gpio_put(PTT_OUT_PIN, 0); stop_tone(); alert_tone(2);
             }
         } else { 
-            if (trx_mode == 1) {
-                set_pll(current_channel.frequency); 
-            }
+            // if (trx_mode == 1) {
+                set_FRQ(current_channel.frequency + IF_FREQ); 
+            // }
         }
 
         check_squelch(); 

@@ -4,8 +4,13 @@
 #include "pico/stdlib.h"
 #include "stdint-gcc.h"
 
+#define VHF     0
+#define UHF     1
+
+#define RADIO_TYPE      VHF
+#define IF_FREQ         45000
+
 // --- I2C (Ekran ve Keypad) ---
-// GÜNCELLENDİ: GP16 (SDA) ve GP17 (SCL) olarak değiştirildi.
 // Pico W pinout'una göre GP16/17 "I2C0" donanımına bağlıdır.
 #define I2C_PORT        i2c0
 #define I2C_SDA_PIN     16 // GP16
@@ -17,9 +22,9 @@
 
 // --- PLL Kontrol (MC145158) ---
 #define PLL_CLK_PIN     9  //2  // GP2
-#define PLL_DATA_PIN    10 //3  // GP3
-#define PLL_ENA_PIN     5  //6  // GP6
-#define PLL_SEC_PIN     7 //7  //---?????? A2 ,, orta alttan 2  // GP7
+#define PLL_DATA_PIN    11 //10 //3  // GP3
+#define PLL_ENA_PIN     7 //5  //6  // GP6
+#define PLL_SEC_PIN     5 //7 //7  //---?????? A2 ,, orta alttan 2  // GP7
 
 // --- Genel Kontrol Pinleri ---
 #define KEYPAD_INT_PIN  4  //15 // GP15
@@ -34,7 +39,7 @@
 
 // --- Buzzer (DEĞİŞTİ) ---
 // GP16'yı I2C aldığı için, Buzzer'ı eski I2C pini olan GP4'e taşıdık.
-#define ALERT_BUZZER    4  // GP4 (Eski SDA pini)
+// #define ALERT_BUZZER    4  // GP4 (Eski SDA pini)
 
 // --- ADC Pinleri (SWR Metre) ---
 #define FWD_PWR_PIN     21 //26 // ADC0

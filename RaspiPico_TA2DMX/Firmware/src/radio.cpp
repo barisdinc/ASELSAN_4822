@@ -6,6 +6,30 @@
 #include <stdio.h>
 #include "stdint-gcc.h"
 
+//VHF BAND SELECTION  
+//BS0 BS1
+// 0  0     152.2   172.6
+// 0  1     147.9   165.5
+// 1  0     141.6   157.1
+// 1  1     137.2   151.4
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| VHF        | 152.2   172.6 |   0 |   0 |
+//|            | 147.9   165.5 |   0 |   1 |
+//|            | 141.6   157.1 |   1 |   0 |
+//|            | 137.2   151.4 |   1 |   1 |
+//+------------+---------------+-----+-----+
+
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| UHF        | 406.0   418.0 |   1 |   1 |
+//|            | 418.0   430.0 |   0 |   1 |
+//|            | 440.0   455.0 |   1 |   0 |
+//|            | 455.0   470.0 |   0 |   0 |
+//+------------+---------------+-----+-----+
+
 ChannelConfig current_channel;
 bool is_transmitting = false;
 
@@ -131,3 +155,55 @@ void check_ptt() {
         }
     }
 }
+
+void set_FRQ(uint32_t Frequency) {
+    static uint32_t last_freq = 0;
+//VHF BAND SELECTION  
+//BS0 BS1
+// 0  0     152.2   172.6
+// 0  1     147.9   165.5
+// 1  0     141.6   157.1
+// 1  1     137.2   151.4
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| VHF        | 152.2   172.6 |   0 |   0 |
+//|            | 147.9   165.5 |   0 |   1 |
+//|            | 141.6   157.1 |   1 |   0 |
+//|            | 137.2   151.4 |   1 |   1 |
+//+------------+---------------+-----+-----+
+
+//+------------+---------------+-----+-----+
+//| Radio Type |  Frequency    | BS0 | BS1 |
+//+------------+---------------+-----+-----+
+//| UHF        | 406.0   418.0 |   1 |   1 |
+//|            | 418.0   430.0 |   0 |   1 |
+//|            | 440.0   455.0 |   1 |   0 |
+//|            | 455.0   470.0 |   0 |   0 |
+//+------------+---------------+-----+-----+
+
+//uint32_t UpdatedFrq = 0;
+//float divider = 0;
+//   if (validFRQ) {
+     if(RADIO_TYPE == VHF)
+     {
+       if ((Frequency < 174000L) & (Frequency >= (166000L)))  { gpio_put(BAND_SEL0_PIN, 0); gpio_put(BAND_SEL1_PIN,0); }
+       if ((Frequency < 166000L) & (Frequency >= (158000L)))  { gpio_put(BAND_SEL0_PIN, 1); gpio_put(BAND_SEL1_PIN,0); } 
+       if ((Frequency < 158000L) & (Frequency >= (152000L)))  { gpio_put(BAND_SEL0_PIN, 0); gpio_put(BAND_SEL1_PIN,1); } 
+       if ((Frequency < 152000L) & (Frequency >= (134000L)))  { gpio_put(BAND_SEL0_PIN, 1); gpio_put(BAND_SEL1_PIN,1); } 
+     }
+     else if(RADIO_TYPE == UHF)
+     {
+//        if ((Frequency < 470000L) & (Frequency >= (452000L))) {digitalWrite(BAND_SELECT_0, LOW); digitalWrite(BAND_SELECT_1, LOW); }
+//        if ((Frequency < 452000L) & (Frequency >= (430000L))) {digitalWrite(BAND_SELECT_0, HIGH);digitalWrite(BAND_SELECT_1, HIGH);}
+//     // Update EEPROM for last used Frequncy
+     }
+     // //BD1    current_ch.frequency = Frequency; //UpdatedFrq;
+// //BD1    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
+
+     if (Frequency != last_freq) set_pll(Frequency);
+     last_freq = Frequency;
+     printf("freq = %d \n", Frequency);
+//   } //validFRQ 
+}
+
