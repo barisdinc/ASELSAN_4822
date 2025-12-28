@@ -17,13 +17,11 @@ uint8_t current_led_status = 0xFF;
 
 void pcf_write(uint8_t addr, uint8_t data) {
     i2c_write_blocking(I2C_PORT, addr, &data, 1, false);
-    printf("W %x\n", addr);
 }
 
 uint8_t pcf_read(uint8_t addr) {
     uint8_t data = 0xFF;
     i2c_read_blocking(I2C_PORT, addr, &data, 1, false);
-    printf("R %x\n", addr);
     return data;
 }
 
@@ -38,7 +36,7 @@ void keypad_init() {
     pcf_write(PCF8574_KEYB_ADDR, 0xFF);
     
     // TD3 (LED + Keypad): Hepsini High yap (LEDler sönük, Tuşlar Input)
-    current_led_status = 0x00;//FF;
+    current_led_status = 0xF0;//FF;
     pcf_write(PCF8574_LED_ADDR, current_led_status);
 
 }
@@ -64,7 +62,7 @@ void set_led(uint8_t led_mask, bool state) {
     
     if (current_led_status != old_status) {
         led_set_status(current_led_status);
-        printf("led : %d \n", led_mask);
+        // printf("led : %d \n", led_mask);
     }
 }
 

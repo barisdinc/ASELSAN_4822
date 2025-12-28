@@ -9,14 +9,14 @@
 // TD3 Entegresi (0x21) üzerindeki bağlantılar:
 // P0-P3: Tuş Takımı Tarama
 // P4: LA1, P5: LA2, P6: LA3, P7: Backlight
-#define LED_LA1       0x80  // Binary: 0001 0000 (P4)
-#define LED_LA2       0x40  // Binary: 0010 0000 (P5)
-#define LED_LA3       0x30  // Binary: 0100 0000 (P6)
-#define LED_BACKLIGHT 0x10  // Binary: 1000 0000 (P7)
+#define LED_BACKLIGHT 0x10  // Binary: 0001 0000 (P4)
+#define LED_LA1       0x20  // Binary: 0010 0000 (P5)
+#define LED_LA2       0x40  // Binary: 0100 0000 (P6)
+#define LED_LA3       0x80  // Binary: 1000 0000 (P7)
 
-#define LED_GREEN     LED_LA1
+#define LED_YELLOW    LED_LA1
 #define LED_RED       LED_LA2
-#define LED_YELLOW    LED_LA3
+#define LED_GREEN     LED_LA3
 
 void keypad_init();
 char keypad_read(); 

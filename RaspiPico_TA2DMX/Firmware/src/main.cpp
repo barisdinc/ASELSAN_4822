@@ -105,10 +105,9 @@ void process_scan() {
 void handle_keypad_input() {
     pressedKEY = keypad_read();
     
-    // Debug için hangi tuşun okunduğunu yazdıralım
-    if (pressedKEY != 0) {
-        printf("Key Processed: %c\n", pressedKEY);
-    }
+    // if (pressedKEY != 0) {
+    //     printf("Key Processed: %c\n", pressedKEY);
+    // }
 
     static bool long_press_handled = false;
     if (pressedKEY != 0 && pressedKEY == old_pressedKEY) {
