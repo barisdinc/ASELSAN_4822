@@ -84,13 +84,13 @@ void set_pll_bits(int value, int bits) {
 }
 
 void set_pll(uint32_t frequency) {
-    // Hesaplamalar (Basitleştirilmiş)
     uint32_t freqToSet = frequency;
     // ... Shift hesaplamaları buraya eklenecek ...
     
     int R_Counter = 12800 / 12.5; 
     int N_Counter = freqToSet / 12.5 / 80;
     int A_Counter = (freqToSet / 12.5) - (80 * N_Counter);
+    printf("A : %d N: %d R: %d \n", A_Counter, N_Counter, R_Counter);
 
     gpio_put(PLL_SEC_PIN, 0);
     set_pll_bits(R_Counter, 14);

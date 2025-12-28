@@ -35,11 +35,19 @@ uint32_t last_millis = 0;
 uint32_t ptt_start_time = 0;
 uint32_t key_press_time = 0; 
 
+volatile bool keypad_event_flag = false; // Keypad kesmesi
+
 void alert_tone(int type) {
     if(type == 1) start_tone(1000); 
     if(type == 2) start_tone(400);  
     sleep_ms(100);
     stop_tone();
+}
+
+void gpio_callback(uint gpio, uint32_t events) {
+    if (gpio == KEYPAD_INT_PIN) {
+        keypad_event_flag = true; 
+    }
 }
 
 void update_display() {
@@ -61,29 +69,23 @@ void update_display() {
     }
 }
 
-// --- SQUELCH MANTIĞI ---
 void check_squelch() {
     bool speaker_on = false;
-    
-    // 0 = Sinyal Var (Aktif Low)
     if (gpio_get(SQL_ACTIVE_PIN) == 0) speaker_on = true;
-    
-    // Monitor (S Tuşu) açıksa zorla aç
     if (sql_override) speaker_on = true;
 
-    // KESİN KONTROL
     if (speaker_on) {
-        gpio_put(MUTE_PIN, 0); // 0 = SES AÇIK (UNMUTE)
+        gpio_put(MUTE_PIN, 0); 
         set_led(LED_GREEN, true);
     } else {
-        gpio_put(MUTE_PIN, 1); // 1 = SES KAPALI (MUTE)
+        gpio_put(MUTE_PIN, 1); 
         set_led(LED_GREEN, false);
     }
 }
 
 void process_scan() {
     if (!is_scanning) return;
-    if (gpio_get(SQL_ACTIVE_PIN) == 0) { // Sinyal var
+    if (gpio_get(SQL_ACTIVE_PIN) == 0) { 
         scr_mode = 3; 
         numberToFrequency(current_channel.frequency, FRQ);
         display_write_freq(FRQ);
@@ -103,6 +105,11 @@ void process_scan() {
 void handle_keypad_input() {
     pressedKEY = keypad_read();
     
+    // Debug için hangi tuşun okunduğunu yazdıralım
+    if (pressedKEY != 0) {
+        printf("Key Processed: %c\n", pressedKEY);
+    }
+
     static bool long_press_handled = false;
     if (pressedKEY != 0 && pressedKEY == old_pressedKEY) {
         if (!long_press_handled && (to_ms_since_boot(get_absolute_time()) - key_press_time > 1500)) {
@@ -142,10 +149,9 @@ void handle_keypad_input() {
             else if (pressedKEY == 'M') { scr_mode = 1; menu_index = 0; update_display(); }
             
             else if (pressedKEY == 'S') { 
-                sql_override = !sql_override; // MONITOR TOGGLE
+                sql_override = !sql_override; 
                 update_display();
-                check_squelch(); // Anında uygula
-                printf("Monitor Button: %d\n", sql_override);
+                check_squelch(); 
             }
             
             else if (pressedKEY == 'C') { light_latch = !light_latch; set_backlight(light_latch); }
@@ -171,13 +177,11 @@ void handle_keypad_input() {
 
 int main() {
     stdio_init_all();
-    // Seri portun açılmasını bekle
     sleep_ms(2000);
     
     storage_init();
     load_channel(&current_channel);
     
-    // Frekans limit kontrolü
     if (current_channel.frequency < 10000 || current_channel.frequency > 500000) {
         current_channel.frequency = 145000; current_channel.shift = 600; 
         current_channel.tone_enabled = false; current_channel.shift_dir = 0;
@@ -186,6 +190,9 @@ int main() {
     radio_init();
     display_init();
     keypad_init();
+   
+    keypad_event_flag = false;
+    gpio_set_irq_enabled_with_callback(KEYPAD_INT_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
 
     set_backlight(true);
     display_write_text("ASELSAN ");
@@ -200,7 +207,6 @@ int main() {
             if (is_scanning) is_scanning = false;
             if (trx_mode == 0) {
                 trx_mode = 1; ptt_start_time = current_millis;
-                gpio_put(PTT_OUT_PIN, 1); set_led(LED_RED, true); set_led(LED_GREEN, false);
                 uint32_t tx_freq = current_channel.frequency;
                 if(current_channel.shift_dir == 1) tx_freq += current_channel.shift;      
                 else if(current_channel.shift_dir == -1) tx_freq -= current_channel.shift;
@@ -212,15 +218,25 @@ int main() {
             }
         } else { 
             if (trx_mode == 1) {
-                trx_mode = 0; gpio_put(PTT_OUT_PIN, 0); stop_tone(); set_led(LED_RED, false); 
                 set_pll(current_channel.frequency); 
             }
         }
 
         check_squelch(); 
         process_scan(); 
-        handle_keypad_input();
+        if (keypad_event_flag) {
+            gpio_set_irq_enabled(KEYPAD_INT_PIN, GPIO_IRQ_EDGE_FALL, false);
+            sleep_ms(30); 
+            handle_keypad_input(); 
+            keypad_event_flag = false; 
+            gpio_set_irq_enabled(KEYPAD_INT_PIN, GPIO_IRQ_EDGE_FALL, true);            
+        }
         
+        if (pressedKEY != 0) {
+             handle_keypad_input();
+             sleep_ms(50); // Çok hızlı döngüyü yavaşlat
+        }
+
         if (scr_mode != 0 && scr_mode != 3 && scr_timer > 0) { 
             scr_timer--;
             if (scr_timer == 0) { scr_mode = 0; save_channel(&current_channel); update_display(); }

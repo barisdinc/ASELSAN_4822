@@ -19,7 +19,7 @@
 #define PLL_CLK_PIN     9  //2  // GP2
 #define PLL_DATA_PIN    10 //3  // GP3
 #define PLL_ENA_PIN     5  //6  // GP6
-#define PLL_SEC_PIN     5 //7  //---?????? A2 ,, orta alttan 2  // GP7
+#define PLL_SEC_PIN     7 //7  //---?????? A2 ,, orta alttan 2  // GP7
 
 // --- Genel Kontrol Pinleri ---
 #define KEYPAD_INT_PIN  4  //15 // GP15
