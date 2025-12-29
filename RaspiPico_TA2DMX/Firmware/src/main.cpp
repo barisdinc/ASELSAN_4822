@@ -9,6 +9,11 @@
 #include "helpers.h"
 #include "keypad.h"
 #include "stdint-gcc.h"
+#include "pico/multicore.h"
+#include "ssb_rx.h"
+// IF Giriş pini  GP28/ADC2
+#define IF_INPUT_PIN 28
+int16_t ssb_fine_tune = 0;
 
 // --- Global Değişkenler ---
 char FRQ[9];
@@ -36,6 +41,15 @@ uint32_t ptt_start_time = 0;
 uint32_t key_press_time = 0; 
 
 volatile bool keypad_event_flag = false; // Keypad kesmesi
+
+void core1_entry() {
+    // SSB alıcısı
+    ssb_receiver.init(IF_INPUT_PIN, AUDIO_PWM_PIN);
+    ssb_receiver.start();
+    ssb_receiver.process_loop();
+}
+
+
 
 void alert_tone(int type) {
     if(type == 1) start_tone(1000); 
@@ -65,7 +79,7 @@ void update_display() {
         else if (menu_index == 1) { if(scr_mode==1) strcpy(lcd_buf, "SET OFST"); else sprintf(lcd_buf, "S %02d.%03d", current_channel.shift/1000, current_channel.shift%1000); }
         else if (menu_index == 2) { if(scr_mode==1) strcpy(lcd_buf, "SET TONE"); else get_tone_name(current_channel.tone_pos, lcd_buf); }
         else if (menu_index == 3) { if(scr_mode==1) strcpy(lcd_buf, "TONE SW"); else strcpy(lcd_buf, current_channel.tone_enabled ? "TONE ON" : "TONE OFF"); }
-        display_write_text(lcd_buf);
+        else if (menu_index == 4) { sprintf(lcd_buf, "FINE %d", ssb_fine_tune); display_write_text(lcd_buf); }
     }
 }
 
@@ -168,6 +182,11 @@ void handle_keypad_input() {
             if (pressedKEY == 'U') { changed=true; if(menu_index==0) current_channel.shift_dir = (current_channel.shift_dir==1)?-1:current_channel.shift_dir+1; else if(menu_index==1) current_channel.shift+=50; else if(menu_index==2) {current_channel.tone_pos++; if(current_channel.tone_pos>=tone_count)current_channel.tone_pos=0;} else if(menu_index==3) current_channel.tone_enabled=!current_channel.tone_enabled; }
             else if (pressedKEY == 'D') { changed=true; if(menu_index==0) current_channel.shift_dir = (current_channel.shift_dir==-1)?1:current_channel.shift_dir-1; else if(menu_index==1) {if(current_channel.shift>=50)current_channel.shift-=50;} else if(menu_index==2) {if(current_channel.tone_pos==0)current_channel.tone_pos=tone_count-1;else current_channel.tone_pos--;} else if(menu_index==3) current_channel.tone_enabled=!current_channel.tone_enabled; }
             else if (pressedKEY == 'M' || pressedKEY == '#' || pressedKEY == '*') { scr_mode = 1; update_display(); return; }
+            else if (menu_index == 4) {
+                if (pressedKEY == 'U') ssb_fine_tune += 10;// 10 Hz adımlarla ince ayar
+                if (pressedKEY == 'D') ssb_fine_tune -= 10;
+                ssb_receiver.set_fine_tune(ssb_fine_tune);
+            }            
             if(changed) update_display();
         }
     }
@@ -176,8 +195,10 @@ void handle_keypad_input() {
 
 int main() {
     stdio_init_all();
+    multicore_launch_core1(core1_entry);
+
     sleep_ms(2000);
-    
+
     storage_init();
     load_channel(&current_channel);
     
