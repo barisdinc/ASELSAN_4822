@@ -194,8 +194,10 @@ void set_FRQ(uint32_t Frequency) {
      }
      else if(RADIO_TYPE == UHF)
      {
-//        if ((Frequency < 470000L) & (Frequency >= (452000L))) {digitalWrite(BAND_SELECT_0, LOW); digitalWrite(BAND_SELECT_1, LOW); }
-//        if ((Frequency < 452000L) & (Frequency >= (430000L))) {digitalWrite(BAND_SELECT_0, HIGH);digitalWrite(BAND_SELECT_1, HIGH);}
+        if ((Frequency < 470000L) & (Frequency >= (455000L))) { gpio_put(BAND_SEL0_PIN, 0); gpio_put(BAND_SEL1_PIN, 0); }
+        if ((Frequency < 455000L) & (Frequency >= (430000L))) { gpio_put(BAND_SEL0_PIN, 1); gpio_put(BAND_SEL1_PIN, 0); }
+        if ((Frequency < 430000L) & (Frequency >= (418000L))) { gpio_put(BAND_SEL0_PIN, 0); gpio_put(BAND_SEL1_PIN, 1); }
+        if ((Frequency < 418000L) & (Frequency >= (406000L))) { gpio_put(BAND_SEL0_PIN, 1); gpio_put(BAND_SEL1_PIN, 1); }
 //     // Update EEPROM for last used Frequncy
      }
      // //BD1    current_ch.frequency = Frequency; //UpdatedFrq;
