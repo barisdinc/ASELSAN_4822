@@ -60,7 +60,7 @@ const unsigned char font[] = {
   B00000000, B00000000, B11110000, //% Special character to light all segments
 };
 
-const uint8_t sine_wave[SINE_TABLE_SIZE] = {
+const DRAM_ATTR uint8_t sine_wave[SINE_TABLE_SIZE] = {
   128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 161, 164, 167, 170, 173,
   176, 179, 182, 185, 188, 190, 193, 196, 198, 201, 203, 206, 208, 211, 213, 215,
   218, 220, 222, 224, 226, 228, 230, 232, 234, 236, 237, 239, 240, 242, 243, 245,
@@ -211,18 +211,17 @@ void setup() {
   const int TONE_CHANNEL = 0;     // 0-15 valid channels
   const int TONE_RESOLUTION = 8;  // bits (e.g. 8 bits -> duty 0-255)
   const int DEFAULT_PWM_FREQ = 1000; // initial PWM freq for timer setup
-  ledcSetup(TONE_CHANNEL, DEFAULT_PWM_FREQ, TONE_RESOLUTION);
-  ledcAttachPin(TONE_PIN, TONE_CHANNEL);
+  ledcAttachChannel(TONE_PIN, DEFAULT_PWM_FREQ, TONE_RESOLUTION, TONE_CHANNEL);
 
 
   // DEĞİŞTİ: LEDC yerine DAC timer'ı başlat
   // 0 -> timer #0, 80 -> prescaler (80MHz/80=1MHz), true -> count up
-  dac_timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(dac_timer, &onDacTimer, true); // Kesme fonksiyonunu bağla
+  dac_timer = timerBegin(1000000); // 1MHz timer (eski: 80MHz/80 prescaler = 1MHz)
+  timerAttachInterrupt(dac_timer, &onDacTimer); // Kesme fonksiyonunu bağla
 
   delay(100);
   
-  Serial.begin(9600);
+  Serial.begin(115200);
   commandString.reserve(200);
 
   GPS_Serial.begin(9600, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
