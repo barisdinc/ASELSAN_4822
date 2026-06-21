@@ -10,7 +10,8 @@
 #include <stdio.h>
 #include <HardwareSerial.h>
 #include <TinyGPS++.h>
-#include "driver/dac.h"
+#include "soc/rtc_io_reg.h"  // DAC doğrudan register erişimi için (ISR-güvenli)
+#include "soc/sens_reg.h"    // DAC CW üreteci kontrolü için
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>

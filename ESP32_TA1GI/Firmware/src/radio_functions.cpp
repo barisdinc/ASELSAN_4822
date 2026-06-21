@@ -18,7 +18,8 @@ void IRAM_ATTR onDacTimer() {
   // Zayıflatılmış değeri tekrar 0-255 aralığına taşı
   uint8_t final_value = attenuated_value + 128;
 
-  dacWrite(MIC_PIN, final_value); // DAC'a yeni, zayıflatılmış değeri yaz
+  // ISR-GÜVENLİ: dacWrite() yerine doğrudan register yazma (GPIO26 = DAC2)
+  SET_PERI_REG_BITS(RTC_IO_PAD_DAC2_REG, RTC_IO_PDAC2_DAC, final_value, RTC_IO_PDAC2_DAC_S);
   
   phase_accumulator = (phase_accumulator + 1) % SINE_TABLE_SIZE; // Tablodaki konumu bir artır
 }
@@ -26,21 +27,31 @@ void IRAM_ATTR onDacTimer() {
 // YENİ: Belirtilen frekansta sinüs tonu üretimini başlatır
 // DEĞİŞİKLİK: PTT kapalıyken DC voltaj oluşmasını önlemek için DAC kanalı etkinleştiriliyor.
 void startDacTone(float frequency) {
-  // MIC_PIN (GPIO26), DAC_CHANNEL_2'dir.
-  dac_output_enable(DAC_CHANNEL_2); // DAC çıkışını etkinleştir
+  // DAC2 CW (Cosine Wave) üretecini kapat — aksi hâlde donanım, yazılımdan gelen değerleri ezer
+  CLEAR_PERI_REG_MASK(SENS_SAR_DAC_CTRL1_REG, SENS_SW_TONE_EN);
+  CLEAR_PERI_REG_MASK(SENS_SAR_DAC_CTRL2_REG, SENS_DAC_CW_EN2_M);
+
+  // DAC2 (GPIO26) doğrudan register ile aktifleştir
+  SET_PERI_REG_MASK(RTC_IO_PAD_DAC2_REG, RTC_IO_PDAC2_MUX_SEL);
+  SET_PERI_REG_MASK(RTC_IO_PAD_DAC2_REG, RTC_IO_PDAC2_XPD_DAC | RTC_IO_PDAC2_DAC_XPD_FORCE);
 
   uint64_t timer_frequency = (uint64_t)(frequency * SINE_TABLE_SIZE); // Gerekli timer frekansını hesapla
-  timerAlarmWrite(dac_timer, 1000000 / timer_frequency, true); // Timer'ı ayarla (1MHz / frekans = periyot)
-  timerAlarmEnable(dac_timer); // Timer'ı ve kesmeyi etkinleştir
+  uint64_t alarm_val = 1000000 / timer_frequency;
+
+  timerWrite(dac_timer, 0); // Sayacı sıfırla
+  timerAlarm(dac_timer, alarm_val, true, 0); // Timer'ı ayarla
+  timerStart(dac_timer); // KRİTİK: timerStop() sonrası timer durdu, timerAlarm() tek başına yeniden başlatmıyor!
 }
 
 // YENİ: Ton üretimini durdurur
 // DEĞİŞİKLİK: PTT kapalıyken DC voltaj oluşmasını önlemek için DAC kanalı tamamen kapatılıyor.
 void stopDacTone() {
-  timerAlarmDisable(dac_timer); // Timer'ı durdur
+  timerStop(dac_timer); // Timer'ı durdur
 
-  // MIC_PIN (GPIO26), DAC_CHANNEL_2'dir.
-  dac_output_disable(DAC_CHANNEL_2); // DAC çıkışını tamamen kapat. Bu, pini yüksek empedans durumuna getirir ve DC voltajı engeller.
+  // DC voltajı önlemek için DAC'ı orta noktaya çek (register ile)
+  SET_PERI_REG_BITS(RTC_IO_PAD_DAC2_REG, RTC_IO_PDAC2_DAC, 128, RTC_IO_PDAC2_DAC_S);
+  // DAC gücünü kapat - pini yüksek empedans durumuna getirir
+  CLEAR_PERI_REG_MASK(RTC_IO_PAD_DAC2_REG, RTC_IO_PDAC2_XPD_DAC | RTC_IO_PDAC2_DAC_XPD_FORCE);
 }
 
 
@@ -80,11 +91,11 @@ void Alert_Tone(int ToneType)
   // Önce DAC tonunu durdur (varsa)
   stopDacTone();
 
-  if (ToneType == OK_tone)   {ledcWriteTone(0,1000); delay(ALERT_MODE);}
-  if (ToneType == ERR_tone)  {ledcWriteTone(0,400); delay(ALERT_MODE*2);}
-  if (ToneType == SUCC_tone) {ledcWriteTone(0,600);delay(ALERT_MODE+150);ledcWriteTone(0,1000);delay(ALERT_MODE);}
+  if (ToneType == OK_tone)   {ledcWriteTone(ALERT_PIN,1000); delay(ALERT_MODE);}
+  if (ToneType == ERR_tone)  {ledcWriteTone(ALERT_PIN,400); delay(ALERT_MODE*2);}
+  if (ToneType == SUCC_tone) {ledcWriteTone(ALERT_PIN,600);delay(ALERT_MODE+150);ledcWriteTone(ALERT_PIN,1000);delay(ALERT_MODE);}
   
-  ledcWriteTone(0,0);      // Uyarı tonunu kapat
+  ledcWriteTone(ALERT_PIN,0);      // Uyarı tonunu kapat
   
   // CTCSS tonunu (gerekiyorsa) yeniden başlat
   SetTone(current_ch.tone_enabled);
