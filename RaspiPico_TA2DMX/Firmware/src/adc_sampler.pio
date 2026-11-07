@@ -1,9 +1,0 @@
-.program adc_sampler
-
-
-.side_set 1
-
-loop:
-    in pins, 1  side 0
-    push iffull side 1
-    jmp loop    side 0
