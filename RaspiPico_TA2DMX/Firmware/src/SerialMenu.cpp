@@ -18,6 +18,13 @@ void PrintMenu()
   Serialprint("G-GPS Oku\n\r");  
   Serialprint("W-WiFi/Web Arayuzu Baslat\n\r");
   Serialprint("J-Frekans Adimi Degistir (12.5/25)\n\r");
+  Serialprint("Y-PLL Kalibrasyon Taramasi\n\r");
+  Serialprint("m-PLL Yazim Modu Degistir (su an %d)\n\r", pllMode);
+  Serialprint("z-A=0 Testi (145.000 MHz)\n\r");
+  Serialprint("p-PTT Otomatik Testi (3 saniye)\n\r");
+  Serialprint("t-PTT Polaritesi Degistir\n\r");
+  Serialprint("r-R Sayaci Degistir (1024/512)\n\r");
+  Serialprint("v-MIC TX Modu Degistir (su an %d)\n\r", micTxMode);
   Serialprint("Seciminiz >\n\r");
 }
 

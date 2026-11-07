@@ -253,7 +253,8 @@ void send_packet(char packet_type, uint32_t frequency)
    validFRQ = Calculate_Frequency(FRQ);
    write_FRQ(current_ch.frequency);
    writeFRQToLcd(FRQ);
-   digitalWrite(PTT_OUTPUT_PIN,HIGH);
+   delay(PLL_TX_SETTLE_MS);          // VCO kilitlenmeden PA acilmasin
+   pttKey(true);
    //Serialprint("Sending packet..."); 
    noTone(MIC_PIN);
    delay(300); //TODO: put define for TXDELAY
@@ -267,7 +268,7 @@ void send_packet(char packet_type, uint32_t frequency)
   send_flag(3);
 
   //APRS message transmission ended
-  digitalWrite(PTT_OUTPUT_PIN,LOW); // now stop transmitting
+  pttKey(false); // now stop transmitting
   //Restoring OLD values
   TRX_MODE = RX;
   strcpy(FRQ,FRQ_old);

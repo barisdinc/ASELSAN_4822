@@ -1,0 +1,4 @@
+# PlatformIO derleme çıktısı ve indirilen kütüphaneler — kaynak değil
+.pio/
+.vscode/.browse.c_cpp.db*
+graphify-out/
