@@ -76,4 +76,19 @@ uint8_t TOT_TX_TIME[16] = {0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 1
 uint8_t TOT_TX_LOCK_TIME[16] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 65, 70, 75};
 tot_t tot_values;
 unsigned long prevTotMillis = 0;
+unsigned long lastPllRefresh = 0;
+
+// PLL yazim profili (main.h'de aciklama)
+uint8_t  pllMode = 0;
+uint16_t pllBitDelayUs = 1000;
+bool     pllDoubleWrite = false;
+uint16_t pllRefreshMs = 0;
+uint8_t  pttActiveLevel = HIGH;   // 't' ile degistirilir
+uint16_t pllR = 1024;             // R sayaci: 1024 -> PD 12.5 kHz (TAMSAT_KIT birebir), 512 -> PD 25 kHz
+uint8_t  micTxMode = 0;           // 'v' ile degistirilir (0: INPUT, 1: OUTPUT LOW [TAMSAT], 2: OUTPUT HIGH, 3: PWM)
+
+void pttKey(bool on) {
+  digitalWrite(PTT_OUTPUT_PIN, on ? pttActiveLevel : (uint8_t)!pttActiveLevel);
+}
+
 String webLogBuffer = "";
