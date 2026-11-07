@@ -462,7 +462,7 @@ void setup() {
 //pin modes and initial states
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
-  pinMode(SQL_ACTIVE, INPUT); // Use external pull-up from the radio
+  pinMode(SQL_ACTIVE, INPUT_PULLUP); // 8051 P3.4 gibi dahili pull-up aktif (parazit ve pir-pir onleyici)
   pinMode(MIC_PIN, OUTPUT);
   digitalWrite(MIC_PIN, LOW); // Provide solid ground for microphone at startup to prevent RX audio muffling
 
@@ -534,7 +534,7 @@ void setup() {
   eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
   //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
   
-  if (eeprom_state == 129) {
+  if (eeprom_state != 128) {
       Serial.println("EEPROM Sifirlaniyor...");
       initialize_eeprom();
       EEPROM.write(0, 128); // Sifirlandigini isaretle
@@ -552,7 +552,8 @@ void setup() {
   eeprom_readAPRS();
 
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  current_ch.tone_enabled = CTCSS_OFF; // Acilista surekli CTCSS tonu basmasini onle
+  if (current_ch.tone_enabled > 1) current_ch.tone_enabled = CTCSS_OFF;
+  if (current_ch.tone_pos < 0 || current_ch.tone_pos >= TOTAL_TONES) current_ch.tone_pos = 8; // 88.5 Hz varsayilan
   numberToFrequency(current_ch.frequency, FRQ);
   strcpy(FRQ_old,FRQ);
 
@@ -681,9 +682,10 @@ void loop() {
   
   //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
 
-  if (scrMODE == scrNORMAL)
+  if (scrMODE == scrNORMAL && TRX_MODE != TX)
   {
-    // Heartbeat LED - Sadece durum degistiginde (500ms'de bir) guncelle!
+    // Heartbeat LED - Sadece RX'te ve durum degistiginde (500ms'de bir) guncelle!
+    // (Pico 2 W'da LED_BUILTIN CYW43 WiFi cipi uzerinde oldugu icin TX'te SPI trafigi uretmesin)
     uint8_t hb = (millis() / 500) % 2;
     static uint8_t last_hb = 2;
     if (hb != last_hb) {
@@ -708,8 +710,48 @@ void loop() {
     Wire.endTransmission();
   }
 
-  // Orijinal Arduino_Nano_TAMSAT_KIT squelch / MUTE_PIN_1 davranisi (TX'te zorla HIGH yapma kaldirildi)
-  CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
+  // 5-Kademeli Dijital Squelch Filtresi ve Histerezis (Pir-pir / anlik parazit onleyici)
+  static unsigned long lastSqlSampleMs = 0;
+  static int16_t sqlScore = 0;
+  static uint8_t filteredBusy = 1; // 1 = Kanal sessiz (Mute), 0 = Sinyal var (RX Acik)
+  static const int16_t sqlOpenThresholds[6] = { 0, 20, 50, 100, 180, 300 }; // Kademe 1..5 (ms)
+  const int16_t sqlHoldMax = 150; // Sinyal acildiktan sonra 150ms tutma (kapanma histerezisi)
+
+  if (TRX_MODE == TX) {
+    sqlScore = 0;
+    filteredBusy = 1;
+  } else if (SQL_MODE == SQL_OFF) {
+    filteredBusy = 0;
+  } else {
+    unsigned long nowMs = millis();
+    if (nowMs != lastSqlSampleMs) {
+      uint16_t dt = (uint16_t)(nowMs - lastSqlSampleMs);
+      if (dt > 20) dt = 20;
+      lastSqlSampleMs = nowMs;
+
+      uint8_t lvl = (sql_level >= 1 && sql_level <= 5) ? sql_level : 3;
+      int16_t openThr = sqlOpenThresholds[lvl];
+
+      if (digitalRead(SQL_ACTIVE) == 0) {
+        sqlScore += dt;
+        if (filteredBusy == 1 && sqlScore >= openThr) {
+          filteredBusy = 0; // Squelch ACILDI
+          sqlScore = openThr + sqlHoldMax;
+        } else if (filteredBusy == 0 && sqlScore > openThr + sqlHoldMax) {
+          sqlScore = openThr + sqlHoldMax;
+        }
+      } else {
+        // Gurultu / pir-pir darbelerini hizla sonumle (kapaliyken 2x hizli dusur)
+        sqlScore -= (filteredBusy == 1) ? (dt * 2) : dt;
+        if (sqlScore <= 0) {
+          sqlScore = 0;
+          filteredBusy = 1; // Squelch KAPANDI
+        }
+      }
+    }
+  }
+
+  CHANNEL_BUSY = filteredBusy;
   if (CHANNEL_BUSY == 0) digitalWrite(MUTE_PIN_1, LOW);
   else if (SQL_MODE == SQL_ON) digitalWrite(MUTE_PIN_1, HIGH); 
   else digitalWrite(MUTE_PIN_1, LOW);
@@ -754,16 +796,20 @@ void loop() {
 
   //if (subMENU == menuRPT) writeToLcd(cstr);
 
- //check APRS timer timeout, and send APRS message if timeout reached
- //TODO: Convert timeout to seconds instead of loop counter
- // APRS_Counter += 1;
- //if (APRS_Counter % 1000) Serialprint("%d\r\n",APRS_Counter);
- //uint32_t APR_tmt = APRS_Timeout * 60 * 150;
- // if (((APRS_Counter/150) >= (APRS_Timeout)) && (APRS_Timeout > 0)) {
- //    send_packet(_FIXPOS_STATUS,(freqLimits.aprs_25*25)); //For APRS terrestrial  //TODO: UHF ?
- //    send_packet(_FIXPOS_STATUS,(freqLimits.iss_25*25));  //For ISS               //TODO: UHF ?
- //    APRS_Counter = 0;
- // }
+  // APRS periyodik beacon zamanlayicisi (dakika bazinda, kanal bos ve RX modundayken)
+  static unsigned long lastAprsMillis = 0;
+  if (APRS_Timeout > 0 && TRX_MODE == RX && CHANNEL_BUSY != 0) {
+    unsigned long intervalMs = (unsigned long)APRS_Timeout * 60000UL;
+    if (millis() - lastAprsMillis >= intervalMs) {
+      lastAprsMillis = millis();
+      send_packet(_FIXPOS_STATUS, (uint32_t)freqLimits.aprs_25 * 25UL);
+    }
+  } else if (CHANNEL_BUSY == 0 || TRX_MODE == TX) {
+    // Kanal mesgulken veya konusurken sayaci oteleyerek konusma ustune basmasini onle
+    if (APRS_Timeout > 0 && (millis() - lastAprsMillis) >= ((unsigned long)APRS_Timeout * 60000UL)) {
+      lastAprsMillis = millis() - ((unsigned long)APRS_Timeout * 60000UL) + 5000UL;
+    }
+  }
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
@@ -790,6 +836,12 @@ void loop() {
         startScan();
         scrMODE = scrNORMAL;
         subMENU = menuNONE;
+      } else if (pressedKEY == 'S') {
+        subMENU = menuSQL;
+        scrMODE = scrMENU;
+        char sqlBuf[10];
+        sprintf(sqlBuf, "SQL   %d ", sql_level);
+        writeToLcd(sqlBuf);
       }
       scrTimer = TimeoutValue; //Restart the timer
       numChar = 0; //if we were entering frq from keyboard
@@ -819,11 +871,13 @@ void loop() {
         switch (pressedKEY) {
           case 'U':
             if ( subMENU == menuRPT)  { current_ch.shift += 25; write_SHIFTtoLCD(current_ch.shift); }  //TODO: check overflows... + or -
-            if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos>=19) current_ch.tone_pos = 19 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos >= TOTAL_TONES - 1) current_ch.tone_pos = TOTAL_TONES - 1; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuSQL)  { if (sql_level < 5) sql_level++; SQL_MODE = SQL_ON; EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE); EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level); char b[10]; sprintf(b, "SQL   %d ", sql_level); writeToLcd(b); }
             break;
           case 'D':
             if ( subMENU == menuRPT)  {current_ch.shift -= 25; write_SHIFTtoLCD(current_ch.shift); }
             if ( subMENU == menuTONE) { current_ch.tone_pos -= 1;  if (current_ch.tone_pos<=0) current_ch.tone_pos = 0 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuSQL)  { if (sql_level > 1) sql_level--; SQL_MODE = SQL_ON; EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE); EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level); char b[10]; sprintf(b, "SQL   %d ", sql_level); writeToLcd(b); }
             break;
           case '#': //means CANCEL
             if (subMENU == menuRPT)  current_ch.shift = old_frqSHIFT;
@@ -891,6 +945,8 @@ void loop() {
             } else {
               SQL_MODE = SQL_OFF;
             }
+            EEPROM.write(EEPROM_SQLMODE_ADDR, (uint8_t)SQL_MODE);
+            EEPROM.commit();
             write_FRQ(current_ch.frequency);
           break; //'S'
           case 'O':
@@ -899,6 +955,8 @@ void loop() {
              } else {
                 RF_POWER_STATE = HIGH_POWER;
              }
+             EEPROM.write(EEPROM_RFPOWER_ADDR, RF_POWER_STATE);
+             EEPROM.commit();
 //             SetRFPower(RF_POWER_STATE);           
              SetRFPower();           
              write_FRQ(current_ch.frequency);
@@ -1217,14 +1275,12 @@ if (commandComplete) {
         freq_step = 25; Serialprint("Adim 25 KHz (Donanimsal Sabit)\r\n");
     }
     if (commandString.charAt(0) == 'v') {
-        micTxMode = (micTxMode + 1) % 4;
-        const char* modeNames[4] = {
-            "0: Orijinal (CTCSS_OFF=INPUT High-Z, CTCSS_ON=PWM %2)",
-            "1: OUTPUT HIGH (MIC_INH TR11 acma modu)",
-            "2: INPUT_PULLUP (Yumusak 3.3V pull-up)",
-            "3: Zorunlu CTCSS PWM (%2 duty)"
+        micTxMode = (micTxMode + 1) % 2;
+        const char* modeNames[2] = {
+            "0: Standart CTCSS PWM (%2 duty, PR1 pot ile uyumlu)",
+            "1: DDS Sinus CTCSS PWM (256-ornek tablo)"
         };
-        Serialprint("[MIC] TX Modu = %s\r\n", modeNames[micTxMode]);
+        Serialprint("[CTCSS] Ton Uretim Modu = %s\r\n", modeNames[micTxMode]);
         SetTone(current_ch.tone_enabled);
     }
     
@@ -1673,35 +1729,24 @@ void SetTone(int toneSTATE) {
       gpio_put(MIC_PIN, 0); // Mute mic during RX to prevent muffled speaker audio
   } else {
       // TRX_MODE == TX
-      if (micTxMode == 1) {
-          // Saf OUTPUT LOW (PWM kapali)
-          gpio_init(MIC_PIN);
-          gpio_set_dir(MIC_PIN, GPIO_OUT);
-          gpio_put(MIC_PIN, 0);
-      } else if (micTxMode == 2) {
-          // Saf OUTPUT HIGH (3.3V)
-          gpio_init(MIC_PIN);
-          gpio_set_dir(MIC_PIN, GPIO_OUT);
-          gpio_put(MIC_PIN, 1);
-      } else if (micTxMode == 3) {
-          // Sadece manuel test icin CTCSS PWM
-          float f = (current_ch.tone_pos < TOTAL_TONES) ? ctcss_tone_list[current_ch.tone_pos] : 88.5f;
-          analogWriteFreq(f);
-          analogWrite(MIC_PIN, 5);
-      } else {
-          // micTxMode == 0 (Varsayilan):
-          if (toneSTATE == CTCSS_ON) {
-              analogWriteFreq(ctcss_tone_list[current_ch.tone_pos]);
-              analogWrite(MIC_PIN, 5);
+      if (toneSTATE == CTCSS_ON) {
+          float f = (current_ch.tone_pos >= 0 && current_ch.tone_pos < TOTAL_TONES)
+                    ? ctcss_tone_list[current_ch.tone_pos] : 88.5f;
+          if (micTxMode == 1) {
+              // Alternatif: 256-ornek DDS Sinus PWM
+              start_tone(f);
           } else {
-              // Orijinal old_main.cpp (2c2f3cb) davranisi:
-              // GP10 (MIC_PIN) tamamen serbest / deinit (GPIO_FUNC_NULL, IE=0, OD=1, pull=0)
-              gpio_init(MIC_PIN);
-              gpio_put(MIC_PIN, 1);
-              gpio_set_dir(MIC_PIN, GPIO_IN);
-              gpio_set_pulls(MIC_PIN, false, false);
-              gpio_deinit(MIC_PIN);
+              // Varsayilan (micTxMode == 0): %2 duty CTCSS PWM (mikrofon sesini bastirmaz, PR1 ile ayarlanir)
+              analogWriteFreq(f);
+              analogWrite(MIC_PIN, 5);
           }
+      } else {
+          // CTCSS_OFF: GP10 (MIC_PIN) tamamen serbest / High-Z (GPIO_FUNC_NULL, IE=0, OD=1, pull=0)
+          gpio_init(MIC_PIN);
+          gpio_put(MIC_PIN, 1);
+          gpio_set_dir(MIC_PIN, GPIO_IN);
+          gpio_set_pulls(MIC_PIN, false, false);
+          gpio_deinit(MIC_PIN);
       }
   }
 }

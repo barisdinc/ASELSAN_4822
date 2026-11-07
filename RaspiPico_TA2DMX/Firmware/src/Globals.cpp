@@ -11,7 +11,12 @@ uint8_t TRX_MODE = RX;
 uint8_t LST_MODE = TX; 
 uint8_t RF_POWER_STATE = HIGH_POWER; 
 uint8_t ALERT_MODE = ALERT_ON;
-float ctcss_tone_list[TOTAL_TONES] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3};
+float ctcss_tone_list[TOTAL_TONES] = {
+  67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5,
+  94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
+  131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9,
+  171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 250.3
+};
 uint8_t old_ctcss_tone_pos;
 uint8_t CHANNEL_BUSY = 1;
 int SQL_MODE = SQL_ON;
@@ -92,3 +97,6 @@ void pttKey(bool on) {
 }
 
 String webLogBuffer = "";
+String wifiPass = "deeplabstudio";
+bool isSetupDone = false;
+uint8_t sql_level = 3; // 1..5 kademe squelch (varsayilan 3)

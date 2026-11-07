@@ -3,7 +3,11 @@
 void eeread_nbytes(String *dst, uint8_t sz, uint16_t addr)
 {
   String edata = "";  
-  for (uint8_t cn=0;cn<sz;cn++) edata.concat((char)EEPROM.read(addr+cn));
+  for (uint8_t cn=0;cn<sz;cn++) {
+    char c = (char)EEPROM.read(addr+cn);
+    if (c >= 32 && c <= 126) edata.concat(c);
+    else edata.concat(' ');
+  }
   *dst = edata;
 }
 
@@ -13,23 +17,56 @@ void eeprom_readAPRS()
   eeread_nbytes(&APRS_Message,28,20);
   eeread_nbytes(&mycall,6,60);
   APRS_Timeout = EEPROM.read(66);
+  if (APRS_Timeout > 99) APRS_Timeout = 0;
   eeread_nbytes(&lat,8,67);
   eeread_nbytes(&lon,8,75);
+
+  uint8_t ssid_val = EEPROM.read(EEPROM_APRS_SSID_ADDR);
+  myssid = (ssid_val <= 15) ? (char)ssid_val : 9;
+
+  isSetupDone = (EEPROM.read(EEPROM_SETUP_DONE_ADDR) == SETUP_MAGIC_DONE);
+
+  uint8_t pwr = EEPROM.read(EEPROM_RFPOWER_ADDR);
+  if (pwr <= 1) {
+    RF_POWER_STATE = pwr;
+    SetRFPower();
+  }
+  uint8_t sql = EEPROM.read(EEPROM_SQLMODE_ADDR);
+  if (sql <= 1) {
+    SQL_MODE = sql;
+  }
+  uint8_t slev = EEPROM.read(EEPROM_SQLLEVEL_ADDR);
+  sql_level = (slev >= 1 && slev <= 5) ? slev : 3;
+
+  String wp = "";
+  for (uint8_t i = 0; i < WIFI_PASS_MAX_LEN; i++) {
+    uint8_t b = EEPROM.read(EEPROM_WIFI_PASS_ADDR + i);
+    if (b == 0 || b == 0xFF) break;
+    if (b >= 32 && b <= 126) wp += (char)b;
+  }
+  if (wp.length() >= 8) wifiPass = wp;
+  else wifiPass = "deeplabstudio";
 }
 
 void eewrite_nbytes(String dst, uint8_t sz, uint16_t addr)
 {
-  while (sz--) EEPROM.write(addr+sz,dst[sz]);  //Serialprint("%d %d %d\r\n",sz,addr+sz,dst[sz]);
+  for (uint8_t cn = 0; cn < sz; cn++) {
+    char c = (cn < dst.length()) ? dst[cn] : ' ';
+    if (c < 32 || c > 126) c = ' ';
+    EEPROM.write(addr + cn, (uint8_t)c);
+  }
 }
 
 void eeprom_writeAPRS()
 {
     //APRS Settings
     eewrite_nbytes(APRS_Message,28,20);
+    eewrite_nbytes(mycall,6,3);
     eewrite_nbytes(mycall,6,60);
     EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
     eewrite_nbytes(lat,8,67);
     eewrite_nbytes(lon,8,75);
+    EEPROM.write(EEPROM_APRS_SSID_ADDR, (uint8_t)myssid);
     Alert_Tone(OK_tone);
 }
 
@@ -40,12 +77,30 @@ void initialize_eeprom() {
     eewrite_nbytes(APRS_DEFAULT_MYCALL,6,3);
     eewrite_nbytes(DEFAULT_STARTUP_MSG,6,9);
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
+    EEPROM.write(EEPROM_OP_MODE_ADDR, MODE_VFO);
+    EEPROM.write(EEPROM_CURR_MEMCH_ADDR, 1);
     APRS_Message = APRS_DEFAULT_MESSAGE;
     mycall = APRS_DEFAULT_MYCALL;  
     APRS_Timeout = 0;
+    myssid = 9;
     lat = APRS_DEFAULT_LAT;
     lon = APRS_DEFAULT_LON;
     eeprom_writeAPRS();
+
+    // Ilk kurulum (Hotspot DLS_ASELSAN_KIT) moduna sifirla
+    isSetupDone = false;
+    EEPROM.write(EEPROM_SETUP_DONE_ADDR, 0x00);
+    RF_POWER_STATE = HIGH_POWER;
+    EEPROM.write(EEPROM_RFPOWER_ADDR, RF_POWER_STATE);
+    SQL_MODE = SQL_ON;
+    EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE);
+    sql_level = 3;
+    EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level);
+    wifiPass = "deeplabstudio";
+    for (uint8_t i = 0; i <= WIFI_PASS_MAX_LEN; i++) {
+      uint8_t c = (i < wifiPass.length()) ? (uint8_t)wifiPass[i] : 0;
+      EEPROM.write(EEPROM_WIFI_PASS_ADDR + i, c);
+    }
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
     channel_t default_channel;
     if (radio_type == 0)

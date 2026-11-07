@@ -76,7 +76,7 @@ extern uint8_t ALERT_MODE;
 
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
-#define TOTAL_TONES 20
+#define TOTAL_TONES 39
 #define TONE_CORRECTION 0.7 
 extern float ctcss_tone_list[TOTAL_TONES];
 extern uint8_t old_ctcss_tone_pos;;
@@ -226,6 +226,20 @@ extern freqLimits_t freqLimits;;
 
 
 #define EEPROM_TOT 50
+
+// WebUI & Cihaz Ek Ayarlari (750..790)
+#define EEPROM_SETUP_DONE_ADDR 750
+#define SETUP_MAGIC_DONE       0xA5
+#define EEPROM_APRS_SSID_ADDR  751
+#define EEPROM_RFPOWER_ADDR    752
+#define EEPROM_SQLMODE_ADDR    753
+#define EEPROM_WIFI_PASS_ADDR  754
+#define WIFI_PASS_MAX_LEN      32
+#define EEPROM_SQLLEVEL_ADDR   788
+
+extern String wifiPass;
+extern bool isSetupDone;
+extern uint8_t sql_level;
 
 //VNA variables
 extern float minSWR;;
