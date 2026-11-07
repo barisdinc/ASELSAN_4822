@@ -3,7 +3,11 @@
 void eeread_nbytes(String *dst, uint8_t sz, uint16_t addr)
 {
   String edata = "";  
-  for (uint8_t cn=0;cn<sz;cn++) edata.concat((char)EEPROM.read(addr+cn));
+  for (uint8_t cn=0;cn<sz;cn++) {
+    char c = (char)EEPROM.read(addr+cn);
+    if (c >= 32 && c <= 126) edata.concat(c);
+    else edata.concat(' ');
+  }
   *dst = edata;
 }
 
@@ -13,44 +17,96 @@ void eeprom_readAPRS()
   eeread_nbytes(&APRS_Message,28,20);
   eeread_nbytes(&mycall,6,60);
   APRS_Timeout = EEPROM.read(66);
+  if (APRS_Timeout > 99) APRS_Timeout = 0;
   eeread_nbytes(&lat,8,67);
   eeread_nbytes(&lon,8,75);
+
+  uint8_t ssid_val = EEPROM.read(EEPROM_APRS_SSID_ADDR);
+  myssid = (ssid_val <= 15) ? (char)ssid_val : 9;
+
+  isSetupDone = (EEPROM.read(EEPROM_SETUP_DONE_ADDR) == SETUP_MAGIC_DONE);
+
+  uint8_t pwr = EEPROM.read(EEPROM_RFPOWER_ADDR);
+  if (pwr <= 1) {
+    RF_POWER_STATE = pwr;
+    SetRFPower();
+  }
+  uint8_t sql = EEPROM.read(EEPROM_SQLMODE_ADDR);
+  if (sql <= 1) {
+    SQL_MODE = sql;
+  }
+  uint8_t slev = EEPROM.read(EEPROM_SQLLEVEL_ADDR);
+  sql_level = (slev >= 1 && slev <= 5) ? slev : 3;
+
+  String wp = "";
+  for (uint8_t i = 0; i < WIFI_PASS_MAX_LEN; i++) {
+    uint8_t b = EEPROM.read(EEPROM_WIFI_PASS_ADDR + i);
+    if (b == 0 || b == 0xFF) break;
+    if (b >= 32 && b <= 126) wp += (char)b;
+  }
+  if (wp.length() >= 8) wifiPass = wp;
+  else wifiPass = "deeplabstudio";
 }
 
 void eewrite_nbytes(String dst, uint8_t sz, uint16_t addr)
 {
-  while (sz--) EEPROM.write(addr+sz,dst[sz]);  //Serialprint("%d %d %d\r\n",sz,addr+sz,dst[sz]);
+  for (uint8_t cn = 0; cn < sz; cn++) {
+    char c = (cn < dst.length()) ? dst[cn] : ' ';
+    if (c < 32 || c > 126) c = ' ';
+    EEPROM.write(addr + cn, (uint8_t)c);
+  }
 }
 
 void eeprom_writeAPRS()
 {
     //APRS Settings
     eewrite_nbytes(APRS_Message,28,20);
+    eewrite_nbytes(mycall,6,3);
     eewrite_nbytes(mycall,6,60);
     EEPROM.write(66,APRS_Timeout); //Aprs timeout in minutes
     eewrite_nbytes(lat,8,67);
     eewrite_nbytes(lon,8,75);
-    Alert_Tone(OK_tone);
+    EEPROM.write(EEPROM_APRS_SSID_ADDR, (uint8_t)myssid);
 }
 
 void initialize_eeprom() {  
+    if (radio_type > 1) radio_type = 0;
     EEPROM.write(0, 128); // make eeprom initialized (128 = OK, 129 = Force Reset)
     EEPROM.write(1, SW_MAJOR);   //SW Version
     EEPROM.write(2, SW_MINOR);   //
+    EEPROM.write(EEPROM_LAYOUT_VER_ADDR, EEPROM_LAYOUT_VERSION);
     eewrite_nbytes(APRS_DEFAULT_MYCALL,6,3);
     eewrite_nbytes(DEFAULT_STARTUP_MSG,6,9);
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
+    EEPROM.write(EEPROM_OP_MODE_ADDR, MODE_VFO);
+    EEPROM.write(EEPROM_CURR_MEMCH_ADDR, 1);
     APRS_Message = APRS_DEFAULT_MESSAGE;
     mycall = APRS_DEFAULT_MYCALL;  
     APRS_Timeout = 0;
+    myssid = 9;
     lat = APRS_DEFAULT_LAT;
     lon = APRS_DEFAULT_LON;
     eeprom_writeAPRS();
+
+    // Ilk kurulum (Hotspot DLS_ASELSAN_KIT) moduna sifirla
+    isSetupDone = false;
+    EEPROM.write(EEPROM_SETUP_DONE_ADDR, 0x00);
+    RF_POWER_STATE = HIGH_POWER;
+    EEPROM.write(EEPROM_RFPOWER_ADDR, RF_POWER_STATE);
+    SQL_MODE = SQL_ON;
+    EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE);
+    sql_level = 3;
+    EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level);
+    wifiPass = "deeplabstudio";
+    for (uint8_t i = 0; i <= WIFI_PASS_MAX_LEN; i++) {
+      uint8_t c = (i < wifiPass.length()) ? (uint8_t)wifiPass[i] : 0;
+      EEPROM.write(EEPROM_WIFI_PASS_ADDR + i, c);
+    }
     //for (int location=18;location < 300;location++) EEPROM.write(location,0); // Zeroise the rest of the memory
     channel_t default_channel;
     if (radio_type == 0)
     { 
-      default_channel.frequency = 145500; // Simplex 145.500 default
+      default_channel.frequency = 145575; // Simplex 145.575 default
       default_channel.shift = 600;
       default_channel.shift_dir = 0; // noSHIFT
     }
@@ -63,13 +119,16 @@ void initialize_eeprom() {
     default_channel.tone_pos = 8;
     default_channel.tone_enabled = 0; // CTCSS_OFF Default!
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, default_channel);
+    current_ch = default_channel;
+
     freqLimits_t default_limits;
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
     freqLimits = default_limits;
 
-
     // TOT EEPROM INIT
-     EEPROM.put(EEPROM_TOT, tot_values);
+    tot_values.time_out_time = 60;
+    tot_values.lock_time = 5;
+    EEPROM.put(EEPROM_TOT, tot_values);
 
 
     memorych_t memch;
@@ -104,6 +163,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     memch.tone_position= current_ch.tone_pos; 
     memch.SSTP =  (current_ch.shift_dir + 1)  + (current_ch.tone_enabled * 4);//TODO: Power is missing + ( power * 8);
     EEPROM.put(ChannelLocation, memch); 
+    EEPROM.commit();
 }
 
 void GetMemoryChannel(char mFRQ[9]) {
@@ -146,6 +206,12 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
 {
     uint16_t ChannelNumber = (((mCHNL[0] - 48) * 100) + ((mCHNL[1] - 48) * 10) + (mCHNL[2] - 48));
+    // Reset/reboot kodlari mevcut frekans gecersiz olsa bile her zaman calismalidir!
+    if (ChannelNumber == 666) { initialize_eeprom(); Alert_Tone(SUCC_tone); return; } //initialize eeprom
+    if (ChannelNumber == 667) { softResetDevice(); return; } //rest/reboot device
+    if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); softResetDevice(); return; } //Initiralize device UHF
+    if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); softResetDevice(); return; } //Initiralize device VHF
+
     if (Calculate_Frequency(mFRQ))
     {
       if (ChannelNumber == 101) { freqLimits.trx_min_25 = current_ch.frequency/25; } //TRX Lower Limit
@@ -158,13 +224,8 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 302) { freqLimits.iss_25     = current_ch.frequency/25; } //ISS APRS Frequency
       if (ChannelNumber == 401) { freqLimits.vna_min_25 = current_ch.frequency/25; } //VNA minimum frequency
       if (ChannelNumber == 402) { freqLimits.vna_max_25 = current_ch.frequency/25; } //VNA maximum frequency
-      if (ChannelNumber <= 402) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
-      if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
-      if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
-      if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
-      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
-      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
-      if (ChannelNumber >= 998) { softResetDevice(); }
+      if (ChannelNumber <= 402) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); EEPROM.commit(); }
+      if (ChannelNumber == 600) { APRS_Timeout = current_ch.frequency % 1000; eeprom_writeAPRS(); EEPROM.commit(); } //APRS Timeout
       Alert_Tone(SUCC_tone);
     }  
 

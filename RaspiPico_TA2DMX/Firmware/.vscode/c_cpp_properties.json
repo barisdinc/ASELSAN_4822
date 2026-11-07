@@ -22,6 +22,7 @@
                 "/home/ugur/.platformio/packages/framework-arduinopico/libraries/MD5Builder/src",
                 "/home/ugur/.platformio/packages/framework-arduinopico/libraries/Wire/src",
                 "/home/ugur/.platformio/packages/framework-arduinopico/libraries/EEPROM/src",
+                "/home/ugur/Desktop/GIT/ASELSAN_4822/RaspiPico_TA2DMX/Firmware/.pio/libdeps/rpipico2w/ArduinoJson/src",
                 "/home/ugur/Desktop/GIT/ASELSAN_4822/RaspiPico_TA2DMX/Firmware/.pio/libdeps/rpipico2w/TinyGPS",
                 "/home/ugur/.platformio/packages/framework-arduinopico/cores/rp2040",
                 "/home/ugur/.platformio/packages/framework-arduinopico/cores/rp2040/api/deprecated",
@@ -189,6 +190,7 @@
                     "/home/ugur/.platformio/packages/framework-arduinopico/libraries/MD5Builder/src",
                     "/home/ugur/.platformio/packages/framework-arduinopico/libraries/Wire/src",
                     "/home/ugur/.platformio/packages/framework-arduinopico/libraries/EEPROM/src",
+                    "/home/ugur/Desktop/GIT/ASELSAN_4822/RaspiPico_TA2DMX/Firmware/.pio/libdeps/rpipico2w/ArduinoJson/src",
                     "/home/ugur/Desktop/GIT/ASELSAN_4822/RaspiPico_TA2DMX/Firmware/.pio/libdeps/rpipico2w/TinyGPS",
                     "/home/ugur/.platformio/packages/framework-arduinopico/cores/rp2040",
                     "/home/ugur/.platformio/packages/framework-arduinopico/cores/rp2040/api/deprecated",
@@ -341,7 +343,7 @@
                 ]
             },
             "defines": [
-                "PLATFORMIO=60119",
+                "PLATFORMIO=60200",
                 "ARDUINO_RASPBERRY_PI_PICO_2W",
                 "ARDUINO_ARCH_RP2040",
                 "USBD_MAX_POWER_MA=250",

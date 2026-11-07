@@ -11,7 +11,12 @@ uint8_t TRX_MODE = RX;
 uint8_t LST_MODE = TX; 
 uint8_t RF_POWER_STATE = HIGH_POWER; 
 uint8_t ALERT_MODE = ALERT_ON;
-float ctcss_tone_list[TOTAL_TONES] = {67,69.3,71.9,74.4,77,79.7,82.5,85.4,88.5,91.5,94.8,97.4,100,103.5,107.2,110.9,114.8,118.8,123,127.3};
+float ctcss_tone_list[TOTAL_TONES] = {
+  67.0, 69.3, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5,
+  94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3,
+  131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 159.8, 162.2, 165.5, 167.9,
+  171.3, 173.8, 177.3, 179.9, 183.5, 186.2, 189.9, 192.8, 250.3
+};
 uint8_t old_ctcss_tone_pos;
 uint8_t CHANNEL_BUSY = 1;
 int SQL_MODE = SQL_ON;
@@ -76,4 +81,22 @@ uint8_t TOT_TX_TIME[16] = {0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 1
 uint8_t TOT_TX_LOCK_TIME[16] = {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 65, 70, 75};
 tot_t tot_values;
 unsigned long prevTotMillis = 0;
+unsigned long lastPllRefresh = 0;
+
+// PLL yazim profili (main.h'de aciklama)
+uint8_t  pllMode = 0;
+uint16_t pllBitDelayUs = 1000;
+bool     pllDoubleWrite = false;
+uint16_t pllRefreshMs = 0;
+uint8_t  pttActiveLevel = HIGH;   // 't' ile degistirilir
+uint16_t pllR = 1024;             // R sayaci: 1024 -> PD 12.5 kHz (TAMSAT_KIT birebir), 512 -> PD 25 kHz
+uint8_t  micTxMode = 0;           // 'v' ile degistirilir (0: INPUT, 1: OUTPUT LOW [TAMSAT], 2: OUTPUT HIGH, 3: PWM)
+
+void pttKey(bool on) {
+  digitalWrite(PTT_OUTPUT_PIN, on ? pttActiveLevel : (uint8_t)!pttActiveLevel);
+}
+
 String webLogBuffer = "";
+String wifiPass = "deeplabstudio";
+bool isSetupDone = false;
+uint8_t sql_level = 3; // 1..5 kademe squelch (varsayilan 3)

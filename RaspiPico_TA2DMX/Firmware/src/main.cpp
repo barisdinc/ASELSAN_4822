@@ -88,54 +88,49 @@ boolean Calculate_Frequency (char mFRQ[9]) {
 
 void SetPLLLock(uint32_t Frequency)
 {
-  int R_Counter =0;
-  int N_Counter = 0;
-  int A_Counter = 0;
-  if(radio_type==0) //TODO: else portion seems exactly the same ????
-  {
-    if (TRX_MODE == RX) Frequency = Frequency + 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * current_ch.shift) ; // Add/remove transmission shift
-  
-     R_Counter = 512;  //12800 / 25 = 512 (12.8Mhz reference clock, 25Khz step)
-     N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
-     A_Counter = (Frequency / 25) - (80 * N_Counter);
+  uint32_t f = Frequency;
 
+  // RX: LO = f +/- 45MHz.  TX: shift uygulanir.
+  if (TRX_MODE == RX) f = (radio_type == 0) ? (f + 45000L) : (f - 45000L);
+  else                f = (uint32_t)((int32_t)f + (int32_t)current_ch.shift_dir * (int32_t)current_ch.shift);
 
-    digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS  
-    send_SPIBit(R_Counter,14);
-    send_SPIBit(1,1); // Tell PLL that it was the R Counter
-    send_SPIEnable();
-    send_SPIBit(N_Counter,10);
-    send_SPIBit(A_Counter,7);
-    send_SPIBit(0,1); // Tell PLL that it was the A and N Counters  
-    send_SPIEnable();  
-    digitalWrite(PLL_SEC, HIGH); //DE-SELECT PLL for SPI BUS
-  }
-  else
-  {
-    if (TRX_MODE == RX) Frequency = Frequency - 45000L;
-    if (TRX_MODE == TX) Frequency = Frequency + (current_ch.shift_dir * current_ch.shift) ; // Add/remove transmission shift
-  
-     R_Counter = 512;  //12800 / 25 = 512 (12.8Mhz reference clock, 25Khz step)
-     N_Counter = Frequency / 25 / 80 ; //prescaler = 80, channel steps 25Khz
-     A_Counter =(Frequency / 25) - (80 * N_Counter);
+  // Tek yol: RX/TX/UHF farki sadece yukaridaki ofsette.
+  pllWriteWords(f);
 
-  
-    digitalWrite(PLL_SEC, LOW);
-    send_SPIBit(R_Counter,14);
-    send_SPIBit(1,1); 
-    send_SPIEnable();
-    send_SPIBit(N_Counter,10);
-    send_SPIBit(A_Counter,7);
-    send_SPIBit(0,1); 
-    send_SPIEnable();  
-    digitalWrite(PLL_SEC, HIGH); 
+  // Cift yazim: hattaki parazit bir kelimeyi yarim latch ederse duzeltir.
+  if (pllDoubleWrite) {
+    delay(1);
+    pllWriteWords(f);
   }
 }
 
 
-void write_FRQ(uint32_t Frequency) {
-//VHF BAND SELECTION  
+/* PLL kalibrasyon taramasi.
+   N=190 sabit, A 36..56 arasi 12.5kHz adimlarla. Her adimda seri porta ve LCD'ye
+   o adimin karsilik geldigi RX frekansi yazilir. Kullanici baska bir telsizden
+   145.575 gonderirken hangi adimda duydugunu not eder: aradaki fark gercek
+   VCO/filtre hatasini verir. */
+void pllSweepTest() {
+  const int N = 190;
+  Serialprint("\r\n[SWEEP] basladi. Durdurmak icin bir tusa basin.\r\n");
+  for (int A = 36; A <= 56; A++) {
+    pllWriteNA(N, A);
+    uint32_t rx = (uint32_t)((N * 80 + A) * 12.5) - 45000UL;
+    numberToFrequency(rx, FRQ);
+    writeFRQToLcd(FRQ);
+    Serialprint("[SWEEP] A=%d  vco=%lu  rx=%lu\r\n", A,
+                (unsigned long)((N * 80 + A) * 12.5), (unsigned long)rx);
+    for (int i = 0; i < 12; i++) {          // ~1.2 s, tus kontrolu ile
+      delay(100);
+      if (readColumn() != 0) { A = 999; break; }
+    }
+  }
+  Serialprint("[SWEEP] bitti.\r\n");
+  validFRQ = Calculate_Frequency(FRQ);
+  write_FRQ(current_ch.frequency);
+}
+
+void write_FRQ(uint32_t Frequency) {//VHF BAND SELECTION  
 //BS0 BS1
 // 0  0     152.2   172.6
 // 0  1     147.9   165.5
@@ -165,9 +160,9 @@ void write_FRQ(uint32_t Frequency) {
     if(radio_type==0)
     {
       if ((Frequency < 174000L) & (Frequency >= (164000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, LOW);  }
-      if ((Frequency < 164000L) & (Frequency >= (154000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
-      if ((Frequency < 154000L) & (Frequency >= (144000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
-      if ((Frequency < 144000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
+      if ((Frequency < 164000L) & (Frequency >= (156000L)))  { digitalWrite(BAND_SELECT_0, LOW);  digitalWrite(BAND_SELECT_1, HIGH); } 
+      if ((Frequency < 156000L) & (Frequency >= (146000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, LOW);  } 
+      if ((Frequency < 146000L) & (Frequency >= (134000L)))  { digitalWrite(BAND_SELECT_0, HIGH); digitalWrite(BAND_SELECT_1, HIGH); } 
     }
     else if(radio_type==1)
     {
@@ -179,6 +174,9 @@ void write_FRQ(uint32_t Frequency) {
 //BD1    EEPROM.put(EEPROM_CURRCHNL_BLCKSTART,current_ch); 
     SetPLLLock(Frequency);
   } //validFRQ 
+  else {
+    Serialprint("[PLL] ATLANDI! validFRQ=0, freq=%lu\r\n", (unsigned long)Frequency);
+  }
   writeFRQToLcd(FRQ);
 }
 
@@ -374,25 +372,40 @@ int readColumn()
     Wire.write((uint8_t)0x00); 
     Wire.endTransmission();
     Wire.beginTransmission(0x21);
-    Wire.write((uint8_t)0xFF); 
+    Wire.write((uint8_t)((Led_Status & 0xF0) | 0x0F)); 
     Wire.endTransmission();
     
     Wire.requestFrom(0x21,1);
     int c = Wire.read();
-    c = 255 - c;
+
+    // Once 0x21 alt 4 bit HIGH iken 0x20'ye 0xFF yaz ki PCF8574 referans durumu 0xFF (tus birakildi) olsun
+    Wire.beginTransmission(0x20);
+    Wire.write((uint8_t)0xFF);
+    Wire.endTransmission();
+    // Sonra 0x21 sutunlarini tekrar LOW'a (Led_Status) cek
+    Wire.beginTransmission(0x21);
+    Wire.write(Led_Status);
+    Wire.endTransmission();
+
+    c = (~c) & 0x0F;
     int sutun = 0 ;
     if (c == 8) sutun = 0;
     if (c == 4) sutun = 1;
     if (c == 2) sutun = 2;
     if (c == 1) sutun = 3;
 
-    
-
     return sutun;
 }
 
 int readRow()
 {
+    Wire.beginTransmission(0x21);
+    Wire.write((uint8_t)(Led_Status & 0xF0));
+    Wire.endTransmission();
+    Wire.beginTransmission(0x20);
+    Wire.write((uint8_t)0xFF);
+    Wire.endTransmission();
+
     Wire.requestFrom(0x20,1);
     int r = Wire.read();    // receive a byte as character
     r = 255 - (r | 0x03) ; 
@@ -439,10 +452,25 @@ void startScan()
 }
 
 
+void resetKeypadPCF() {
+  Wire.beginTransmission(PCF8574_KEYB_LED);
+  Wire.write((uint8_t)((Led_Status & 0xF0) | 0x0F));
+  Wire.endTransmission();
+  Wire.beginTransmission(PCF8574_KEYB);
+  Wire.write((uint8_t)0xFF);
+  Wire.endTransmission();
+  Wire.requestFrom(PCF8574_KEYB, 1);
+  if (Wire.available()) (void)Wire.read();
+  Wire.beginTransmission(PCF8574_KEYB_LED);
+  Wire.write(Led_Status);
+  Wire.endTransmission();
+}
+
 void setup() {
   Wire.setSDA(16);
   Wire.setSCL(17);
   Wire.begin();
+  Wire.setTimeout(10); // 10ms I2C timeout - Pico varsayilani 1000ms, PCF8574 yoksa donmayi onler
   EEPROM.begin(1024); // Pico requires EEPROM.begin
   //wdt_enable(WDTO_4S);
 //pin modes and initial states
@@ -464,7 +492,13 @@ void setup() {
 
   pinMode(PTT_INPUT_PIN,  INPUT_PULLUP);
   pinMode(PTT_OUTPUT_PIN, OUTPUT);
-  digitalWrite(PTT_OUTPUT_PIN, LOW); //No PTT at startup
+  pttKey(false); //No PTT at startup
+
+  // Commit 82860a95 ile birebir uyumluluk: GP20 (CDT0) HIGH, GP26 OUTPUT
+  pinMode(20, OUTPUT);
+  digitalWrite(20, HIGH);
+  pinMode(26, OUTPUT);
+  digitalWrite(26, RF_POWER_STATE);
 
   pinMode(FWD_POWER_PIN, INPUT);
   pinMode(REF_POWER_PIN, INPUT);
@@ -477,9 +511,26 @@ void setup() {
   pinMode(pll_ena_pin, OUTPUT);
   pinMode(PLL_SEC, OUTPUT);
 
+  // PLL hatlari 5V CMOS girise gidiyor (VIH = 0.7*VDD = 3.5V). Pico 3.3V ile
+  // marj sifir. RP2040 varsayilan surme gucu 4mA; 12mA'ya cikarip dahili
+  // pull'lari kapatinca hat daha sert surulur ve esik asilir.
+  gpio_set_drive_strength(pll_clk_pin,  GPIO_DRIVE_STRENGTH_12MA);
+  gpio_set_drive_strength(pll_data_pin, GPIO_DRIVE_STRENGTH_12MA);
+  gpio_set_drive_strength(pll_ena_pin,  GPIO_DRIVE_STRENGTH_12MA);
+  gpio_set_drive_strength(PLL_SEC,      GPIO_DRIVE_STRENGTH_12MA);
+  gpio_set_pulls(pll_clk_pin,  false, false);
+  gpio_set_pulls(pll_data_pin, false, false);
+  gpio_set_pulls(pll_ena_pin,  false, false);
+  gpio_set_pulls(PLL_SEC,      false, false);
+
   digitalWrite(pll_clk_pin, LOW);
   digitalWrite(pll_data_pin,LOW);
   digitalWrite(pll_ena_pin, LOW);
+  digitalWrite(PLL_SEC, LOW); // Keep TD9 (74HC32) OR gate inputs at 0V so 3.3V SPI passes cleanly
+
+  // PLL yazim profilini uygula.
+  // Mod 1 = 100us bit (~10ms toplam yazim suresi, K4 uzerindeki 1nF filtre kapasitorleri icin güvenli).
+  pllApplyMode(1);
 
   //cli(); // Turn Off Interrupts
   //PCICR = (1 << PCIE2);  
@@ -492,16 +543,14 @@ void setup() {
   commandString.reserve(200);
 
   // Check EEPROM for stored values
-  uint8_t eeprom_state=0;
- // EEPROM.write(0,127);
-  eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
-  //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
+  uint8_t eeprom_state = EEPROM.read(0); // EEPROM Check For Modification Board
+  uint8_t layout_ver = EEPROM.read(EEPROM_LAYOUT_VER_ADDR);
   
-  if (eeprom_state == 129) {
-      Serial.println("EEPROM Sifirlaniyor...");
+  if (eeprom_state != 128 || layout_ver != EEPROM_LAYOUT_VERSION) {
+      Serial.println("EEPROM Sifirlaniyor / Onariliyor...");
+      radio_type = EEPROM.read(17);
+      if (radio_type > 1) radio_type = 0;
       initialize_eeprom();
-      EEPROM.write(0, 128); // Sifirlandigini isaretle
-      EEPROM.commit();
   } else if (EEPROM.read(1) != SW_MAJOR || EEPROM.read(2) != SW_MINOR) {
       Serial.println("Yazilim Guncellendi, EEPROM versiyon damgasi yenileniyor...");
       EEPROM.write(1, SW_MAJOR);
@@ -509,17 +558,80 @@ void setup() {
       EEPROM.commit();
   }
 
-  radio_type = EEPROM.read(17);//UHF VHF Seçimi
-  //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
+  bool needEepromCommit = false;
+  radio_type = EEPROM.read(17); // UHF VHF Seçimi
+  if (radio_type > 1) {
+      radio_type = 0;
+      EEPROM.write(17, 0);
+      needEepromCommit = true;
+  }
 
   eeprom_readAPRS();
 
+  EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
+  if (freqLimits.trx_min_25 < 5000 || freqLimits.trx_min_25 > 6000 ||
+      freqLimits.trx_max_25 < 6500 || freqLimits.trx_max_25 > 7500 ||
+      freqLimits.trx_min_25 >= freqLimits.trx_max_25 ||
+      freqLimits.scn_min_25 < 5000 || freqLimits.scn_max_25 > 7500 ||
+      freqLimits.scn_min_25 >= freqLimits.scn_max_25 ||
+      freqLimits.aprs_25 < 5000 || freqLimits.aprs_25 > 7500 ||
+      freqLimits.iss_25 < 5000 || freqLimits.iss_25 > 7500 ||
+      freqLimits.vna_min_25 < 5000 || freqLimits.vna_max_25 > 7500) {
+      Serial.println("[EEPROM] Bozuk frekans limitleri tespit edildi, varsayilana donuluyor.");
+      freqLimits = freqLimits_t();
+      EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
+      needEepromCommit = true;
+  }
+
+  EEPROM.get(EEPROM_TOT, tot_values);
+  if (tot_values.time_out_time < 15 || tot_values.time_out_time > 240 || tot_values.lock_time > 75) {
+      Serial.println("[EEPROM] Bozuk TOT degerleri tespit edildi, 60sn/5sn olarak onarildi.");
+      tot_values.time_out_time = 60;
+      tot_values.lock_time = 5;
+      EEPROM.put(EEPROM_TOT, tot_values);
+      needEepromCommit = true;
+  }
+
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+  bool needChSave = false;
+  uint32_t minValidF = (radio_type == 0) ? ((uint32_t)freqLimits.trx_min_25 * 25UL) : 400000UL;
+  uint32_t maxValidF = (radio_type == 0) ? ((uint32_t)freqLimits.trx_max_25 * 25UL) : 468375UL;
+  if (current_ch.frequency < minValidF || current_ch.frequency > maxValidF || (current_ch.frequency % 25 != 0)) {
+      current_ch.frequency = (radio_type == 0) ? 145575UL : 433500UL;
+      current_ch.shift = (radio_type == 0) ? 600 : 7600;
+      current_ch.shift_dir = noSHIFT;
+      needChSave = true;
+  }
+  if (current_ch.shift_dir < -1 || current_ch.shift_dir > 1) {
+      current_ch.shift_dir = noSHIFT;
+      needChSave = true;
+  }
+  if (current_ch.shift < 0 || current_ch.shift > 20000) {
+      current_ch.shift = (radio_type == 0) ? 600 : 7600;
+      needChSave = true;
+  }
+  if (current_ch.tone_enabled > 1) {
+      current_ch.tone_enabled = CTCSS_OFF;
+      needChSave = true;
+  }
+  if (current_ch.tone_pos >= TOTAL_TONES) {
+      current_ch.tone_pos = 8; // 88.5 Hz varsayilan
+      needChSave = true;
+  }
+  if (needChSave) {
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+      needEepromCommit = true;
+  }
+
   numberToFrequency(current_ch.frequency, FRQ);
-  strcpy(FRQ_old,FRQ);
+  strcpy(FRQ_old, FRQ);
 
   op_mode = EEPROM.read(EEPROM_OP_MODE_ADDR);
-  if (op_mode > 1) op_mode = MODE_VFO;
+  if (op_mode > 1) {
+      op_mode = MODE_VFO;
+      EEPROM.write(EEPROM_OP_MODE_ADDR, op_mode);
+      needEepromCommit = true;
+  }
   
   current_memory_channel = EEPROM.read(EEPROM_CURR_MEMCH_ADDR);
   if (current_memory_channel < 1 || current_memory_channel > 50) current_memory_channel = 1;
@@ -539,31 +651,41 @@ void setup() {
               GetMemoryChannel(chStr);
           } while (strncmp(FRQ, "NULL", 4) == 0 && current_memory_channel != starting_channel);
           
-          // Eger degistiyse yeni pozisyonu kaydet
-          if (current_memory_channel != starting_channel) {
+          if (strncmp(FRQ, "NULL", 4) == 0) {
+              // Hicbir hafiza kanali dolu degilse VFO moduna geri don!
+              op_mode = MODE_VFO;
+              EEPROM.write(EEPROM_OP_MODE_ADDR, MODE_VFO);
+              EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+              numberToFrequency(current_ch.frequency, FRQ);
+              strcpy(FRQ_old, FRQ);
+              needEepromCommit = true;
+          } else if (current_memory_channel != starting_channel) {
               EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
-              EEPROM.commit();
+              needEepromCommit = true;
           }
       }
   }
+
+  if (needEepromCommit) {
+      EEPROM.commit();
+  }
  
   SetTone(current_ch.tone_enabled);
-
-  EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
-
-  EEPROM.get(EEPROM_TOT, tot_values);
 
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
   //pinMode(POWER_ON_PIN, OUTPUT);
  
   memset(matrix, 0, 24);
+  Wire.setSDA(16);
+  Wire.setSCL(17);
   Wire.begin(); 
   Wire.setClock(100000); // PCF8576 maximum is 100kHz
-  
-  // Enable internal pullups for I2C to prevent hang if missing externally
-  pinMode(16, INPUT_PULLUP);
-  pinMode(17, INPUT_PULLUP);
+  // DIKKAT: Wire.begin() sonrasi pinMode(16/17, INPUT_PULLUP) CAGRISI YAPILMAMALIDIR!
+  // RP2040'ta pinMode() pini GPIO_FUNC_I2C'den GPIO_FUNC_SIO'ya cevirerek I2C'yi bozar.
+  // Sadece dahili pull-up'lari aktif tutmak icin gpio_pull_up() kullanilir:
+  gpio_pull_up(16);
+  gpio_pull_up(17);
   
   delay(100);  // Give some time to boot
 
@@ -595,8 +717,23 @@ void setup() {
 
   writeFRQToLcd(FRQ);
   
+  // Keypad PCF8574 (0x20 ve 0x21) baslangic durumunu kur ve olasi takili INT'i temizle
+  resetKeypadPCF();
   old_KeyVal = 1; //initial keypad read
-  validFRQ = Calculate_Frequency(FRQ); // start with default frequency //TODO: Change this to last frequemcy set
+  if (op_mode == MODE_MR) {
+    validFRQ = true;
+  } else {
+    validFRQ = Calculate_Frequency(FRQ); // start with default frequency
+  }
+  write_FRQ(current_ch.frequency);
+
+  // ACILIS TESHIS: PLL limitleri ve hedef kelimeler seri porta dokulur
+  Serialprint("[BOOT] radio_type=%d validFRQ=%d freq=%lu shift_dir=%d shift=%d\r\n",
+              radio_type, validFRQ, (unsigned long)current_ch.frequency,
+              current_ch.shift_dir, current_ch.shift);
+  Serialprint("[BOOT] limits(25): trx_min=%u trx_max=%u scn_min=%u scn_max=%u\r\n",
+              freqLimits.trx_min_25, freqLimits.trx_max_25,
+              freqLimits.scn_min_25, freqLimits.scn_max_25);
 
   scrTimer = TimeoutValue;  
 
@@ -605,7 +742,15 @@ void setup() {
 //      Alert_Tone(ERR_tone);
 
   // Start WebUI and WiFi at boot
+#if WIFI_AT_BOOT
   initWebUI();
+#else
+  Serial.println("[WIFI] Acilista baslatilmadi (WIFI_AT_BOOT=0). Baslatmak icin 'W' gonderin.");
+#endif
+
+  // WiFi AP acilisi sirasinda PCF8574 INT hatti tetiklendiyse temizle
+  resetKeypadPCF();
+  old_KeyVal = 1;
 
   PrintMenu();
 }
@@ -617,31 +762,78 @@ void loop() {
   
   //if (scrMODE==scrNORMAL) writeFRQToLcd(FRQ); //TODO: We should update the display only on proper display changes.. But this works...
 
-  if (scrMODE==scrNORMAL)
+  if (scrMODE == scrNORMAL && TRX_MODE != TX)
   {
-    // Heartbeat LED
-    digitalWrite(LED_BUILTIN, (millis() / 500) % 2);
+    // Heartbeat LED - Sadece RX'te ve durum degistiginde (500ms'de bir) guncelle!
+    // (Pico 2 W'da LED_BUILTIN CYW43 WiFi cipi uzerinde oldugu icin TX'te SPI trafigi uretmesin)
+    uint8_t hb = (millis() / 500) % 2;
+    static uint8_t last_hb = 2;
+    if (hb != last_hb) {
+      last_hb = hb;
+      digitalWrite(LED_BUILTIN, hb);
+    }
   }
 
-
-  //Output data to Keyboard... First first bits for keyboard, next bits for backlight and leds... 
-  Wire.beginTransmission(PCF8574_KEYB_LED);
+  // Output data to Keyboard LEDs... SADECE Led_Status degistiginde I2C'ye yaz!
   Led_Status = 240;
-  if ((CHANNEL_BUSY==0) or (SQL_MODE==SQL_OFF)) Led_Status = Led_Status - green_led; //we are receivig
-  if (CHANNEL_BUSY==0) APRS_Counter = 0; //If channel is busy, dont transmit APRS, wait the musy to finish and restart counter
-  if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  //We are transmitting
-  if (pttToggler) send_packet(_STATUS,(freqLimits.aprs_25*25)); //TODO: what if UHF
-
-  //Led_Status = Led_Status - yellow_led;
-  //Led_Status = Led_Status - red_led;
+  if ((CHANNEL_BUSY == 0) || (SQL_MODE == SQL_OFF)) Led_Status = Led_Status - green_led; // we are receiving
+  if (CHANNEL_BUSY == 0) APRS_Counter = 0; // If channel is busy, dont transmit APRS
+  if (TRX_MODE == TX) Led_Status = Led_Status - red_led;  // We are transmitting
+  if (pttToggler) send_packet(_STATUS, (freqLimits.aprs_25 * 25)); // TODO: what if UHF
   if (APRS_Counter < 2000) Led_Status = Led_Status - backlight;
-  Wire.write(Led_Status); 
-  Wire.endTransmission();
 
-  CHANNEL_BUSY = digitalRead(SQL_ACTIVE);  
+  static uint8_t old_Led_Status = 0xFF;
+  if (Led_Status != old_Led_Status) {
+    old_Led_Status = Led_Status;
+    Wire.beginTransmission(PCF8574_KEYB_LED);
+    Wire.write(Led_Status); 
+    Wire.endTransmission();
+  }
+
+  // 5-Kademeli Dijital Squelch Filtresi ve Histerezis (Pir-pir / anlik parazit onleyici)
+  static unsigned long lastSqlSampleMs = 0;
+  static int16_t sqlScore = 0;
+  static uint8_t filteredBusy = 1; // 1 = Kanal sessiz (Mute), 0 = Sinyal var (RX Acik)
+  static const int16_t sqlOpenThresholds[6] = { 0, 0, 10, 25, 45, 80 }; // Kademe 1..5 acilma gecikmesi (ms)
+  const int16_t sqlHoldMax = 180; // Sinyal acildiktan sonra 180ms tutma (pir-pir onleyici kapanma histerezisi)
+
+  if (TRX_MODE == TX) {
+    sqlScore = 0;
+    filteredBusy = 1;
+  } else if (SQL_MODE == SQL_OFF) {
+    filteredBusy = 0;
+  } else {
+    unsigned long nowMs = millis();
+    if (nowMs != lastSqlSampleMs) {
+      uint16_t dt = (uint16_t)(nowMs - lastSqlSampleMs);
+      if (dt > 20) dt = 20;
+      lastSqlSampleMs = nowMs;
+
+      uint8_t lvl = (sql_level >= 1 && sql_level <= 5) ? sql_level : 3;
+      int16_t openThr = sqlOpenThresholds[lvl];
+
+      if (digitalRead(SQL_ACTIVE) == 0) {
+        sqlScore += dt;
+        if (filteredBusy == 1 && sqlScore >= openThr) {
+          filteredBusy = 0; // Squelch ACILDI
+          sqlScore = openThr + sqlHoldMax;
+        } else if (filteredBusy == 0 && sqlScore > openThr + sqlHoldMax) {
+          sqlScore = openThr + sqlHoldMax;
+        }
+      } else {
+        sqlScore -= dt;
+        if (sqlScore <= 0) {
+          sqlScore = 0;
+          filteredBusy = 1; // Squelch KAPANDI
+        }
+      }
+    }
+  }
+
+  CHANNEL_BUSY = filteredBusy;
   if (CHANNEL_BUSY == 0) digitalWrite(MUTE_PIN_1, LOW);
-    else if (SQL_MODE == SQL_ON) digitalWrite(MUTE_PIN_1, HIGH); 
-      else digitalWrite(MUTE_PIN_1, LOW);
+  else if (SQL_MODE == SQL_ON) digitalWrite(MUTE_PIN_1, HIGH); 
+  else digitalWrite(MUTE_PIN_1, LOW);
 
 
   /*
@@ -661,55 +853,108 @@ void loop() {
 //  if (pttToggler && TRX_MODE == RX) TRX_MODE = TX; //if pttToggler set from serial, then mode is transmission
   if (TRX_MODE != LST_MODE) {
     LST_MODE = TRX_MODE;
-    write_FRQ(current_ch.frequency); //Update frequency on every state change
-    SetTone(current_ch.tone_enabled); //Change Tone Generation State ONLY when state changes
-    if (TRX_MODE == TX ) digitalWrite(PTT_OUTPUT_PIN,HIGH); // now start transmitting
-      else digitalWrite(PTT_OUTPUT_PIN, LOW);
+    Serialprint("[TRX] %s  f=%lu  FRQ=%s\r\n", TRX_MODE == TX ? "TX" : "RX",
+                (unsigned long)current_ch.frequency, FRQ);
+    if (TRX_MODE == TX) {
+       pttKey(true); // TAMSAT kartinda TX'i fiziksel olarak acmak icin GEREKLI!
+       write_FRQ(current_ch.frequency);   // PLL'i TX frekansina programla
+       SetTone(current_ch.tone_enabled);
+       lastPllRefresh = millis();
+    } else {
+       pttKey(false); // Once PA'i kapat, SONRA PLL'i cevir
+       write_FRQ(current_ch.frequency);
+       SetTone(current_ch.tone_enabled);
+    }
+  }
+
+  // TX sirasinda PLL'i periyodik tazele (yalnizca profil istiyorsa)
+  if (TRX_MODE == TX && pllRefreshMs && (millis() - lastPllRefresh) >= pllRefreshMs) {
+    lastPllRefresh = millis();
+    SetPLLLock(current_ch.frequency);
   }
 
   //if (subMENU == menuRPT) writeToLcd(cstr);
 
- //check APRS timer timeout, and send APRS message if timeout reached
- //TODO: Convert timeout to seconds instead of loop counter
- // APRS_Counter += 1;
- //if (APRS_Counter % 1000) Serialprint("%d\r\n",APRS_Counter);
- //uint32_t APR_tmt = APRS_Timeout * 60 * 150;
- // if (((APRS_Counter/150) >= (APRS_Timeout)) && (APRS_Timeout > 0)) {
- //    send_packet(_FIXPOS_STATUS,(freqLimits.aprs_25*25)); //For APRS terrestrial  //TODO: UHF ?
- //    send_packet(_FIXPOS_STATUS,(freqLimits.iss_25*25));  //For ISS               //TODO: UHF ?
- //    APRS_Counter = 0;
- // }
+  // APRS periyodik beacon zamanlayicisi (dakika bazinda, kanal bos ve RX modundayken)
+  static unsigned long lastAprsMillis = 0;
+  if (APRS_Timeout > 0 && TRX_MODE == RX && CHANNEL_BUSY != 0) {
+    unsigned long intervalMs = (unsigned long)APRS_Timeout * 60000UL;
+    if (millis() - lastAprsMillis >= intervalMs) {
+      lastAprsMillis = millis();
+      send_packet(_FIXPOS_STATUS, (uint32_t)freqLimits.aprs_25 * 25UL);
+    }
+  } else if (CHANNEL_BUSY == 0 || TRX_MODE == TX) {
+    // Kanal mesgulken veya konusurken sayaci oteleyerek konusma ustune basmasini onle
+    if (APRS_Timeout > 0 && (millis() - lastAprsMillis) >= ((unsigned long)APRS_Timeout * 60000UL)) {
+      lastAprsMillis = millis() - ((unsigned long)APRS_Timeout * 60000UL) + 5000UL;
+    }
+  }
 
   //this is our interrupt pin... Move this to a proper interrupt rutine
   KeyVal = digitalRead(KeypadIntPin);
 
+  static unsigned long keyPressStartMs = 0;
 
-  //Long press on a key detection...
-  if ((KeyVal == old_KeyVal) & (KeyVal ==  0) & (scrTimer>0)) scrTimer -= 1; //Keypressed and there are counts to go
-    else if (KeyVal==1) {
-     if (scrTimer==0) { //key released and timeout occured
-//       writeToLcd("SELECT   ");
-//       delay(500); //TODO do not use DELAY, change to a timer
-       if (pressedKEY=='B') { writeToLcd("TONE     "); subMENU = menuTONE; delay(1000);write_TONEtoLCD(current_ch.tone_pos); old_ctcss_tone_pos = current_ch.tone_pos;}
-       if (pressedKEY=='S') { writeToLcd("SQL      "); subMENU = menuSQL;  }
-       if (pressedKEY=='O') { writeToLcd("SCAN     "); delay(1000); startScan(); } //subMENU = menuSCAN; }
-        if (pressedKEY=='M') { writeToLcd("MENU     "); subMENU = menuMENU; }
-       delay(500); //TODO do not use DELAY, change to a timer
-       scrTimer = TimeoutValue; //Restart the timer
-       numChar = 0; //if we were entering frq from keyboard
-       if (pressedKEY != '#') scrMODE = scrMENU;    
-     }//scrTimer
-    }//Keyval==0
+  //Long press on a key detection (1000 ms basili tutma) + PCF8574 INT takilma onleyici...
+  if ((KeyVal == old_KeyVal) && (KeyVal == 0)) {
+    if ((scrTimer > 0) && (millis() - keyPressStartMs >= 1000)) {
+      scrTimer = 0;
+    }
+    // Eger INT pini 1200ms'den uzun suredir LOW kaldiysa ama gercekte basili bir satir yoksa, PCF8574'u kurtar
+    if (millis() - keyPressStartMs >= 1200) {
+      if (readRow() >= 5) {
+        resetKeypadPCF();
+        old_KeyVal = 1;
+        scrTimer = TimeoutValue;
+      } else {
+        resetKeypadPCF();
+        keyPressStartMs = millis();
+      }
+    }
+  } else if (KeyVal == 1) {
+    if (scrTimer == 0) { //key released and timeout occured
+      if (pressedKEY == 'B') {
+        writeToLcd("TONE     ");
+        subMENU = menuTONE;
+        scrMODE = scrMENU;
+        delay(1000);
+        write_TONEtoLCD(current_ch.tone_pos);
+        old_ctcss_tone_pos = current_ch.tone_pos;
+      } else if (pressedKEY == 'O') {
+        writeToLcd("SCAN     ");
+        delay(1000);
+        startScan();
+        scrMODE = scrNORMAL;
+        subMENU = menuNONE;
+      } else if (pressedKEY == 'S') {
+        subMENU = menuSQL;
+        scrMODE = scrMENU;
+        char sqlBuf[10];
+        sprintf(sqlBuf, "SQL   %d ", sql_level);
+        writeToLcd(sqlBuf);
+      }
+      scrTimer = TimeoutValue; //Restart the timer
+      numChar = 0; //if we were entering frq from keyboard
+    }//scrTimer
+  }//Keyval==0
 
   
   if (KeyVal != old_KeyVal) { 
     if (KeyVal == 0) {
-        Alert_Tone(OK_tone);  
-        APRS_Counter = 0; //if a key is pressed, restart the APRS timer
-        scrTimer = TimeoutValue; //Restart the timer
+        // ONCE tusu oku (Alert_Tone 100ms gecikme yaptigi icin once cagrilirsa kisa basista tus kacirilir!)
         int satir = readRow();
         int sutun = readColumn();
-        pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+        if (satir >= 0 && satir < 5 && sutun >= 0 && sutun < 4) {
+          pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+        } else {
+          pressedKEY = 'X';
+        }
+        APRS_Counter = 0; //if a key is pressed, restart the APRS timer
+        scrTimer = TimeoutValue; //Restart the timer
+        keyPressStartMs = millis();
+        if (pressedKEY != 'X') {
+          Alert_Tone(OK_tone);
+        }
     
     // KEYPAD LOGGING
     Serialprint("[KEYPAD] Satir: %d, Sutun: %d -> Basilan Tus: '%c'\r\n", satir, sutun, pressedKEY);
@@ -722,11 +967,13 @@ void loop() {
         switch (pressedKEY) {
           case 'U':
             if ( subMENU == menuRPT)  { current_ch.shift += 25; write_SHIFTtoLCD(current_ch.shift); }  //TODO: check overflows... + or -
-            if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos>=19) current_ch.tone_pos = 19 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuTONE) { current_ch.tone_pos += 1; if (current_ch.tone_pos >= TOTAL_TONES - 1) current_ch.tone_pos = TOTAL_TONES - 1; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuSQL)  { if (sql_level < 5) sql_level++; SQL_MODE = SQL_ON; EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE); EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level); char b[10]; sprintf(b, "SQL   %d ", sql_level); writeToLcd(b); }
             break;
           case 'D':
             if ( subMENU == menuRPT)  {current_ch.shift -= 25; write_SHIFTtoLCD(current_ch.shift); }
             if ( subMENU == menuTONE) { current_ch.tone_pos -= 1;  if (current_ch.tone_pos<=0) current_ch.tone_pos = 0 ; write_TONEtoLCD(current_ch.tone_pos); EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);}
+            if ( subMENU == menuSQL)  { if (sql_level > 1) sql_level--; SQL_MODE = SQL_ON; EEPROM.write(EEPROM_SQLMODE_ADDR, SQL_MODE); EEPROM.write(EEPROM_SQLLEVEL_ADDR, sql_level); char b[10]; sprintf(b, "SQL   %d ", sql_level); writeToLcd(b); }
             break;
           case '#': //means CANCEL
             if (subMENU == menuRPT)  current_ch.shift = old_frqSHIFT;
@@ -737,9 +984,11 @@ void loop() {
             pressedKEY = 'X';
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
             subMENU = menuNONE;
+            writeFRQToLcd(FRQ);
           break; // '#'
           case '*': //means OK
             EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+            EEPROM.commit();
             //if ( subMENU == menuRPT)  write_SHIFTtoEE(frqSHIFT);
             //if ( subMENU == menuTONE) write_TONEtoEE(ctcss_tone_pos);
             //testing the lock reported by TA2GY .. memory recall after shift setup locks device
@@ -748,6 +997,7 @@ void loop() {
             pressedKEY = 'X';
             scrMODE = scrNORMAL; //we are in menu or submenus.. return to normal display
             subMENU = menuNONE;
+            writeFRQToLcd(FRQ);
           break; // '*'
           default:
           break; 
@@ -791,6 +1041,8 @@ void loop() {
             } else {
               SQL_MODE = SQL_OFF;
             }
+            EEPROM.write(EEPROM_SQLMODE_ADDR, (uint8_t)SQL_MODE);
+            EEPROM.commit();
             write_FRQ(current_ch.frequency);
           break; //'S'
           case 'O':
@@ -799,6 +1051,8 @@ void loop() {
              } else {
                 RF_POWER_STATE = HIGH_POWER;
              }
+             EEPROM.write(EEPROM_RFPOWER_ADDR, RF_POWER_STATE);
+             EEPROM.commit();
 //             SetRFPower(RF_POWER_STATE);           
              SetRFPower();           
              write_FRQ(current_ch.frequency);
@@ -868,7 +1122,13 @@ void loop() {
                         GetMemoryChannel(chStr);
                     } while (strncmp(FRQ, "NULL", 4) == 0 && current_memory_channel != starting_channel);
                     
-                    if (current_memory_channel != starting_channel) {
+                    if (strncmp(FRQ, "NULL", 4) == 0) {
+                        // Hicbir hafiza kanali dolu degilse VFO modunda kal
+                        Serialprint("[MODE] Dolu hafiza kanali yok, VFO modunda kalindi\r\n");
+                        op_mode = MODE_VFO;
+                        strcpy(FRQ, FRQ_old);
+                        validFRQ = Calculate_Frequency(FRQ);
+                    } else if (current_memory_channel != starting_channel) {
                         EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
                     }
                 }
@@ -912,7 +1172,11 @@ void loop() {
               max_vna_freq = 45000;              
               stp_vna_freq = 10;
             }
-            digitalWrite(PTT_OUTPUT_PIN,HIGH);
+            numberToFrequency(min_vna_freq,FRQ);
+            validFRQ = Calculate_Frequency(FRQ);
+            write_FRQ(current_ch.frequency);   // Once PLL, sonra PA
+            delay(PLL_TX_SETTLE_MS);
+            pttKey(true);
             Serialprint("\r\n#VNA#\t%l\t%l\r\n",min_vna_freq,max_vna_freq); //START
             for (long vna_freq=min_vna_freq; vna_freq < max_vna_freq; vna_freq += stp_vna_freq)
               {
@@ -922,15 +1186,15 @@ void loop() {
                 writeFRQToLcd(FRQ);
                 Serialprint(">%d\t",vna_freq);
                 delay(100);
-                //digitalWrite(PTT_OUTPUT_PIN,HIGH);
+                //pttKey(true);
                 //delay(50);
                 readRfPower(); //TODO: Move under a menu item
                 //delay(25);
-                //digitalWrite(PTT_OUTPUT_PIN,LOW);
+                //pttKey(false);
 
                 if (readColumn() != 0) break; //a key is pressed
               }
-              digitalWrite(PTT_OUTPUT_PIN,LOW);
+              pttKey(false);
               Serialprint("@VNA@\t%d\t%d\r\n",min_vna_freq,max_vna_freq); //END
               //SetRFPower(RF_POWER_STATE);
               SetRFPower();
@@ -1000,6 +1264,7 @@ void loop() {
                 if (validFRQ) {
                   current_ch.shift_dir = noSHIFT; // Reset shift to Simplex when a new frequency is entered manually
                   EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch); // Save the new simplex mode
+                  EEPROM.commit();
                   strcpy(FRQ_old,FRQ);
                 } else {
                   strcpy(FRQ,FRQ_old); //"   .   ";
@@ -1019,10 +1284,8 @@ void loop() {
     
     } // KeyVal == 0
     
-    //Put 8574_ into READ mode by setting ports high
-    Wire.beginTransmission(0x20);
-    Wire.write(255); 
-    Wire.endTransmission();
+    // Put 8574 (0x20) into READ mode with 0xFF reference state (while 0x21 columns are HIGH)
+    resetKeypadPCF();
     
     //Toggle interupt PIN state holder
     old_KeyVal = KeyVal;
@@ -1052,8 +1315,67 @@ if (commandComplete) {
     if (commandString.charAt(0) == 'B') commandAprsFrequency();
     if (commandString.charAt(0) == 'I') commandISSFrequency();
     if (commandString.charAt(0) == 'W') { initWebUI(); }
+    if (commandString.charAt(0) == 'Y') { pllSweepTest(); }
+    if (commandString.charAt(0) == 'm') { pllNextMode(); }
+    if (commandString.charAt(0) == 'p') {          // PTT otomatik testi
+        Serialprint("\r\n[PTTTEST] basliyor. 145.575'e donuluyor.\r\n");
+        current_ch.frequency = (radio_type == 0) ? 145575UL : 433500UL;
+        current_ch.shift_dir = noSHIFT;
+        numberToFrequency(current_ch.frequency, FRQ);
+        validFRQ = Calculate_Frequency(FRQ);
+        write_FRQ(current_ch.frequency);
+        Serialprint("[PTTTEST] dinleme PLL yazildi. PTT_IN=%d\r\n", digitalRead(PTT_INPUT_PIN));
+        delay(500);
+        TRX_MODE = TX;
+        write_FRQ(current_ch.frequency);
+        delay(PLL_TX_SETTLE_MS);
+        pttKey(true);
+        Serialprint("[PTTTEST] PTT_OUT=HIGH, 3 saniye gonderim\r\n");
+        for (int i = 0; i < 6; i++) {
+            delay(500);
+            Serialprint("[PTTTEST] t=%dms PTT_IN=%d SQL=%d\r\n",
+                        (i + 1) * 500, digitalRead(PTT_INPUT_PIN), digitalRead(SQL_ACTIVE));
+        }
+        pttKey(false);
+        TRX_MODE = RX;
+        LST_MODE = RX;
+        write_FRQ(current_ch.frequency);
+        Serialprint("[PTTTEST] bitti, PTT_OUT=LOW\r\n");
+    }
+    if (commandString.charAt(0) == 't') {          // PTT polaritesi
+        pttActiveLevel = (pttActiveLevel == HIGH) ? LOW : HIGH;
+        Serialprint("[PTT] aktif seviye = %s (GP%d)\r\n",
+                    pttActiveLevel == HIGH ? "HIGH" : "LOW", PTT_OUTPUT_PIN);
+    }
+    if (commandString.charAt(0) == 'r') {          // R sayaci / PD frekansi
+        pllR = (pllR == 1024) ? 512 : 1024;
+        Serialprint("[PLL] R=%u -> PD=%.1f kHz. Yeniden programlaniyor...\r\n",
+                    pllR, 12800.0 / pllR);
+        validFRQ = Calculate_Frequency(FRQ);
+        write_FRQ(current_ch.frequency);
+    }
+    if (commandString.charAt(0) == 'z') {          // A=0 testi: 1 MHz tam katina programla
+        current_ch.frequency = (radio_type == 0) ? 145000UL : 433000UL;
+        current_ch.shift_dir = noSHIFT;
+        numberToFrequency(current_ch.frequency, FRQ);
+        validFRQ = Calculate_Frequency(FRQ);
+        write_FRQ(current_ch.frequency);
+        Serialprint("[TESTA0] %lu kHz -> TX N=%lu A=0, RX N=%lu A=0\r\n",
+                    (unsigned long)current_ch.frequency,
+                    (unsigned long)(current_ch.frequency / 1000),
+                    (unsigned long)((current_ch.frequency + 45000UL) / 1000));
+    }
     if (commandString.charAt(0) == 'J') { 
         freq_step = 25; Serialprint("Adim 25 KHz (Donanimsal Sabit)\r\n");
+    }
+    if (commandString.charAt(0) == 'v') {
+        micTxMode = (micTxMode + 1) % 2;
+        const char* modeNames[2] = {
+            "0: Standart CTCSS PWM (%2 duty, PR1 pot ile uyumlu)",
+            "1: DDS Sinus CTCSS PWM (256-ornek tablo)"
+        };
+        Serialprint("[CTCSS] Ton Uretim Modu = %s\r\n", modeNames[micTxMode]);
+        SetTone(current_ch.tone_enabled);
     }
     
 //   Serial.println("Gecersiz bir komut... tekrar deneyiniz...");
@@ -1069,8 +1391,11 @@ if (commandComplete) {
 //  delay(tx_delay);
 //  randomize(tx_delay, 10, 5000);
 //  randomize(str_len, 10, 420);
-  handleWebUI();
-  
+  if (TRX_MODE != TX) {
+    handleWebUI();
+  }
+  serialEvent();   // Pico'da loop'tan cagrilmazsa seri menu hic calismaz
+
   #ifdef RESETWATCHDOG
 	//wdt_reset();
   #endif
@@ -1100,18 +1425,15 @@ void StreamPrint_progmem(Print &out,PGM_P format,...)
 
 
 void serialEvent() {
-  //Serialprint(".");
-  cli();
+  // NOT: AVR'deki cli()/sei() kaldirildi. RP2040'ta I2C/USB servisleri kesmeye
+  // bagli; kesmeleri kapatmak tus takimini kilitleyebiliyor. Gerek de yok.
   while (Serial.available()) {
-    //char inChar = UDR0; //
     char inChar = (char)Serial.read();
-    //Serialprint(inChar); //local echo
     commandString += inChar;
     if (inChar == '\n') {
       commandComplete = true;
     }
   }
-  sei();
 }
 
 /*
@@ -1342,50 +1664,183 @@ void softResetDevice()
 
 //HELPER FUNCTIONS
 //MC145158 programming routines
-//R_counter=512
-//N_counter=100
-//A_counter=0
+//R_counter=1024 (12.8MHz / 12.5kHz ref)
+//N_counter=190, A_counter=46 (for 145.575 RX)
+
+/* Ham N/A yazimi. Sweep testi de bunu kullanir. */
+void pllWriteNA(int N_Counter, int A_Counter) {
+  digitalWrite(PLL_SEC, LOW); //SELECT PLL for SPI BUS (keep permanently LOW)
+  send_SPIBit(pllR, 14);
+  send_SPIBit(1, 1);          // R kaydi
+  send_SPIEnable();
+  send_SPIBit(N_Counter, 10);
+  send_SPIBit(A_Counter, 7);
+  send_SPIBit(0, 1);          // A/N kaydi
+  send_SPIEnable();
+  // NOT: PLL_SEC HIGH yapilmaz! K3 kartindaki TD9 (74HC32, 5V CMOS) OR kapilarina
+  // 3.3V HIGH vermek (VIH_min=3.5V) kapiyi esik bolgesinde birakir ve ENABLE sonrasi
+  // sahte CLOCK darbesi uretir. TD10 kullanilmadigi icin PLL_SEC surekli LOW kalmalidir.
+}
+
+/* PLL kelimelerini yazar. R ve N/A hedef VCO frekansindan.
+   PD frekansi = 12800 kHz / pllR.  R=1024 -> 12.5 kHz, R=512 -> 25 kHz.
+   Dikkat: N ve A, PD frekansina gore hesaplanir; R degisince ikisi de degisir. */
+void pllWriteWords(uint32_t f) {
+  uint32_t stepKhz10 = 12800UL * 10UL / pllR;        // 12.5 -> 125, 25 -> 250 (0.1 kHz birimi)
+  uint32_t f10 = f * 10UL;                            // hedef VCO, 0.1 kHz birimi
+  int N_Counter = (int)(f10 / stepKhz10 / 80);
+  int A_Counter = (int)(f10 / stepKhz10) - (80 * N_Counter);
+  pllWriteNA(N_Counter, A_Counter);
+
+#if defined(PLL_DEBUG)
+  Serialprint("[PLL] vco=%lu R=%u N=%d A=%d ref=%lu\r\n",
+              (unsigned long)f, pllR, N_Counter, A_Counter,
+              (unsigned long)((N_Counter * 80 + A_Counter) * stepKhz10 / 10));
+#endif
+}
 
 void send_SPIBit(int Counter, uint8_t length) {
   for (int i=length-1;i>=0;i--) {
-    uint8_t data=bitRead(Counter,i);
-    if (data==1) {
-     digitalWrite(pll_data_pin, HIGH);    // Load 1 on DATA
-    } else {
-     digitalWrite(pll_data_pin, LOW);    // Load 1 on DATA
-    }
-    delay(1);
+    digitalWrite(pll_data_pin, bitRead(Counter,i));
+    delayMicroseconds(pllBitDelayUs);
     digitalWrite(pll_clk_pin,HIGH);    // Bring pin CLOCK high
-    delay(1);
-    digitalWrite(pll_clk_pin,LOW);    // Then back low
-    
-    /* For backlight Flickering Issue #44 */
-    Wire.beginTransmission(0x21);
-    Wire.write((uint8_t)224);
-    Wire.endTransmission();
+    delayMicroseconds(pllBitDelayUs);
+    digitalWrite(pll_clk_pin,LOW);     // Then back low
+    delayMicroseconds(pllBitDelayUs);
+    // NOT: Arduino TAMSAT'taki Wire.beginTransmission(0x21) blogu KALDIRILDI.
+    // Sebep: Pico PCB'de GP17 (I2C SCL) ile GP9 (PLL CLK) arasinda
+    // elektromanyetik kuplaj var. I2C saat darbeleri PLL verisini bozuyordu.
+    // Arduino'da sorun yok cunku I2C ve SPI farkli portlarda (Port C vs Port B).
   }
+  digitalWrite(pll_data_pin, LOW); // hat sonunda veri hattini serbest birak
 }
 
 void send_SPIEnable() {
   digitalWrite(pll_ena_pin, HIGH);   // Bring ENABLE high
-  delay(1);
-  digitalWrite(pll_ena_pin, LOW);    // Then back low  
+  delayMicroseconds(pllBitDelayUs);
+  digitalWrite(pll_ena_pin, LOW);    // Then back low
+  delayMicroseconds(pllBitDelayUs);
+}
+
+/* Yazim profilini uygula. Modlar main.h'de listeli. */
+void pllApplyMode(uint8_t m) {
+  if (m >= PLL_MODE_COUNT) m = 0;
+  pllMode = m;
+  switch (m) {
+    case 0: pllBitDelayUs = 1000; pllDoubleWrite = false; pllRefreshMs = 0;   break;
+    case 1: pllBitDelayUs = 100;  pllDoubleWrite = false; pllRefreshMs = 0;   break;
+    case 2: pllBitDelayUs = 10;   pllDoubleWrite = false; pllRefreshMs = 0;   break;
+    case 3: pllBitDelayUs = 10;   pllDoubleWrite = true;  pllRefreshMs = 200; break;
+    case 4: pllBitDelayUs = 1000; pllDoubleWrite = true;  pllRefreshMs = 200; break;
+  }
+  Serialprint("[PLLMODE] %d: bit=%uus cift=%d tazeleme=%ums\r\n",
+              pllMode, pllBitDelayUs, pllDoubleWrite ? 1 : 0, pllRefreshMs);
+}
+
+void pllNextMode() {
+  pllApplyMode((pllMode + 1) % PLL_MODE_COUNT);
+  validFRQ = Calculate_Frequency(FRQ);
+  write_FRQ(current_ch.frequency);   // hemen uygula ve dinle
+}
+
+#include "hardware/pwm.h"
+#include "hardware/timer.h"
+
+// Sinüs Tablosu (8-bit)
+#define SINE_TABLE_SIZE 256
+const uint8_t sine_wave[SINE_TABLE_SIZE] = {
+  128, 131, 134, 137, 140, 143, 146, 149, 152, 155, 158, 161, 164, 167, 170, 173,
+  176, 179, 182, 185, 188, 190, 193, 196, 198, 201, 203, 206, 208, 211, 213, 215,
+  218, 220, 222, 224, 226, 228, 230, 232, 234, 236, 237, 239, 240, 242, 243, 245,
+  246, 247, 248, 249, 250, 251, 252, 253, 253, 254, 254, 254, 255, 255, 255, 255,
+  255, 255, 255, 254, 254, 254, 253, 253, 252, 251, 250, 249, 248, 247, 246, 245,
+  243, 242, 240, 239, 237, 236, 234, 232, 230, 228, 226, 224, 222, 220, 218, 215,
+  213, 211, 208, 206, 203, 201, 198, 196, 193, 190, 188, 185, 182, 179, 176, 173,
+  170, 167, 164, 161, 158, 155, 152, 149, 146, 143, 140, 137, 134, 131, 128, 125,
+  122, 119, 116, 113, 110, 107, 104, 101, 98, 95, 92, 89, 86, 83, 80, 77,
+  74, 71, 68, 65, 62, 60, 57, 54, 52, 49, 47, 44, 42, 39, 37, 35,
+  32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 13, 11, 10, 8, 7, 5,
+  4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 3,
+  4, 5, 6, 7, 8, 10, 11, 13, 14, 16, 18, 20, 22, 24, 26, 28,
+  30, 32, 35, 37, 39, 42, 44, 47, 49, 52, 54, 57, 60, 62, 65, 68,
+  71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110, 113, 116,
+  119, 122, 125, 127, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128
+};
+
+// PWM Değişkenleri
+uint slice_num;
+volatile int phase_acc = 0;
+struct repeating_timer tone_timer;
+bool timer_active = false;
+
+// Timer Callback (Kesme Fonksiyonu)
+bool timer_callback(struct repeating_timer *t) {
+    pwm_set_chan_level(slice_num, pwm_gpio_to_channel(MIC_PIN), sine_wave[phase_acc]);
+    phase_acc = (phase_acc + 1) % SINE_TABLE_SIZE;
+    return true;
+}
+
+void start_tone(float frequency) {
+    if (timer_active) return;
+    float interval_us = 1000000.0f / (frequency * SINE_TABLE_SIZE);
+    
+    gpio_set_function(MIC_PIN, GPIO_FUNC_PWM);
+    slice_num = pwm_gpio_to_slice_num(MIC_PIN);
+    pwm_set_wrap(slice_num, 255);
+    pwm_set_enabled(slice_num, true);
+    
+    add_repeating_timer_us(-interval_us, timer_callback, NULL, &tone_timer);
+    timer_active = true;
+}
+
+void stop_tone() {
+    if (timer_active) {
+        cancel_repeating_timer(&tone_timer);
+        timer_active = false;
+    }
+    // PWM'i pinden ayir ve pini TAMAMEN serbest birak.
+    // DIKKAT: gpio_set_dir(IN) tek basina yetmez. Onceki digitalWrite(LOW) latch'i
+    // LOW'ta kalir; RP2040'ta input + latch LOW = dahili PULL-DOWN aktif olur ve
+    // mikrofon hattini GND'ye ceker -> TX sesi kisilir. Arduino'da pinMode(INPUT)
+    // latch'i onemsemedigi icin bu sorun yoktu.
+    gpio_set_function(MIC_PIN, GPIO_FUNC_SIO);
+    gpio_put(MIC_PIN, 1);                    // latch HIGH: pull-down olusmasin
+    gpio_set_dir(MIC_PIN, GPIO_IN);
+    gpio_set_pulls(MIC_PIN, false, false);   // ne pull-up ne pull-down: gercek high-Z
 }
 
 void SetTone(int toneSTATE) {
   noTone(ALERT_PIN);
+  if (timer_active) {
+      cancel_repeating_timer(&tone_timer);
+      timer_active = false;
+  }
+  pwm_set_enabled(pwm_gpio_to_slice_num(MIC_PIN), false);
+
   if (TRX_MODE == RX) {
-      analogWrite(MIC_PIN, 0);
-      pinMode(MIC_PIN, OUTPUT);
-      digitalWrite(MIC_PIN, LOW); // Mute mic during RX to prevent muffled speaker audio
+      gpio_init(MIC_PIN);
+      gpio_set_dir(MIC_PIN, GPIO_OUT);
+      gpio_put(MIC_PIN, 0); // Mute mic during RX to prevent muffled speaker audio
   } else {
       // TRX_MODE == TX
-      if (toneSTATE == CTCSS_ON) { 
-          analogWriteFreq(ctcss_tone_list[current_ch.tone_pos]);
-          analogWrite(MIC_PIN, 5); // %2 duty cycle to prevent drowning mic audio
+      if (toneSTATE == CTCSS_ON) {
+          float f = (current_ch.tone_pos >= 0 && current_ch.tone_pos < TOTAL_TONES)
+                    ? ctcss_tone_list[current_ch.tone_pos] : 88.5f;
+          if (micTxMode == 1) {
+              // Alternatif: 256-ornek DDS Sinus PWM
+              start_tone(f);
+          } else {
+              // Varsayilan (micTxMode == 0): %2 duty CTCSS PWM (mikrofon sesini bastirmaz, PR1 ile ayarlanir)
+              analogWriteFreq(f);
+              analogWrite(MIC_PIN, 5);
+          }
       } else {
-          analogWrite(MIC_PIN, 0);
-          pinMode(MIC_PIN, INPUT); // Let mic float freely during TX for perfect voice
+          // CTCSS_OFF: GP10 (MIC_PIN) tamamen serbest / High-Z (GPIO_FUNC_NULL, IE=0, OD=1, pull=0)
+          gpio_init(MIC_PIN);
+          gpio_put(MIC_PIN, 1);
+          gpio_set_dir(MIC_PIN, GPIO_IN);
+          gpio_set_pulls(MIC_PIN, false, false);
+          gpio_deinit(MIC_PIN);
       }
   }
 }

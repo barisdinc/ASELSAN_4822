@@ -14,7 +14,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 3
-#define SW_MINOR 4
+#define SW_MINOR 5
 
 #define green_led  128
 #define yellow_led 64
@@ -33,10 +33,11 @@ extern uint8_t old_KeyVal;
 
 extern bool pttToggler;
 
-#define PLL_SEC 20 // GP20 (A2/CDT0)
+#define PLL_SEC 18 // GP18 (TAMSAT A2 -> Pico A6)
 
-#define BAND_SELECT_1  13 // GP13 (D11)
-#define BAND_SELECT_0  8  // GP8 (D8)
+// Ozel PCB icin gecerli Pin Tanimlamalari (TAMSAT'tan bagimsiz)
+#define BAND_SELECT_1  13 // GP13 (D11) = BS1 (Original TAMSAT / Actually working mapping)
+#define BAND_SELECT_0  8  // GP8 (D8) = BS0 (Original TAMSAT / Actually working mapping)
 
 extern uint8_t radio_type;
 
@@ -46,18 +47,19 @@ extern uint8_t radio_type;
 #define plusSHIFT   1
 extern int old_frqSHIFT;;
 
-#define PTT_OUTPUT_PIN 5  // GP5 (D5)
-#define PTT_INPUT_PIN  14 // GP14 (D12)
+#define PTT_OUTPUT_PIN 5  // GP5 (D5) -> PTT_OUT
+#define PTT_INPUT_PIN  14 // GP14 (D12) -> PTT_IN
 
 #define RX 0
 #define TX 1
 extern uint8_t TRX_MODE;
 extern uint8_t LST_MODE;
 
-#define RF_POWER_PIN 26 // A0 pini donanımda boş/yok ama derleme için GP26 verilebilir
+#define RF_POWER_PIN 26 // GP26 (ADC0) -> POWER_CONTROL
 #define HIGH_POWER 0
 #define LOW_POWER  1
 extern uint8_t RF_POWER_STATE;
+extern uint8_t micTxMode;
 
 #define ALERT_PIN 28 // Dummy pin for Buzzer (was 4, but that collided with KeypadIntPin)
 
@@ -74,7 +76,7 @@ extern uint8_t ALERT_MODE;
 
 #define CTCSS_OFF 0
 #define CTCSS_ON  1
-#define TOTAL_TONES 20
+#define TOTAL_TONES 39
 #define TONE_CORRECTION 0.7 
 extern float ctcss_tone_list[TOTAL_TONES];
 extern uint8_t old_ctcss_tone_pos;;
@@ -83,9 +85,45 @@ extern uint8_t old_ctcss_tone_pos;;
 #define MUTE_PIN_1 6 // GP6 (D6)
 extern uint8_t CHANNEL_BUSY;
 
-#define pll_clk_pin  9  // GP9 (D9)
-#define pll_data_pin 11 // GP11 (D10)
-#define pll_ena_pin  7  // GP7 (D7)
+#define pll_clk_pin  9  // GP9 (D9) -> SPI_CLK
+#define pll_data_pin 11 // GP11 (D10) -> SPI_DATA
+#define pll_ena_pin  7  // GP7 (D7) -> PLL_SEC (Enable)
+
+// PLL (MC145158) yazim profili. Calisma aninda 'm' ile degistirilebilir.
+// 0: Nano birebir (1ms bit, tek yazim, tazeleme yok)  <- varsayilan
+// 1: 100us bit, tek yazim, tazeleme yok
+// 2: 10us bit, tek yazim, tazeleme yok
+// 3: 10us bit, cift yazim, 200ms tazeleme
+// 4: 1ms bit, cift yazim, 200ms tazeleme
+#define PLL_MODE_COUNT 5
+extern uint8_t  pllMode;
+extern uint16_t pllBitDelayUs;
+extern bool     pllDoubleWrite;
+extern uint16_t pllRefreshMs;
+extern uint16_t pllR;
+void pllApplyMode(uint8_t m);
+void pllNextMode();
+
+// PTT cikis polaritesi. Pico PCB'sinde Q1 (DTC143EKA) tersleyici olarak bagli:
+// GP5 HIGH -> Q1 iletimde -> PTT_OUT LOW. TAMSAT kablolamasinda ise PTT_OUT
+// dogrudan suruluyordu (HIGH = gonderim). Bu yuzden polarite calisma aninda
+// 't' komutu ile denenebilir.
+extern uint8_t pttActiveLevel;
+void pttKey(bool on);
+
+// WiFi acilista baslatilsin mi?
+// Pico 2 W'nin CYW43 cipi acilista ve TX sirasinda 250-350 mA tepe akim ceker.
+// Kartta sadece 4 x 100nF dekuplaj var; bulk (elektrolitik/tantal) kondansator yok.
+// Telsizin 5V raili bu ani yuku karsilayamiyor, gerilim 5V'tan 1.5V'a dusup
+// RP2350 brownout oluyor (USB bagliyken sorun gorunmez, PC portu besler).
+//   1 = acilista baslat   |   0 = sadece seri menuden 'W' ile baslat
+// Kalici cozum: VCC-GND arasina 470uF + 10uF bulk kondansator.
+#define WIFI_AT_BOOT 0
+
+#define PLL_TX_SETTLE_MS    20 // PTT'den once VCO'nun kilitlenmesi icin bekleme
+
+// Seri portta her PLL yaziminda N/A degerlerini doker (ayar dogrulamasi icin)
+#define PLL_DEBUG
 
 #define SQL_OFF 0
 #define SQL_ON  1
@@ -126,6 +164,7 @@ extern boolean validFRQ; //Is the calculated frequenct valid for our ranges;
 
 extern uint8_t TOT_TX_TIME[16];
 extern uint8_t TOT_TX_LOCK_TIME[16];
+extern unsigned long lastPllRefresh;
 
 struct tot_t {
   uint8_t  time_out_time = 60; // default 60 (index 4)
@@ -196,6 +235,22 @@ extern freqLimits_t freqLimits;;
 
 
 #define EEPROM_TOT 50
+
+// WebUI & Cihaz Ek Ayarlari (750..790)
+#define EEPROM_SETUP_DONE_ADDR 750
+#define SETUP_MAGIC_DONE       0xA5
+#define EEPROM_APRS_SSID_ADDR  751
+#define EEPROM_RFPOWER_ADDR    752
+#define EEPROM_SQLMODE_ADDR    753
+#define EEPROM_WIFI_PASS_ADDR  754
+#define WIFI_PASS_MAX_LEN      32
+#define EEPROM_SQLLEVEL_ADDR   788
+#define EEPROM_LAYOUT_VER_ADDR 789
+#define EEPROM_LAYOUT_VERSION  0xA6
+
+extern String wifiPass;
+extern bool isSetupDone;
+extern uint8_t sql_level;
 
 //VNA variables
 extern float minSWR;;
@@ -342,6 +397,11 @@ void scroll(const char *text, int speed) ;
 void Greetings() ;
 void send_SPIBit(int Counter, uint8_t length) ;
 void send_SPIEnable() ;
+void pllWriteWords(uint32_t f) ;
+void pllWriteNA(int N_Counter, int A_Counter) ;
+void pllSweepTest() ;
+int readColumn();
+int readRow();
 void SetTone(int toneSTATE) ;
 void Alert_Tone(int ToneType);
 void SetPLLLock(uint32_t Frequency);

@@ -85,15 +85,18 @@ void send_header(void)
 
   
   /********* SOURCE *********/
-  temp = mycall.length();
+  String cleanCall = mycall;
+  cleanCall.trim();
+  temp = cleanCall.length();
+  if (temp > 6) temp = 6;
   for(int j=0; j<temp; j++)
-    send_char_NRZI(mycall[j] << 1, HIGH);
+    send_char_NRZI(cleanCall[j] << 1, HIGH);
   if(temp < 6)
   {
     for(int j=0; j<(6 - temp); j++)
       send_char_NRZI(' ' << 1, HIGH);
   }
-  send_char_NRZI((myssid + '0') << 1, HIGH);
+  send_char_NRZI(((myssid & 0x0F) + '0') << 1, HIGH);
 
   
   /********* DIGI ***********/
@@ -247,15 +250,19 @@ void send_packet(char packet_type, uint32_t frequency)
    */
 
    strcpy(FRQ_old,FRQ); //store old frequency for recall
+   int8_t saved_shift_dir = current_ch.shift_dir;
+   uint32_t saved_freq = current_ch.frequency;
    current_ch.shift_dir = noSHIFT; //get into SIMPLEX mode for caculations
    TRX_MODE = TX;
    numberToFrequency(frequency,FRQ);         //TODO: change for ISS
    validFRQ = Calculate_Frequency(FRQ);
    write_FRQ(current_ch.frequency);
    writeFRQToLcd(FRQ);
-   digitalWrite(PTT_OUTPUT_PIN,HIGH);
+   delay(PLL_TX_SETTLE_MS);          // VCO kilitlenmeden PA acilmasin
+   pttKey(true);
    //Serialprint("Sending packet..."); 
    noTone(MIC_PIN);
+   pinMode(MIC_PIN, OUTPUT);
    delay(300); //TODO: put define for TXDELAY
     
   //prepare and send APRS message
@@ -267,12 +274,17 @@ void send_packet(char packet_type, uint32_t frequency)
   send_flag(3);
 
   //APRS message transmission ended
-  digitalWrite(PTT_OUTPUT_PIN,LOW); // now stop transmitting
+  pttKey(false); // now stop transmitting
   //Restoring OLD values
   TRX_MODE = RX;
+  LST_MODE = RX;
+  current_ch.shift_dir = saved_shift_dir;
+  current_ch.frequency = saved_freq;
   strcpy(FRQ,FRQ_old);
   //numberToFrequency((highestFRQ+lowestFRQ)/2,FRQ);
   validFRQ = Calculate_Frequency(FRQ);
-  write_FRQ(current_ch.frequency);              
+  write_FRQ(current_ch.frequency);
+  writeFRQToLcd(FRQ);
+  SetTone(current_ch.tone_enabled);
 }
 
