@@ -14,7 +14,7 @@
 #define LASTCMD 0       // Issue when when this is the last command before ending transmission
 
 #define SW_MAJOR 3
-#define SW_MINOR 4
+#define SW_MINOR 5
 
 #define green_led  128
 #define yellow_led 64
@@ -110,6 +110,15 @@ void pllNextMode();
 // 't' komutu ile denenebilir.
 extern uint8_t pttActiveLevel;
 void pttKey(bool on);
+
+// WiFi acilista baslatilsin mi?
+// Pico 2 W'nin CYW43 cipi acilista ve TX sirasinda 250-350 mA tepe akim ceker.
+// Kartta sadece 4 x 100nF dekuplaj var; bulk (elektrolitik/tantal) kondansator yok.
+// Telsizin 5V raili bu ani yuku karsilayamiyor, gerilim 5V'tan 1.5V'a dusup
+// RP2350 brownout oluyor (USB bagliyken sorun gorunmez, PC portu besler).
+//   1 = acilista baslat   |   0 = sadece seri menuden 'W' ile baslat
+// Kalici cozum: VCC-GND arasina 470uF + 10uF bulk kondansator.
+#define WIFI_AT_BOOT 0
 
 #define PLL_TX_SETTLE_MS    20 // PTT'den once VCO'nun kilitlenmesi icin bekleme
 
@@ -236,6 +245,8 @@ extern freqLimits_t freqLimits;;
 #define EEPROM_WIFI_PASS_ADDR  754
 #define WIFI_PASS_MAX_LEN      32
 #define EEPROM_SQLLEVEL_ADDR   788
+#define EEPROM_LAYOUT_VER_ADDR 789
+#define EEPROM_LAYOUT_VERSION  0xA6
 
 extern String wifiPass;
 extern bool isSetupDone;

@@ -452,6 +452,20 @@ void startScan()
 }
 
 
+void resetKeypadPCF() {
+  Wire.beginTransmission(PCF8574_KEYB_LED);
+  Wire.write((uint8_t)((Led_Status & 0xF0) | 0x0F));
+  Wire.endTransmission();
+  Wire.beginTransmission(PCF8574_KEYB);
+  Wire.write((uint8_t)0xFF);
+  Wire.endTransmission();
+  Wire.requestFrom(PCF8574_KEYB, 1);
+  if (Wire.available()) (void)Wire.read();
+  Wire.beginTransmission(PCF8574_KEYB_LED);
+  Wire.write(Led_Status);
+  Wire.endTransmission();
+}
+
 void setup() {
   Wire.setSDA(16);
   Wire.setSCL(17);
@@ -462,7 +476,7 @@ void setup() {
 //pin modes and initial states
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
-  pinMode(SQL_ACTIVE, INPUT_PULLUP); // 8051 P3.4 gibi dahili pull-up aktif (parazit ve pir-pir onleyici)
+  pinMode(SQL_ACTIVE, INPUT); // Use external pull-up from the radio
   pinMode(MIC_PIN, OUTPUT);
   digitalWrite(MIC_PIN, LOW); // Provide solid ground for microphone at startup to prevent RX audio muffling
 
@@ -529,16 +543,14 @@ void setup() {
   commandString.reserve(200);
 
   // Check EEPROM for stored values
-  uint8_t eeprom_state=0;
- // EEPROM.write(0,127);
-  eeprom_state = EEPROM.read(0);//EEPROM Check For Modification Board
-  //Serialprint("ACILIS DEGERI %d\r\n",eeprom_state);
+  uint8_t eeprom_state = EEPROM.read(0); // EEPROM Check For Modification Board
+  uint8_t layout_ver = EEPROM.read(EEPROM_LAYOUT_VER_ADDR);
   
-  if (eeprom_state != 128) {
-      Serial.println("EEPROM Sifirlaniyor...");
+  if (eeprom_state != 128 || layout_ver != EEPROM_LAYOUT_VERSION) {
+      Serial.println("EEPROM Sifirlaniyor / Onariliyor...");
+      radio_type = EEPROM.read(17);
+      if (radio_type > 1) radio_type = 0;
       initialize_eeprom();
-      EEPROM.write(0, 128); // Sifirlandigini isaretle
-      EEPROM.commit();
   } else if (EEPROM.read(1) != SW_MAJOR || EEPROM.read(2) != SW_MINOR) {
       Serial.println("Yazilim Guncellendi, EEPROM versiyon damgasi yenileniyor...");
       EEPROM.write(1, SW_MAJOR);
@@ -546,19 +558,80 @@ void setup() {
       EEPROM.commit();
   }
 
-  radio_type = EEPROM.read(17);//UHF VHF Seçimi
-  //Serialprint("CIHAZ TIPI %d\r\n",radio_type);
+  bool needEepromCommit = false;
+  radio_type = EEPROM.read(17); // UHF VHF Seçimi
+  if (radio_type > 1) {
+      radio_type = 0;
+      EEPROM.write(17, 0);
+      needEepromCommit = true;
+  }
 
   eeprom_readAPRS();
 
+  EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
+  if (freqLimits.trx_min_25 < 5000 || freqLimits.trx_min_25 > 6000 ||
+      freqLimits.trx_max_25 < 6500 || freqLimits.trx_max_25 > 7500 ||
+      freqLimits.trx_min_25 >= freqLimits.trx_max_25 ||
+      freqLimits.scn_min_25 < 5000 || freqLimits.scn_max_25 > 7500 ||
+      freqLimits.scn_min_25 >= freqLimits.scn_max_25 ||
+      freqLimits.aprs_25 < 5000 || freqLimits.aprs_25 > 7500 ||
+      freqLimits.iss_25 < 5000 || freqLimits.iss_25 > 7500 ||
+      freqLimits.vna_min_25 < 5000 || freqLimits.vna_max_25 > 7500) {
+      Serial.println("[EEPROM] Bozuk frekans limitleri tespit edildi, varsayilana donuluyor.");
+      freqLimits = freqLimits_t();
+      EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
+      needEepromCommit = true;
+  }
+
+  EEPROM.get(EEPROM_TOT, tot_values);
+  if (tot_values.time_out_time < 15 || tot_values.time_out_time > 240 || tot_values.lock_time > 75) {
+      Serial.println("[EEPROM] Bozuk TOT degerleri tespit edildi, 60sn/5sn olarak onarildi.");
+      tot_values.time_out_time = 60;
+      tot_values.lock_time = 5;
+      EEPROM.put(EEPROM_TOT, tot_values);
+      needEepromCommit = true;
+  }
+
   EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
-  if (current_ch.tone_enabled > 1) current_ch.tone_enabled = CTCSS_OFF;
-  if (current_ch.tone_pos < 0 || current_ch.tone_pos >= TOTAL_TONES) current_ch.tone_pos = 8; // 88.5 Hz varsayilan
+  bool needChSave = false;
+  uint32_t minValidF = (radio_type == 0) ? ((uint32_t)freqLimits.trx_min_25 * 25UL) : 400000UL;
+  uint32_t maxValidF = (radio_type == 0) ? ((uint32_t)freqLimits.trx_max_25 * 25UL) : 468375UL;
+  if (current_ch.frequency < minValidF || current_ch.frequency > maxValidF || (current_ch.frequency % 25 != 0)) {
+      current_ch.frequency = (radio_type == 0) ? 145575UL : 433500UL;
+      current_ch.shift = (radio_type == 0) ? 600 : 7600;
+      current_ch.shift_dir = noSHIFT;
+      needChSave = true;
+  }
+  if (current_ch.shift_dir < -1 || current_ch.shift_dir > 1) {
+      current_ch.shift_dir = noSHIFT;
+      needChSave = true;
+  }
+  if (current_ch.shift < 0 || current_ch.shift > 20000) {
+      current_ch.shift = (radio_type == 0) ? 600 : 7600;
+      needChSave = true;
+  }
+  if (current_ch.tone_enabled > 1) {
+      current_ch.tone_enabled = CTCSS_OFF;
+      needChSave = true;
+  }
+  if (current_ch.tone_pos >= TOTAL_TONES) {
+      current_ch.tone_pos = 8; // 88.5 Hz varsayilan
+      needChSave = true;
+  }
+  if (needChSave) {
+      EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+      needEepromCommit = true;
+  }
+
   numberToFrequency(current_ch.frequency, FRQ);
-  strcpy(FRQ_old,FRQ);
+  strcpy(FRQ_old, FRQ);
 
   op_mode = EEPROM.read(EEPROM_OP_MODE_ADDR);
-  if (op_mode > 1) op_mode = MODE_VFO;
+  if (op_mode > 1) {
+      op_mode = MODE_VFO;
+      EEPROM.write(EEPROM_OP_MODE_ADDR, op_mode);
+      needEepromCommit = true;
+  }
   
   current_memory_channel = EEPROM.read(EEPROM_CURR_MEMCH_ADDR);
   if (current_memory_channel < 1 || current_memory_channel > 50) current_memory_channel = 1;
@@ -578,19 +651,26 @@ void setup() {
               GetMemoryChannel(chStr);
           } while (strncmp(FRQ, "NULL", 4) == 0 && current_memory_channel != starting_channel);
           
-          // Eger degistiyse yeni pozisyonu kaydet
-          if (current_memory_channel != starting_channel) {
+          if (strncmp(FRQ, "NULL", 4) == 0) {
+              // Hicbir hafiza kanali dolu degilse VFO moduna geri don!
+              op_mode = MODE_VFO;
+              EEPROM.write(EEPROM_OP_MODE_ADDR, MODE_VFO);
+              EEPROM.get(EEPROM_CURRCHNL_BLCKSTART, current_ch);
+              numberToFrequency(current_ch.frequency, FRQ);
+              strcpy(FRQ_old, FRQ);
+              needEepromCommit = true;
+          } else if (current_memory_channel != starting_channel) {
               EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
-              EEPROM.commit();
+              needEepromCommit = true;
           }
       }
   }
+
+  if (needEepromCommit) {
+      EEPROM.commit();
+  }
  
   SetTone(current_ch.tone_enabled);
-
-  EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits);
-
-  EEPROM.get(EEPROM_TOT, tot_values);
 
   //setRadioPower();  //Check power switch mode and turn adio on immediately
   //pinMode(POWER_ON_OFF, INPUT);
@@ -638,15 +718,7 @@ void setup() {
   writeFRQToLcd(FRQ);
   
   // Keypad PCF8574 (0x20 ve 0x21) baslangic durumunu kur ve olasi takili INT'i temizle
-  Wire.beginTransmission(PCF8574_KEYB);
-  Wire.write((uint8_t)0xFF);
-  Wire.endTransmission();
-  Wire.beginTransmission(PCF8574_KEYB_LED);
-  Wire.write(Led_Status);
-  Wire.endTransmission();
-  Wire.requestFrom(PCF8574_KEYB, 1);
-  if (Wire.available()) (void)Wire.read();
-
+  resetKeypadPCF();
   old_KeyVal = 1; //initial keypad read
   if (op_mode == MODE_MR) {
     validFRQ = true;
@@ -670,7 +742,15 @@ void setup() {
 //      Alert_Tone(ERR_tone);
 
   // Start WebUI and WiFi at boot
+#if WIFI_AT_BOOT
   initWebUI();
+#else
+  Serial.println("[WIFI] Acilista baslatilmadi (WIFI_AT_BOOT=0). Baslatmak icin 'W' gonderin.");
+#endif
+
+  // WiFi AP acilisi sirasinda PCF8574 INT hatti tetiklendiyse temizle
+  resetKeypadPCF();
+  old_KeyVal = 1;
 
   PrintMenu();
 }
@@ -714,8 +794,8 @@ void loop() {
   static unsigned long lastSqlSampleMs = 0;
   static int16_t sqlScore = 0;
   static uint8_t filteredBusy = 1; // 1 = Kanal sessiz (Mute), 0 = Sinyal var (RX Acik)
-  static const int16_t sqlOpenThresholds[6] = { 0, 20, 50, 100, 180, 300 }; // Kademe 1..5 (ms)
-  const int16_t sqlHoldMax = 150; // Sinyal acildiktan sonra 150ms tutma (kapanma histerezisi)
+  static const int16_t sqlOpenThresholds[6] = { 0, 0, 10, 25, 45, 80 }; // Kademe 1..5 acilma gecikmesi (ms)
+  const int16_t sqlHoldMax = 180; // Sinyal acildiktan sonra 180ms tutma (pir-pir onleyici kapanma histerezisi)
 
   if (TRX_MODE == TX) {
     sqlScore = 0;
@@ -741,8 +821,7 @@ void loop() {
           sqlScore = openThr + sqlHoldMax;
         }
       } else {
-        // Gurultu / pir-pir darbelerini hizla sonumle (kapaliyken 2x hizli dusur)
-        sqlScore -= (filteredBusy == 1) ? (dt * 2) : dt;
+        sqlScore -= dt;
         if (sqlScore <= 0) {
           sqlScore = 0;
           filteredBusy = 1; // Squelch KAPANDI
@@ -816,10 +895,21 @@ void loop() {
 
   static unsigned long keyPressStartMs = 0;
 
-  //Long press on a key detection (1000 ms basili tutma)...
-  if ((KeyVal == old_KeyVal) && (KeyVal == 0) && (scrTimer > 0)) {
-    if (millis() - keyPressStartMs >= 1000) {
+  //Long press on a key detection (1000 ms basili tutma) + PCF8574 INT takilma onleyici...
+  if ((KeyVal == old_KeyVal) && (KeyVal == 0)) {
+    if ((scrTimer > 0) && (millis() - keyPressStartMs >= 1000)) {
       scrTimer = 0;
+    }
+    // Eger INT pini 1200ms'den uzun suredir LOW kaldiysa ama gercekte basili bir satir yoksa, PCF8574'u kurtar
+    if (millis() - keyPressStartMs >= 1200) {
+      if (readRow() >= 5) {
+        resetKeypadPCF();
+        old_KeyVal = 1;
+        scrTimer = TimeoutValue;
+      } else {
+        resetKeypadPCF();
+        keyPressStartMs = millis();
+      }
     }
   } else if (KeyVal == 1) {
     if (scrTimer == 0) { //key released and timeout occured
@@ -854,11 +944,17 @@ void loop() {
         // ONCE tusu oku (Alert_Tone 100ms gecikme yaptigi icin once cagrilirsa kisa basista tus kacirilir!)
         int satir = readRow();
         int sutun = readColumn();
-        pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+        if (satir >= 0 && satir < 5 && sutun >= 0 && sutun < 4) {
+          pressedKEY = keymap[sutun][satir]; //LOOKUP for the pressedKEY
+        } else {
+          pressedKEY = 'X';
+        }
         APRS_Counter = 0; //if a key is pressed, restart the APRS timer
         scrTimer = TimeoutValue; //Restart the timer
         keyPressStartMs = millis();
-        Alert_Tone(OK_tone);  
+        if (pressedKEY != 'X') {
+          Alert_Tone(OK_tone);
+        }
     
     // KEYPAD LOGGING
     Serialprint("[KEYPAD] Satir: %d, Sutun: %d -> Basilan Tus: '%c'\r\n", satir, sutun, pressedKEY);
@@ -1026,7 +1122,13 @@ void loop() {
                         GetMemoryChannel(chStr);
                     } while (strncmp(FRQ, "NULL", 4) == 0 && current_memory_channel != starting_channel);
                     
-                    if (current_memory_channel != starting_channel) {
+                    if (strncmp(FRQ, "NULL", 4) == 0) {
+                        // Hicbir hafiza kanali dolu degilse VFO modunda kal
+                        Serialprint("[MODE] Dolu hafiza kanali yok, VFO modunda kalindi\r\n");
+                        op_mode = MODE_VFO;
+                        strcpy(FRQ, FRQ_old);
+                        validFRQ = Calculate_Frequency(FRQ);
+                    } else if (current_memory_channel != starting_channel) {
                         EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
                     }
                 }
@@ -1183,15 +1285,7 @@ void loop() {
     } // KeyVal == 0
     
     // Put 8574 (0x20) into READ mode with 0xFF reference state (while 0x21 columns are HIGH)
-    Wire.beginTransmission(0x21);
-    Wire.write((uint8_t)((Led_Status & 0xF0) | 0x0F));
-    Wire.endTransmission();
-    Wire.beginTransmission(0x20);
-    Wire.write((uint8_t)0xFF); 
-    Wire.endTransmission();
-    Wire.beginTransmission(0x21);
-    Wire.write(Led_Status);
-    Wire.endTransmission();
+    resetKeypadPCF();
     
     //Toggle interupt PIN state holder
     old_KeyVal = KeyVal;
