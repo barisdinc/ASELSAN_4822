@@ -1014,6 +1014,7 @@ void initWebUI() {
         Serial.printf("[WIFI] Normal Mod: SSID=%s\r\n", ssid.c_str());
     }
 
+    WiFi.defaultLowPowerMode();
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ssid.c_str(), pass.c_str());
 
@@ -1261,6 +1262,7 @@ void initWebUI() {
         EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
         eeprom_writeAPRS();
         EEPROM.commit();
+        Alert_Tone(OK_tone);
 
         server.send(200, "text/plain", "OK");
     });

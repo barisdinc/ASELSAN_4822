@@ -67,13 +67,14 @@ void eeprom_writeAPRS()
     eewrite_nbytes(lat,8,67);
     eewrite_nbytes(lon,8,75);
     EEPROM.write(EEPROM_APRS_SSID_ADDR, (uint8_t)myssid);
-    Alert_Tone(OK_tone);
 }
 
 void initialize_eeprom() {  
+    if (radio_type > 1) radio_type = 0;
     EEPROM.write(0, 128); // make eeprom initialized (128 = OK, 129 = Force Reset)
     EEPROM.write(1, SW_MAJOR);   //SW Version
     EEPROM.write(2, SW_MINOR);   //
+    EEPROM.write(EEPROM_LAYOUT_VER_ADDR, EEPROM_LAYOUT_VERSION);
     eewrite_nbytes(APRS_DEFAULT_MYCALL,6,3);
     eewrite_nbytes(DEFAULT_STARTUP_MSG,6,9);
     EEPROM.write(17,radio_type); // Program device as VHF=0 or UHF=1
@@ -105,7 +106,7 @@ void initialize_eeprom() {
     channel_t default_channel;
     if (radio_type == 0)
     { 
-      default_channel.frequency = 145500; // Simplex 145.500 default
+      default_channel.frequency = 145575; // Simplex 145.575 default
       default_channel.shift = 600;
       default_channel.shift_dir = 0; // noSHIFT
     }
@@ -118,13 +119,16 @@ void initialize_eeprom() {
     default_channel.tone_pos = 8;
     default_channel.tone_enabled = 0; // CTCSS_OFF Default!
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, default_channel);
+    current_ch = default_channel;
+
     freqLimits_t default_limits;
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
     freqLimits = default_limits;
 
-
     // TOT EEPROM INIT
-     EEPROM.put(EEPROM_TOT, tot_values);
+    tot_values.time_out_time = 60;
+    tot_values.lock_time = 5;
+    EEPROM.put(EEPROM_TOT, tot_values);
 
 
     memorych_t memch;
@@ -159,6 +163,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     memch.tone_position= current_ch.tone_pos; 
     memch.SSTP =  (current_ch.shift_dir + 1)  + (current_ch.tone_enabled * 4);//TODO: Power is missing + ( power * 8);
     EEPROM.put(ChannelLocation, memch); 
+    EEPROM.commit();
 }
 
 void GetMemoryChannel(char mFRQ[9]) {
@@ -201,6 +206,12 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
 {
     uint16_t ChannelNumber = (((mCHNL[0] - 48) * 100) + ((mCHNL[1] - 48) * 10) + (mCHNL[2] - 48));
+    // Reset/reboot kodlari mevcut frekans gecersiz olsa bile her zaman calismalidir!
+    if (ChannelNumber == 666) { initialize_eeprom(); Alert_Tone(SUCC_tone); return; } //initialize eeprom
+    if (ChannelNumber == 667) { softResetDevice(); return; } //rest/reboot device
+    if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); softResetDevice(); return; } //Initiralize device UHF
+    if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); softResetDevice(); return; } //Initiralize device VHF
+
     if (Calculate_Frequency(mFRQ))
     {
       if (ChannelNumber == 101) { freqLimits.trx_min_25 = current_ch.frequency/25; } //TRX Lower Limit
@@ -213,13 +224,8 @@ void StoreSpecialFrequency(char mCHNL[9], char mFRQ[9])
       if (ChannelNumber == 302) { freqLimits.iss_25     = current_ch.frequency/25; } //ISS APRS Frequency
       if (ChannelNumber == 401) { freqLimits.vna_min_25 = current_ch.frequency/25; } //VNA minimum frequency
       if (ChannelNumber == 402) { freqLimits.vna_max_25 = current_ch.frequency/25; } //VNA maximum frequency
-      if (ChannelNumber <= 402) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); }
-      if (ChannelNumber == 600) { APRS_Timeout =  current_ch.frequency % 1000; eeprom_writeAPRS(); } //APRS Timeout
-      if (ChannelNumber == 666) { initialize_eeprom(); } //initialize eeprom
-      if (ChannelNumber == 667) { softResetDevice(); } //rest/reboot device
-      if (ChannelNumber == 998) { radio_type = 1 ; initialize_eeprom(); } //Initiralize device
-      if (ChannelNumber == 999) { radio_type = 0 ; initialize_eeprom(); } //Initiralize device
-      if (ChannelNumber >= 998) { softResetDevice(); }
+      if (ChannelNumber <= 402) { EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,freqLimits); EEPROM.commit(); }
+      if (ChannelNumber == 600) { APRS_Timeout = current_ch.frequency % 1000; eeprom_writeAPRS(); EEPROM.commit(); } //APRS Timeout
       Alert_Tone(SUCC_tone);
     }  
 
