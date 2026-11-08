@@ -1014,8 +1014,8 @@ void initWebUI() {
         Serial.printf("[WIFI] Normal Mod: SSID=%s\r\n", ssid.c_str());
     }
 
-    WiFi.defaultLowPowerMode();
     WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
     WiFi.softAP(ssid.c_str(), pass.c_str());
 
     IPAddress IP = WiFi.softAPIP();

@@ -118,7 +118,7 @@ void pttKey(bool on);
 // RP2350 brownout oluyor (USB bagliyken sorun gorunmez, PC portu besler).
 //   1 = acilista baslat   |   0 = sadece seri menuden 'W' ile baslat
 // Kalici cozum: VCC-GND arasina 470uF + 10uF bulk kondansator.
-#define WIFI_AT_BOOT 0
+#define WIFI_AT_BOOT 1
 
 #define PLL_TX_SETTLE_MS    20 // PTT'den once VCO'nun kilitlenmesi icin bekleme
 
