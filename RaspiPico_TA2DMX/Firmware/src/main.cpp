@@ -156,6 +156,7 @@ void write_FRQ(uint32_t Frequency) {//VHF BAND SELECTION
 
 //uint32_t UpdatedFrq = 0;
 //float divider = 0;
+  writeFRQToLcd(FRQ);
   if (validFRQ) {
     if(radio_type==0)
     {
@@ -177,7 +178,6 @@ void write_FRQ(uint32_t Frequency) {//VHF BAND SELECTION
   else {
     Serialprint("[PLL] ATLANDI! validFRQ=0, freq=%lu\r\n", (unsigned long)Frequency);
   }
-  writeFRQToLcd(FRQ);
 }
 
 
@@ -711,6 +711,12 @@ void setup() {
   else
     Serial.println("I2C Taramasi Tamamlandi.\n");
 
+  // Ekran ve tus takimi arka plan isigini (0x21 Bit 7 = backlight = 128, Aktif-LOW) acilista hemen yak
+  Led_Status = 240 - backlight;
+  Wire.beginTransmission(PCF8574_KEYB_LED);
+  Wire.write(Led_Status);
+  Wire.endTransmission();
+
   // Init LCD
   InitLCD();
   Greetings();
@@ -748,9 +754,13 @@ void setup() {
   Serial.println("[WIFI] Acilista baslatilmadi (WIFI_AT_BOOT=0). Baslatmak icin 'W' gonderin.");
 #endif
 
-  // WiFi AP acilisi sirasinda PCF8574 INT hatti tetiklendiyse temizle
+  // WiFi AP acilisi biter bitmez ekran isigini (240 - backlight = 0x70) acik tut ve INT hattini temizle
+  Led_Status = 240 - backlight;
   resetKeypadPCF();
   old_KeyVal = 1;
+  if (validFRQ) {
+    SetPLLLock(current_ch.frequency);
+  }
 
   PrintMenu();
 }
@@ -764,9 +774,7 @@ void loop() {
 
   if (scrMODE == scrNORMAL && TRX_MODE != TX)
   {
-    // Heartbeat LED - Sadece RX'te ve durum degistiginde (500ms'de bir) guncelle!
-    // (Pico 2 W'da LED_BUILTIN CYW43 WiFi cipi uzerinde oldugu icin TX'te SPI trafigi uretmesin)
-    uint8_t hb = (millis() / 500) % 2;
+    uint8_t hb = (millis() / 1000) % 2;
     static uint8_t last_hb = 2;
     if (hb != last_hb) {
       last_hb = hb;
@@ -1060,8 +1068,9 @@ void loop() {
           case 'U':
             if (op_mode == MODE_VFO) {
                 numberToFrequency(current_ch.frequency+freq_step,FRQ);
-                Calculate_Frequency(FRQ);  
+                validFRQ = Calculate_Frequency(FRQ);  
                 write_FRQ(current_ch.frequency); 
+                strcpy(FRQ_old, FRQ);
                 EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
                 EEPROM.commit();
             } else {
@@ -1077,14 +1086,14 @@ void loop() {
                 EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
                 EEPROM.commit();
                 write_FRQ(current_ch.frequency); // For now just show freq, later show name
-                writeFRQToLcd(FRQ);
             }
           break; // 'U' 
           case 'D':
             if (op_mode == MODE_VFO) {
                 numberToFrequency(current_ch.frequency-freq_step,FRQ);
-                Calculate_Frequency(FRQ);  
+                validFRQ = Calculate_Frequency(FRQ);  
                 write_FRQ(current_ch.frequency);           
+                strcpy(FRQ_old, FRQ);
                 EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, current_ch);
                 EEPROM.commit();
             } else {
@@ -1100,7 +1109,6 @@ void loop() {
                 EEPROM.write(EEPROM_CURR_MEMCH_ADDR, current_memory_channel);
                 EEPROM.commit();
                 write_FRQ(current_ch.frequency);
-                writeFRQToLcd(FRQ);
             }
           break; // 'D'
           case 'M': //Reverse was originally here, but 'R' does it too.
@@ -1286,6 +1294,9 @@ void loop() {
     
     // Put 8574 (0x20) into READ mode with 0xFF reference state (while 0x21 columns are HIGH)
     resetKeypadPCF();
+    if (validFRQ) {
+      SetPLLLock(current_ch.frequency);
+    }
     
     //Toggle interupt PIN state holder
     old_KeyVal = KeyVal;
