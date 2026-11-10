@@ -122,6 +122,16 @@ void initialize_eeprom() {
     current_ch = default_channel;
 
     freqLimits_t default_limits;
+    if (radio_type == 1) {
+      default_limits.trx_min_25 = DEFAULT_UHF_MINIMUM_FREQ;
+      default_limits.trx_max_25 = DEFAULT_UHF_MAXIMUM_FREQ;
+      default_limits.scn_min_25 = DEFAULT_UHF_SCAN_LOWER;
+      default_limits.scn_max_25 = DEFAULT_UHF_SCAN_UPPER;
+      default_limits.aprs_25    = 17359; // 433.975 MHz (APRS UHF)
+      default_limits.iss_25     = 17490; // 437.250 MHz (ISS UHF)
+      default_limits.vna_min_25 = 17200; // 430.000 MHz
+      default_limits.vna_max_25 = 17600; // 440.000 MHz
+    }
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
     freqLimits = default_limits;
 
@@ -155,7 +165,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     uint8_t ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
     uint16_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * EEPROM_CHNNL_SIZE;
     Calculate_Frequency(mFRQ); 
-    if (ChannelNumber > 90 ) { Alert_Tone(ERR_tone); return;}
+    if (ChannelNumber < 1 || ChannelNumber > 50) { Alert_Tone(ERR_tone); return; }
     
     memorych_t memch;
     memch.frequency25 = (uint16_t)(current_ch.frequency / 25);
@@ -169,7 +179,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
 void GetMemoryChannel(char mFRQ[9]) {
     uint8_t ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
     uint16_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * EEPROM_CHNNL_SIZE;
-    if (ChannelNumber > 90) { Alert_Tone(ERR_tone); return;};
+    if (ChannelNumber < 1 || ChannelNumber > 50) { Alert_Tone(ERR_tone); return; }
     memorych_t l_memorych;
     EEPROM.get(ChannelLocation, l_memorych);
     current_ch.frequency = l_memorych.frequency25 * 25;

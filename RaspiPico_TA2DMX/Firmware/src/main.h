@@ -45,7 +45,7 @@ extern uint8_t radio_type;
 #define noSHIFT     0
 #define  SIMPLEX    0
 #define plusSHIFT   1
-extern int old_frqSHIFT;;
+extern int old_frqSHIFT;
 
 #define PTT_OUTPUT_PIN 5  // GP5 (D5) -> PTT_OUT
 #define PTT_INPUT_PIN  14 // GP14 (D12) -> PTT_IN
@@ -79,7 +79,7 @@ extern uint8_t ALERT_MODE;
 #define TOTAL_TONES 39
 #define TONE_CORRECTION 0.7 
 extern float ctcss_tone_list[TOTAL_TONES];
-extern uint8_t old_ctcss_tone_pos;;
+extern uint8_t old_ctcss_tone_pos;
 
 #define SQL_ACTIVE 2 // GP2 (D2)
 #define MUTE_PIN_1 6 // GP6 (D6)
@@ -179,7 +179,7 @@ struct channel_t {
   uint8_t  tone_pos     = 0x08; //88.5 by default
   uint8_t  tone_enabled = 0;	  //Tone Off
 };	
-extern channel_t current_ch;;
+extern channel_t current_ch;
 extern uint16_t freq_step;
 
 struct memorych_t {
@@ -201,7 +201,7 @@ struct freqLimits_t {
   uint16_t vna_max_25 = DEFAULT_VHF_VNA_MAXIMUM_FREQ; //Lower limit of VNA frequency for VHF
 
 };
-extern freqLimits_t freqLimits;;
+extern freqLimits_t freqLimits;
 
 //EEPROM ADDRESS DEFINITIONS
 #define EEPROM_CONFDATA_BLCKSTART 0
@@ -253,9 +253,9 @@ extern bool isSetupDone;
 extern uint8_t sql_level;
 
 //VNA variables
-extern float minSWR;;
-extern long lowestFRQ;;
-extern long highestFRQ;;
+extern float minSWR;
+extern long lowestFRQ;
+extern long highestFRQ;
 
 //Serial port variables
 extern String commandString;

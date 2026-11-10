@@ -388,6 +388,15 @@ void initialize_eeprom() {
     //current_ch.tone_enabled = CTCSS_OFF; //Tone is disabled by default
     EEPROM.put(EEPROM_CURRCHNL_BLCKSTART, default_channel);// current_ch);
     freqLimits_t default_limits;
+    if (radio_type == 1) {
+      default_limits.trx_min_125 = DEFAULT_UHF_MINIMUM_FREQ;
+      default_limits.trx_max_125 = DEFAULT_UHF_MAXIMUM_FREQ;
+      default_limits.scn_min_125 = DEFAULT_UHF_SCAN_LOWER;
+      default_limits.scn_max_125 = DEFAULT_UHF_SCAN_UPPER;
+      default_limits.aprs_125    = 34718; // 433.975 MHz
+      default_limits.vna_min_125 = 34400; // 430.000 MHz
+      default_limits.vna_max_125 = 35200; // 440.000 MHz
+    }
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART,default_limits);
     freqLimits = default_limits;
 
@@ -419,7 +428,7 @@ void StoreFrequency(char mCHNL[9], char mFRQ[9]) {
     uint8_t ChannelNumber = ((mCHNL[0] - 48) * 10) + (mCHNL[1] - 48);
     uint8_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
     Calculate_Frequency(mFRQ); 
-    if (ChannelNumber > 90 ) { Alert_Tone(ERR_tone); return;}
+    if (ChannelNumber < 1 || ChannelNumber > 50) { Alert_Tone(ERR_tone); return; }
     
     memorych_t memch;
     memch.frequency125 = (uint16_t)(current_ch.frequency / 12.5);
@@ -453,7 +462,7 @@ void GetPrintMemoryChannelInfo(int8_t channel_number, boolean dbg) {
 void GetMemoryChannel(char mFRQ[9]) {
     uint8_t ChannelNumber = ((mFRQ[0] - 48) * 10) + (mFRQ[1] - 48);
     uint8_t ChannelLocation = EEPROM_MEMDATA_BLCKSTART + ChannelNumber * 10;
-    if (ChannelNumber > 90) { Alert_Tone(ERR_tone); return;};
+    if (ChannelNumber < 1 || ChannelNumber > 50) { Alert_Tone(ERR_tone); return; }
     memorych_t l_memorych;
     EEPROM.get(ChannelLocation, l_memorych);
     current_ch.frequency = l_memorych.frequency125 * 12.5;
@@ -551,7 +560,7 @@ void commandDumpConfig()
   uint8_t Check = EEPROM.read(0);
   uint8_t SW_major = EEPROM.read(1);
   uint8_t SW_minor = EEPROM.read(2);
-  char CallSign[6];
+  char CallSign[7];
   CallSign[0] = EEPROM.read(3);
   CallSign[1] = EEPROM.read(4);
   CallSign[2] = EEPROM.read(5);
@@ -559,7 +568,7 @@ void commandDumpConfig()
   CallSign[4] = EEPROM.read(7);
   CallSign[5] = EEPROM.read(8);
   CallSign[6] = 0;
-  char Message[8];
+  char Message[9];
   Message[0] = EEPROM.read(9);
   Message[1] = EEPROM.read(10);
   Message[2] = EEPROM.read(11);
@@ -585,7 +594,7 @@ void commandDumpConfig()
 void commandMemoryDump()
 {
   Serialprint("\r\nMD[");    //Memory Dump
-  for (int ch=0;ch<100;ch++)
+  for (int ch=1;ch<=50;ch++)
     {
       //channelInfo_t chInfo = 
       GetPrintMemoryChannelInfo(ch,true);
