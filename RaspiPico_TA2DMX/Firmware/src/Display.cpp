@@ -55,7 +55,8 @@ void writeToLcd(const char text[]) {
     matrix[3*idx+0] = font[(pos * 3)+0] | Position_Signs[idx][0]; //first BYTE
     matrix[3*idx+1] = font[(pos * 3)+1] | Position_Signs[idx][1]; //second BYTE
     if (idx>0) {                         //third BYTE should include previous character if this is not the first
-      matrix[3*idx+2] = font[(pos * 3)+2] | (matrix[3*(idx+1)] & B00001111) | Position_Signs[idx][2];  // four bits should be from the existing character
+      uint8_t nextNibble = (idx < 7) ? (matrix[3*(idx+1)] & B00001111) : 0;
+      matrix[3*idx+2] = font[(pos * 3)+2] | nextNibble | Position_Signs[idx][2];  // four bits should be from the existing character
     } else {
       matrix[3*idx+2] = font[(pos * 3)+2] | Position_Signs[idx][2]; 
     }

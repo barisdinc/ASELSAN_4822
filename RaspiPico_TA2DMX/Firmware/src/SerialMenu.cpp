@@ -86,7 +86,7 @@ void commandDumpConfig()
   uint8_t Check = EEPROM.read(0);
   uint8_t SW_major = EEPROM.read(1);
   uint8_t SW_minor = EEPROM.read(2);
-  char CallSign[6];
+  char CallSign[7];
   CallSign[0] = EEPROM.read(3);
   CallSign[1] = EEPROM.read(4);
   CallSign[2] = EEPROM.read(5);
@@ -94,7 +94,7 @@ void commandDumpConfig()
   CallSign[4] = EEPROM.read(7);
   CallSign[5] = EEPROM.read(8);
   CallSign[6] = 0;
-  char Message[8];
+  char Message[9];
   Message[0] = EEPROM.read(9);
   Message[1] = EEPROM.read(10);
   Message[2] = EEPROM.read(11);
@@ -116,7 +116,7 @@ void commandDumpConfig()
 void commandMemoryDump()
 {
   Serialprint("\r\nMD[");    //Memory Dump
-  for (int ch=0;ch<100;ch++)
+  for (int ch=1;ch<=50;ch++)
     {
       //channelInfo_t chInfo = 
       GetPrintMemoryChannelInfo(ch,true);
