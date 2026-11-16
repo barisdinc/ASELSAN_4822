@@ -140,6 +140,7 @@ uint8_t TXTimeOutTimer(uint8_t PTT_PIN_STATE)
     TOT_WARN_STATE = 1;
     return HIGH;
   } else {
+    prevTotMillis = currentMillis;
     TOT_FLAG = 0;
     TOT_WARN_STATE = 1;
     return LOW;
