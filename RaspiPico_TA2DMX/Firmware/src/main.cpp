@@ -129,8 +129,9 @@ uint8_t TXTimeOutTimer(uint8_t PTT_PIN_STATE)
 {
   unsigned long currentMillis = millis();
   if (PTT_PIN_STATE == HIGH) {
-    if (currentMillis - prevTotMillis >= tot_values.time_out_time * 1000) {
-      if (currentMillis - prevTotMillis >= tot_values.time_out_time * 1000 + tot_values.lock_time * 1000) {
+    if (tot_values.time_out_time > 0 &&
+        (currentMillis - prevTotMillis >= (unsigned long)tot_values.time_out_time * 1000UL)) {
+      if (currentMillis - prevTotMillis >= (unsigned long)tot_values.time_out_time * 1000UL + (unsigned long)tot_values.lock_time * 1000UL) {
         prevTotMillis = currentMillis;
       }
       TOT_FLAG = 1;
@@ -336,15 +337,44 @@ void setup()
   eeprom_readAPRS();
 
   EEPROM.get(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
-  if (freqLimits.trx_min_25 < 5000 || freqLimits.trx_min_25 > 6000 ||
-      freqLimits.trx_max_25 < 6500 || freqLimits.trx_max_25 > 7500 ||
-      freqLimits.trx_min_25 >= freqLimits.trx_max_25 ||
-      freqLimits.scn_min_25 < 5000 || freqLimits.scn_max_25 > 7500 ||
-      freqLimits.scn_min_25 >= freqLimits.scn_max_25 ||
-      freqLimits.aprs_25 < 5000 || freqLimits.aprs_25 > 7500 ||
-      freqLimits.iss_25 < 5000 || freqLimits.iss_25 > 7500 ||
-      freqLimits.vna_min_25 < 5000 || freqLimits.vna_max_25 > 7500) {
+  bool badLimits = false;
+  if (radio_type == 0) {
+    if (freqLimits.trx_min_25 < 5000 || freqLimits.trx_min_25 > 6000 ||
+        freqLimits.trx_max_25 < 6500 || freqLimits.trx_max_25 > 7500 ||
+        freqLimits.trx_min_25 >= freqLimits.trx_max_25 ||
+        freqLimits.scn_min_25 < 5000 || freqLimits.scn_max_25 > 7500 ||
+        freqLimits.scn_min_25 >= freqLimits.scn_max_25 ||
+        freqLimits.aprs_25 < 5000 || freqLimits.aprs_25 > 7500 ||
+        freqLimits.iss_25 < 5000 || freqLimits.iss_25 > 7500 ||
+        freqLimits.vna_min_25 < 5000 || freqLimits.vna_max_25 > 7500) {
+      badLimits = true;
+    }
+  } else {
+    if (freqLimits.trx_min_25 < 15000 || freqLimits.trx_min_25 > 17500 ||
+        freqLimits.trx_max_25 < 18000 || freqLimits.trx_max_25 > 20000 ||
+        freqLimits.trx_min_25 >= freqLimits.trx_max_25 ||
+        freqLimits.scn_min_25 < 16000 || freqLimits.scn_max_25 > 19000 ||
+        freqLimits.scn_min_25 >= freqLimits.scn_max_25 ||
+        freqLimits.aprs_25 < 16000 || freqLimits.aprs_25 > 19000 ||
+        freqLimits.iss_25 < 16000 || freqLimits.iss_25 > 19000 ||
+        freqLimits.vna_min_25 < 16000 || freqLimits.vna_max_25 > 19000) {
+      badLimits = true;
+    }
+  }
+
+  if (badLimits) {
+    Serial.println("[EEPROM] Bozuk frekans limitleri tespit edildi, varsayilana donuluyor.");
     freqLimits = freqLimits_t();
+    if (radio_type == 1) {
+      freqLimits.trx_min_25 = DEFAULT_UHF_MINIMUM_FREQ;
+      freqLimits.trx_max_25 = DEFAULT_UHF_MAXIMUM_FREQ;
+      freqLimits.scn_min_25 = DEFAULT_UHF_SCAN_LOWER;
+      freqLimits.scn_max_25 = DEFAULT_UHF_SCAN_UPPER;
+      freqLimits.aprs_25    = 17359; // 433.975 MHz
+      freqLimits.iss_25     = 17490; // 437.250 MHz
+      freqLimits.vna_min_25 = 17200; // 430.000 MHz
+      freqLimits.vna_max_25 = 17600; // 440.000 MHz
+    }
     EEPROM.put(EEPROM_SPECIALFRQ_BLCKSTART, freqLimits);
     needEepromCommit = true;
   }
@@ -851,12 +881,16 @@ void loop()
               long min_vna_freq, max_vna_freq;
               int stp_vna_freq;
               if (radio_type == 0) {
-                min_vna_freq = freqLimits.vna_min_25 * 25;
-                max_vna_freq = freqLimits.vna_max_25 * 25;
+                min_vna_freq = (long)freqLimits.vna_min_25 * 25;
+                max_vna_freq = (long)freqLimits.vna_max_25 * 25;
                 stp_vna_freq = 10;
               } else {
-                min_vna_freq = 43000;
-                max_vna_freq = 45000;
+                min_vna_freq = (long)freqLimits.vna_min_25 * 25;
+                max_vna_freq = (long)freqLimits.vna_max_25 * 25;
+                if (min_vna_freq < 428150L || max_vna_freq > 450000L || min_vna_freq >= max_vna_freq) {
+                  min_vna_freq = 430000L;
+                  max_vna_freq = 440000L;
+                }
                 stp_vna_freq = 10;
               }
               numberToFrequency(min_vna_freq, FRQ);

@@ -51,7 +51,8 @@ void writeToLcd(const char text[]) {
     matrix[3 * idx + 0] = font[(pos * 3) + 0] | Position_Signs[idx][0];
     matrix[3 * idx + 1] = font[(pos * 3) + 1] | Position_Signs[idx][1];
     if (idx > 0) {
-      matrix[3 * idx + 2] = font[(pos * 3) + 2] | (matrix[3 * (idx + 1)] & B00001111) | Position_Signs[idx][2];
+      uint8_t nextNibble = (idx < 7) ? (matrix[3 * (idx + 1)] & B00001111) : 0;
+      matrix[3 * idx + 2] = font[(pos * 3) + 2] | nextNibble | Position_Signs[idx][2];
     } else {
       matrix[3 * idx + 2] = font[(pos * 3) + 2] | Position_Signs[idx][2];
     }
