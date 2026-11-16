@@ -762,6 +762,29 @@ const char* htmlPage = R"rawliteral(
             background: linear-gradient(90deg, #22c55e 0%, #eab308 70%, #ef4444 100%);
             transition: width 0.12s ease-out;
         }
+        .rx-vol-wrap {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #111315;
+            border: 1px solid #343a40;
+            border-radius: 5px;
+            padding: 3px 7px;
+        }
+        .rx-vol-slider {
+            width: 68px;
+            accent-color: #10b981;
+            cursor: pointer;
+            margin: 0;
+        }
+        .rx-vol-pct {
+            font-size: 10.5px;
+            font-family: monospace;
+            font-weight: 700;
+            color: #cbd5e1;
+            min-width: 32px;
+            text-align: right;
+        }
         .btn-web-ptt {
             background: #7f1d1d;
             color: #fecaca;
@@ -993,6 +1016,11 @@ const char* htmlPage = R"rawliteral(
                 <!-- Canlı Web Ses Dinleme (ADC0/SP) & Web Bas-Konuş (PWM0/MIC) Barı -->
                 <div class="audio-trx-bar">
                     <button type="button" class="btn-audio-rx" id="btnAudioRx" onclick="toggleWebAudioRx(false)">🔊 Web Ses Dinle (RX)</button>
+                    <div class="rx-vol-wrap" title="Web Hoparlör Ses Seviyesi">
+                        <span style="font-size:12px;">🔉</span>
+                        <input type="range" class="rx-vol-slider" id="rxVolSlider" min="0" max="150" value="60" oninput="setRxVolume(false, this.value)">
+                        <span class="rx-vol-pct" id="rxVolText">%60</span>
+                    </div>
                     <div class="vu-box" title="SP (ADC0 / GP26) Canlı Ses Giriş Seviyesi">
                         <span class="vu-lbl" id="vuText">SES: %0</span>
                         <div class="vu-track"><div class="vu-fill" id="vuBar"></div></div>
@@ -1137,6 +1165,11 @@ const char* htmlPage = R"rawliteral(
 
                 <div class="audio-trx-bar">
                     <button type="button" class="btn-audio-rx" id="peerBtnAudioRx" onclick="toggleWebAudioRx(true)">🔊 Web Ses Dinle (RX)</button>
+                    <div class="rx-vol-wrap" title="Eş Telsiz Web Hoparlör Ses Seviyesi">
+                        <span style="font-size:12px;">🔉</span>
+                        <input type="range" class="rx-vol-slider" id="peerRxVolSlider" min="0" max="150" value="60" oninput="setRxVolume(true, this.value)">
+                        <span class="rx-vol-pct" id="peerRxVolText">%60</span>
+                    </div>
                     <div class="vu-box" title="Eş Telsiz SP (ADC0 / GP26) Canlı Ses Giriş Seviyesi">
                         <span class="vu-lbl" id="peerVuText">SES: %0</span>
                         <div class="vu-track"><div class="vu-fill" id="peerVuBar"></div></div>
@@ -1478,6 +1511,18 @@ const char* htmlPage = R"rawliteral(
         document.getElementById('mem_ch').innerHTML = buildMemChOptions(1);
         document.getElementById('peer_vfo_tone_pos').innerHTML = buildToneOptions(8);
         document.getElementById('peer_mem_ch').innerHTML = buildMemChOptions(1);
+        try {
+            const lv = localStorage.getItem('dls_local_rx_vol');
+            if (lv !== null) {
+                document.getElementById('rxVolSlider').value = lv;
+                document.getElementById('rxVolText').innerText = '%' + lv;
+            }
+            const pv = localStorage.getItem('dls_peer_rx_vol');
+            if (pv !== null) {
+                document.getElementById('peerRxVolSlider').value = pv;
+                document.getElementById('peerRxVolText').innerText = '%' + pv;
+            }
+        } catch (e) {}
         loadConfig();
         pollLiveState();
         setInterval(pollLiveState, 500);
@@ -1657,6 +1702,8 @@ const char* htmlPage = R"rawliteral(
     // WEB AUDIO RX (CANLI TELSİZ SESİ DİNLEME - 8 kHz 8-Bit PCM) & WEB PTT TX
     // ========================================================================
     let audioCtx = null;
+    let localGainNode = null;
+    let peerGainNode = null;
     let localRxTimer = null;
     let peerRxTimer = null;
     let localNextPlayTime = 0;
@@ -1666,9 +1713,32 @@ const char* htmlPage = R"rawliteral(
         if (!audioCtx) {
             const AC = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AC();
+            localGainNode = audioCtx.createGain();
+            peerGainNode = audioCtx.createGain();
+            const lv = Number(document.getElementById('rxVolSlider')?.value ?? 60) / 100.0;
+            const pv = Number(document.getElementById('peerRxVolSlider')?.value ?? 60) / 100.0;
+            localGainNode.gain.value = lv;
+            peerGainNode.gain.value = pv;
+            localGainNode.connect(audioCtx.destination);
+            peerGainNode.connect(audioCtx.destination);
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
+        }
+    }
+
+    function setRxVolume(isPeer, val) {
+        const pct = Math.max(0, Math.min(150, Number(val)));
+        if (isPeer) {
+            const lbl = document.getElementById('peerRxVolText');
+            if (lbl) lbl.innerText = '%' + pct;
+            if (peerGainNode) peerGainNode.gain.value = pct / 100.0;
+            try { localStorage.setItem('dls_peer_rx_vol', String(pct)); } catch (e) {}
+        } else {
+            const lbl = document.getElementById('rxVolText');
+            if (lbl) lbl.innerText = '%' + pct;
+            if (localGainNode) localGainNode.gain.value = pct / 100.0;
+            try { localStorage.setItem('dls_local_rx_vol', String(pct)); } catch (e) {}
         }
     }
 
@@ -1694,7 +1764,7 @@ const char* htmlPage = R"rawliteral(
 
         const src = audioCtx.createBufferSource();
         src.buffer = buf;
-        src.connect(audioCtx.destination);
+        src.connect(isPeer ? (peerGainNode || audioCtx.destination) : (localGainNode || audioCtx.destination));
         let now = audioCtx.currentTime;
         if (isPeer) {
             if (peerNextPlayTime < now || peerNextPlayTime > now + 0.6) peerNextPlayTime = now + 0.06;
@@ -1754,19 +1824,54 @@ const char* htmlPage = R"rawliteral(
     let webPttPeerMode = false;
     let micStream = null;
     let micProcessor = null;
+    let micMuteGain = null;
+    let txPcmHexBuf = '';
+    let txInFlight = false;
+    let txKeepaliveTick = 0;
+
+    function sendTxPayload(base, bodyStr) {
+        if (txInFlight) return;
+        txInFlight = true;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 800);
+        fetch(base + '/api/audio_tx', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: bodyStr,
+            signal: ctrl.signal
+        }).catch(() => {}).finally(() => {
+            clearTimeout(tid);
+            txInFlight = false;
+        });
+    }
 
     async function startWebPtt(isPeer) {
         if (webPttTimer) return;
         webPttPeerMode = isPeer;
+        txPcmHexBuf = '';
+        txInFlight = false;
+        txKeepaliveTick = 0;
         let btn = document.getElementById(isPeer ? 'peerBtnWebPtt' : 'btnWebPtt');
         btn.classList.add('tx-down');
         btn.innerText = '🔴 GÖNDERİLİYOR (TX)...';
 
         let base = isPeer ? getPeerBaseUrl() : '';
-        fetch(base + '/api/audio_tx', { method: 'POST', body: 'action=start' }).catch(() => {});
+        sendTxPayload(base, 'action=start');
         webPttTimer = setInterval(() => {
-            fetch(base + '/api/audio_tx', { method: 'POST', body: 'action=keepalive' }).catch(() => {});
-        }, 600);
+            if (txPcmHexBuf.length > 0) {
+                let chunk = txPcmHexBuf;
+                if (chunk.length > 2400) chunk = chunk.slice(-2400);
+                txPcmHexBuf = '';
+                txKeepaliveTick = 0;
+                sendTxPayload(base, 'pcm=' + chunk);
+            } else {
+                txKeepaliveTick++;
+                if (txKeepaliveTick >= 3) {
+                    txKeepaliveTick = 0;
+                    sendTxPayload(base, 'action=keepalive');
+                }
+            }
+        }, 160);
 
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
@@ -1774,6 +1879,8 @@ const char* htmlPage = R"rawliteral(
                 micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const src = audioCtx.createMediaStreamSource(micStream);
                 micProcessor = audioCtx.createScriptProcessor(2048, 1, 1);
+                micMuteGain = audioCtx.createGain();
+                micMuteGain.gain.value = 0;
                 const ratio = audioCtx.sampleRate / 8000.0;
                 micProcessor.onaudioprocess = function(e) {
                     if (!webPttTimer) return;
@@ -1785,14 +1892,13 @@ const char* htmlPage = R"rawliteral(
                         let b = Math.max(0, Math.min(255, Math.round((s + 1.0) * 127.5)));
                         hex += b.toString(16).padStart(2, '0');
                     }
-                    fetch(base + '/api/audio_tx', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                        body: 'pcm=' + hex
-                    }).catch(() => {});
+                    if (txPcmHexBuf.length < 4800) {
+                        txPcmHexBuf += hex;
+                    }
                 };
                 src.connect(micProcessor);
-                micProcessor.connect(audioCtx.destination);
+                micProcessor.connect(micMuteGain);
+                micMuteGain.connect(audioCtx.destination);
             } catch (err) {
                 // HTTP uzerinde mikrofon izni kapaliysa yalnizca tasiyici PTT aktif kalir
             }
@@ -1803,7 +1909,10 @@ const char* htmlPage = R"rawliteral(
         if (!webPttTimer) return;
         clearInterval(webPttTimer);
         webPttTimer = null;
+        txPcmHexBuf = '';
+        txInFlight = false;
         if (micProcessor) { try { micProcessor.disconnect(); } catch(e){} micProcessor = null; }
+        if (micMuteGain) { try { micMuteGain.disconnect(); } catch(e){} micMuteGain = null; }
         if (micStream) { try { micStream.getTracks().forEach(t => t.stop()); } catch(e){} micStream = null; }
 
         let btn = document.getElementById(isPeer ? 'peerBtnWebPtt' : 'btnWebPtt');
@@ -1811,7 +1920,11 @@ const char* htmlPage = R"rawliteral(
         btn.innerText = '🎙️ BAS-KONUŞ (PTT)';
 
         let base = isPeer ? getPeerBaseUrl() : '';
-        fetch(base + '/api/audio_tx', { method: 'POST', body: 'action=stop' }).catch(() => {});
+        fetch(base + '/api/audio_tx', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'action=stop'
+        }).catch(() => {});
     }
 
     let activePeerIp = '';
@@ -2759,11 +2872,13 @@ void initWebUI() {
         audioRxTail = tail;
 
         server.sendHeader("Cache-Control", "no-store, no-cache");
+        server.sendHeader("Connection", "close");
         server.send_P(200, "application/octet-stream", (const char*)pcmOutBuf, count);
     });
 
     server.on("/api/audio_tx", HTTP_POST, []() {
         sendCorsHeaders();
+        server.sendHeader("Connection", "close");
         if (server.hasArg("action")) {
             String act = server.arg("action");
             if (act == "start" || act == "keepalive") {
@@ -2778,6 +2893,7 @@ void initWebUI() {
             setWebPttState(true);
             const String &hexStr = server.arg("pcm");
             int hexLen = hexStr.length();
+            if (hexLen > 3072) hexLen = 3072;
             uint16_t head = audioTxHead;
             uint16_t tail = audioTxTail;
             for (int i = 0; i + 1 < hexLen; i += 2) {

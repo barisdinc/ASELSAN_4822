@@ -1196,6 +1196,9 @@ bool audio_engine_timer_cb(struct repeating_timer *t)
 
     adc_dc_accum += ((int32_t)raw - (adc_dc_accum >> 8));
     int32_t centered = (int32_t)raw - (adc_dc_accum >> 8);
+    if (CHANNEL_BUSY != 0 && SQL_MODE == SQL_ON) {
+      centered = 0;
+    }
     int32_t absVal = (centered < 0) ? -centered : centered;
     uint8_t instPeak = (absVal > 511) ? 100 : (uint8_t)((absVal * 100) >> 9);
     if (instPeak > audioRxPeak) {
@@ -1203,7 +1206,7 @@ bool audio_engine_timer_cb(struct repeating_timer *t)
     }
 
     if (webAudioRxActive) {
-      int32_t pcm = (centered >> 2) + 128;
+      int32_t pcm = (centered >> 3) + 128;
       if (pcm < 0) pcm = 0;
       else if (pcm > 255) pcm = 255;
 
